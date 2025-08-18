@@ -14,10 +14,6 @@
     </Window.SystemBackdrop>
 
     <Grid>
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-            <TextBlock Text="Hello WinUI 3!" FontSize="24" Margin="0,0,0,20"/>
-            <Button Content="Click Me" Width="100" Click="Button_Click"/>
-        </StackPanel>
+        <Frame x:Name="MainFrame"/>
     </Grid>
-    
 </Window>

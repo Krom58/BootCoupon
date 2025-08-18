@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="BootCoupon.AddCoupon"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BootCoupon"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header Section -->
+        <Grid Grid.Row="0" 
+              Padding="20,10"
+              BorderThickness="0,0,0,1">
+
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            
+            <TextBlock Text="ประเภทคูปอง:" 
+                       Grid.Column="0"
+                       VerticalAlignment="Center"
+                       Margin="0,0,10,0"
+                       FontSize="16"/>
+
+            <ComboBox x:Name="CouponTypeComboBox"
+                      Grid.Column="1"
+                      PlaceholderText="เลือกประเภทคูปอง"
+                      Height="35"
+                      FontSize="16"/>
+
+            <Button x:Name="AddTypeButton"
+                    Grid.Column="2"
+                    Content="เพิ่มประเภท"
+                    Height="35"
+                    FontSize="16"
+                    Margin="10,0,0,0"
+                    Click="AddTypeButton_Click"/>
+
+            <Button x:Name="EditTypeButton"
+                    Grid.Column="3"
+                    Content="แก้ไขประเภท"
+                    Height="35"
+                    FontSize="16"
+                    Margin="10,0,0,0"
+                    HorizontalAlignment="Left"
+                    Click="EditTypeButton_Click"/>
+            
+            <Button x:Name="BackButton"
+                    Grid.Column="4"
+                    Content="⟵ ย้อนกลับ"
+                    Height="35"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Click="BackButton_Click"/>
+            
+        </Grid>
+
+        <!-- Content Area -->
+        <Grid Grid.Row="1" Padding="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="30"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Coupon Form -->
+            <StackPanel Width="350" HorizontalAlignment="Left" VerticalAlignment="Top" Spacing="16" Grid.Column="0">
+                <TextBlock Text="ชื่อคูปอง:" FontSize="16"/>
+                <TextBox x:Name="CouponNameTextBox" PlaceholderText="กรอกชื่อคูปอง" FontSize="16"/>
+
+                <TextBlock Text="ราคา/ใบ:" FontSize="16"/>
+                <TextBox x:Name="CouponPriceTextBox" PlaceholderText="กรอกราคา/ใบ" FontSize="16" InputScope="Number"/>
+
+                <TextBlock Text="โค้ด:" FontSize="16"/>
+                <TextBox x:Name="CouponCodeTextBox" PlaceholderText="กรอกโค้ดคูปอง" FontSize="16"/>
+
+                <Button x:Name="SaveCouponButton" Content="บันทึก" FontSize="16" Height="40" Click="SaveCouponButton_Click"/>
+            </StackPanel>
+
+            <!-- Right: Coupon List -->
+            <ListView x:Name="CouponListView" Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="20,0,0,0" Height="400">
+                <ListView.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="20">
+                        <TextBlock Text="ชื่อคูปอง" Width="120" FontWeight="Bold"/>
+                        <TextBlock Text="ราคา/ใบ" Width="80" FontWeight="Bold"/>
+                        <TextBlock Text="รหัส" Width="100" FontWeight="Bold"/>
+                        <TextBlock Text="ประเภทคูปอง" Width="120" FontWeight="Bold"/>
+                    </StackPanel>
+                </ListView.Header>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="local:Coupon">
+                        <StackPanel Orientation="Horizontal" Spacing="20">
+                            <TextBlock Text="{x:Bind Name}" Width="120"/>
+                            <TextBlock Text="{x:Bind Price}" Width="80"/>
+                            <TextBlock Text="{x:Bind Code}" Width="100"/>
+                            <TextBlock Text="{x:Bind CouponType.Name}" Width="120"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
+    </Grid>
+
+    <!-- Popup for adding new coupon type -->
+    <Page.Resources>
+        <ContentDialog x:Name="AddTypeDialog"
+                      Title="เพิ่มประเภทคูปอง"
+                      PrimaryButtonText="บันทึก"
+                      CloseButtonText="ยกเลิก"
+                      DefaultButton="Primary">
+            <StackPanel>
+                <TextBox x:Name="NewTypeTextBox"
+                         PlaceholderText="ชื่อประเภทคูปอง"
+                         Margin="0,10"/>
+            </StackPanel>
+        </ContentDialog>
+    </Page.Resources>
+</Page>
