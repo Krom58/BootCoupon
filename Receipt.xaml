@@ -24,7 +24,7 @@
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="ค้นหาคูปอง" FontSize="20" FontWeight="Bold" Margin="0,0,0,10" />
-            
+
             <!-- Search Controls -->
             <Grid Grid.Row="1" Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
@@ -35,17 +35,17 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                
+
                 <!-- Search by Name -->
                 <TextBox x:Name="NameSearchTextBox" Grid.Column="0" Grid.Row="0" PlaceholderText="ค้นหาตามชื่อ" Margin="0,0,5,5" />
-                
+
                 <!-- Search by Code -->
                 <TextBox x:Name="CodeSearchTextBox" Grid.Column="1" Grid.Row="0" PlaceholderText="ค้นหาตามรหัส" Margin="5,0,0,5" />
-                
+
                 <!-- Search Button -->
                 <Button x:Name="SearchButton" Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="1" Content="ค้นหา" Click="SearchButton_Click" HorizontalAlignment="Stretch" />
             </Grid>
-            
+
             <!-- Coupons ListView -->
             <ListView x:Name="CouponsListView" Grid.Row="2" SelectionMode="Single" BorderThickness="1" BorderBrush="{ThemeResource SystemControlForegroundBaseMediumLowBrush}" Margin="0,0,0,10">
                 <ListView.ItemTemplate>
@@ -69,7 +69,7 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            
+
             <!-- Back Button -->
             <Button Grid.Row="3" x:Name="BackButton" Content="กลับ" Click="BackButton_Click" HorizontalAlignment="Left" />
         </Grid>
@@ -84,7 +84,7 @@
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="รายการที่เลือก" FontSize="20" FontWeight="Bold" Margin="0,0,0,10" />
-            
+
             <!-- Selected Items ListView -->
             <ListView x:Name="SelectedItemsListView" Grid.Row="1" BorderThickness="1" BorderBrush="{ThemeResource SystemControlForegroundBaseMediumLowBrush}" Margin="0,0,0,10">
                 <ListView.ItemTemplate>
@@ -110,14 +110,24 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            
+
             <!-- Total Price -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
                 <TextBlock Text="รวมทั้งหมด: " FontSize="16" VerticalAlignment="Center" />
                 <TextBlock x:Name="TotalPriceTextBlock" Text="0" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Margin="5,0" />
                 <TextBlock Text="บาท" FontSize="16" VerticalAlignment="Center" />
             </StackPanel>
-            
+
+            <!-- ComboBox เลือกเซลล์: อยู่ Grid.Row="2" เช่นกัน แต่ Margin ให้ห่างด้านบน -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,10" HorizontalAlignment="Left">
+                <TextBlock Text="เลือกเซลล์:" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <ComboBox x:Name="SalesPersonComboBox"
+              Width="200"
+              DisplayMemberPath="Name"
+              SelectedValuePath="SalesPersonId"
+              PlaceholderText="เลือกเซลล์" />
+            </StackPanel>
+
             <!-- Action Buttons -->
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button x:Name="SaveReceiptButton" Content="บันทึกใบเสร็จ" Click="SaveReceiptButton_Click" Margin="0,0,10,0" />

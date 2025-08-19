@@ -21,12 +21,13 @@ namespace BootCoupon
         private readonly CouponContext _context = new CouponContext();
         private readonly ObservableCollection<Coupon> _coupons = new();
         private readonly ObservableCollection<ReceiptItem> _selectedItems = new();
-
+        private readonly ObservableCollection<SalesPerson> _salesPersons = new();
         public Receipt()
         {
             InitializeComponent();
             CouponsListView.ItemsSource = _coupons;
             SelectedItemsListView.ItemsSource = _selectedItems;
+            SalesPersonComboBox.ItemsSource = _salesPersons;
             this.Loaded += Receipt_Loaded;
         }
 
@@ -38,13 +39,24 @@ namespace BootCoupon
             try
             {
                 await LoadAllCoupons();
+                await LoadSalesPersons();
             }
             catch (Exception ex)
             {
                 await ShowErrorDialog($"Error during load: {ex.Message}");
             }
         }
+        private async Task LoadSalesPersons() // โหลดเซลล์
+        {
+            await _context.Database.EnsureCreatedAsync();
 
+            var salesPersons = await _context.SalesPerson.ToListAsync();
+            _salesPersons.Clear();
+            foreach (var sp in salesPersons)
+            {
+                _salesPersons.Add(sp);
+            }
+        }
         private async Task LoadAllCoupons()
         {
             await _context.Database.EnsureCreatedAsync();
@@ -215,7 +227,7 @@ namespace BootCoupon
                     // Update quantity
                     selectedItem.Quantity = (int)quantityBox.Value;
                     UpdateTotalPrice();
-                    
+
                     // Force UI update
                     var index = _selectedItems.IndexOf(selectedItem);
                     if (index >= 0)
@@ -258,18 +270,25 @@ namespace BootCoupon
                 await ShowErrorDialog("ไม่มีรายการที่เลือก กรุณาเลือกคูปองอย่างน้อย 1 รายการ");
                 return;
             }
+            // เช็คว่ามีการเลือก SalesPerson หรือไม่
+            var selectedSalesPerson = SalesPersonComboBox.SelectedItem as SalesPerson;
+            if (selectedSalesPerson == null)
+            {
+                await ShowErrorDialog("กรุณาเลือกเซลล์ก่อนบันทึกใบเสร็จ");
+                return;
+            }
 
             // Create customer information dialog
             var customerPanel = new StackPanel { Spacing = 10 };
-            
+
             customerPanel.Children.Add(new TextBlock { Text = "ชื่อลูกค้า:" });
             var customerNameBox = new TextBox { PlaceholderText = "กรุณาระบุชื่อลูกค้า" };
             customerPanel.Children.Add(customerNameBox);
-            
+
             customerPanel.Children.Add(new TextBlock { Text = "เบอร์โทรศัพท์:" });
             var phoneNumberBox = new TextBox { PlaceholderText = "กรุณาระบุเบอร์โทรศัพท์" };
             customerPanel.Children.Add(phoneNumberBox);
-            
+
             var dialog = new ContentDialog
             {
                 Title = "ข้อมูลลูกค้า",
@@ -279,26 +298,26 @@ namespace BootCoupon
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = this.XamlRoot
             };
-            
+
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
                 string customerName = customerNameBox.Text.Trim();
                 string phoneNumber = phoneNumberBox.Text.Trim();
-                
+
                 // Validate input
                 if (string.IsNullOrEmpty(customerName) || string.IsNullOrEmpty(phoneNumber))
                 {
                     await ShowErrorDialog("กรุณากรอกข้อมูลลูกค้าให้ครบถ้วน");
                     return;
                 }
-                
+
                 try
                 {
                     // Generate receipt code first
                     var settings = await AppSettings.GetSettingsAsync();
                     string receiptCode = settings.GetNextReceiptCode();
-                    
+
                     // Create and save receipt with customer information and receipt code
                     var receipt = new ReceiptModel
                     {
@@ -306,16 +325,17 @@ namespace BootCoupon
                         ReceiptDate = DateTime.Now,
                         CustomerName = customerName,
                         CustomerPhoneNumber = phoneNumber,
-                        TotalAmount = _selectedItems.Sum(item => item.TotalPrice)
+                        TotalAmount = _selectedItems.Sum(item => item.TotalPrice),
+                        SalesPersonId = selectedSalesPerson.ID
                     };
-                    
+
                     _context.Receipts.Add(receipt);
 
                     // Save first to get the ID
                     try
                     {
                         await _context.SaveChangesAsync();
-                        
+
                         // Save settings only after successful save
                         await AppSettings.SaveSettingsAsync(settings);
                     }
@@ -332,7 +352,7 @@ namespace BootCoupon
 
                     // List to store the receipt items
                     var receiptItems = new List<DatabaseReceiptItem>();
-                    
+
                     // Save receipt items
                     foreach (var item in _selectedItems)
                     {
@@ -344,18 +364,18 @@ namespace BootCoupon
                             UnitPrice = item.Coupon.Price,
                             TotalPrice = item.TotalPrice
                         };
-                        
+
                         _context.ReceiptItems.Add(receiptItem);
                         receiptItems.Add(receiptItem);
                     }
-                    
+
                     try
                     {
                         await _context.SaveChangesAsync();
-                        
+
                         // นำทางไปยังหน้า ReceiptPrintPreview พร้อมส่งข้อมูลใบเสร็จ
                         Frame.Navigate(typeof(ReceiptPrintPreview), receipt.ReceiptID);
-                        
+
                         // เคลียร์รายการที่เลือกหลังจากบันทึกเรียบร้อยแล้ว
                         _selectedItems.Clear();
                         UpdateTotalPrice();
