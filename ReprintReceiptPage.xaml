@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="BootCoupon.ReprintReceiptPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BootCoupon"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header Section with improved styling -->
+        <Border Grid.Row="0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" 
+                BorderThickness="0,0,0,1" 
+                Padding="24,20">
+            <StackPanel>
+                <TextBlock Text="จัดการใบเสร็จ" 
+                           FontSize="28" 
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                <Rectangle Height="3" 
+                           Margin="0,12,0,0" 
+                           RadiusX="2" RadiusY="2"
+                           HorizontalAlignment="Center"
+                           Width="120"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1" Margin="24,20,24,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Filter and Search Section with Card Style -->
+            <Border Grid.Row="0" 
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="20"
+                    Margin="0,0,0,16">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- First Row: Status Filter and Search -->
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="40"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" 
+                                   Text="สถานะ:" 
+                                   VerticalAlignment="Center" 
+                                   FontWeight="Medium"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        
+                        <ComboBox x:Name="StatusFilterComboBox" 
+                                  Grid.Column="1" 
+                                  SelectionChanged="StatusFilter_SelectionChanged"
+                                  MinWidth="180"
+                                  Margin="8,0,0,0">
+                            <ComboBoxItem Content="ทั้งหมด" Tag="All"/>
+                            <ComboBoxItem Content="ใช้งาน" Tag="Active" IsSelected="True"/>
+                            <ComboBoxItem Content="ยกเลิก" Tag="Cancelled"/>
+                        </ComboBox>
+
+                        <TextBlock Grid.Column="3" 
+                                   Text="ค้นหา:" 
+                                   VerticalAlignment="Center" 
+                                   FontWeight="Medium"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        
+                        <TextBox x:Name="SearchTextBox" 
+                                 Grid.Column="4" 
+                                 PlaceholderText="ค้นหาจากชื่อลูกค้า รหัสใบเสร็จ หรือเบอร์โทร" 
+                                 TextChanged="SearchTextBox_TextChanged"
+                                 Margin="8,0,0,0"/>
+
+                        <Button x:Name="RefreshButton" 
+                                Grid.Column="5" 
+                                Click="RefreshButton_Click" 
+                                Margin="12,0,0,0"
+                                Style="{ThemeResource AccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE72C;" FontSize="14"/>
+                                <TextBlock Text="รีเฟรช"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <!-- Loading Indicator (initially collapsed) -->
+                    <ProgressRing x:Name="LoadingProgressRing" 
+                                  Grid.Row="1" 
+                                  IsActive="False" 
+                                  Margin="0,12,0,0"
+                                  HorizontalAlignment="Left"/>
+                </Grid>
+            </Border>
+
+            <!-- Data Display Area with improved styling -->
+            <Border Grid.Row="1" 
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Column Headers with improved styling and new order -->
+                    <Border Grid.Row="0" 
+                            Background="{ThemeResource LayerFillColorDefaultBrush}" 
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" 
+                            BorderThickness="0,0,0,1"
+                            CornerRadius="8,8,0,0"
+                            MinHeight="48">
+                        <Grid Padding="20,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="*" MinWidth="200"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="90"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="รหัสใบเสร็จ" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
+                            <TextBlock Grid.Column="2" Text="ชื่อลูกค้า" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
+                            <TextBlock Grid.Column="4" Text="เบอร์โทรศัพท์" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
+                            <TextBlock Grid.Column="6" Text="เลขที่ใบเสร็จ" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
+                            <TextBlock Grid.Column="8" Text="วันที่-เวลา" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
+                            <TextBlock Grid.Column="10" Text="Sales ID" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
+                            <TextBlock Grid.Column="12" Text="สถานะ" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Data ListView with improved styling and new column order -->
+                    <ScrollViewer Grid.Row="1" 
+                                  HorizontalScrollBarVisibility="Auto" 
+                                  VerticalScrollBarVisibility="Auto"
+                                  ZoomMode="Disabled">
+                        <ListView x:Name="ReceiptsDataGrid"
+                                  SelectionMode="Single"
+                                  IsItemClickEnabled="False"
+                                  ShowsScrollingPlaceholders="True">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:ReceiptDisplayModel">
+                                    <Grid MinHeight="56" 
+                                          Padding="20,8"
+                                          Background="Transparent">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/>
+                                            <ColumnDefinition Width="20"/>
+                                            <ColumnDefinition Width="*" MinWidth="200"/>
+                                            <ColumnDefinition Width="20"/>
+                                            <ColumnDefinition Width="140"/>
+                                            <ColumnDefinition Width="20"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="20"/>
+                                            <ColumnDefinition Width="160"/>
+                                            <ColumnDefinition Width="20"/>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="20"/>
+                                            <ColumnDefinition Width="90"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" 
+                                                   Text="{x:Bind ReceiptID}" 
+                                                   VerticalAlignment="Center" 
+                                                   FontSize="13"
+                                                   FontWeight="Medium"
+                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                        
+                                        <TextBlock Grid.Column="2" 
+                                                   Text="{x:Bind CustomerName}" 
+                                                   VerticalAlignment="Center" 
+                                                   FontSize="13"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        
+                                        <TextBlock Grid.Column="4" 
+                                                   Text="{x:Bind CustomerPhoneNumber}" 
+                                                   VerticalAlignment="Center" 
+                                                   FontSize="13"/>
+                                        
+                                        <TextBlock Grid.Column="6" 
+                                                   Text="{x:Bind ReceiptCode}" 
+                                                   VerticalAlignment="Center" 
+                                                   FontSize="13"
+                                                   FontWeight="Medium"/>
+                                        
+                                        <TextBlock Grid.Column="8" 
+                                                   Text="{x:Bind ReceiptDateFormatted}" 
+                                                   VerticalAlignment="Center" 
+                                                   FontSize="13"/>
+                                        
+                                        <TextBlock Grid.Column="10" 
+                                                   Text="{x:Bind SalesPersonId}" 
+                                                   VerticalAlignment="Center" 
+                                                   FontSize="13"/>
+                                        
+                                        <Border Grid.Column="12" 
+                                                VerticalAlignment="Center"
+                                                CornerRadius="12"
+                                                Padding="8,4"
+                                                Background="{x:Bind Status, Converter={StaticResource StatusToBrushConverter}}">
+                                            <TextBlock Text="{x:Bind StatusText}" 
+                                                       FontSize="12" 
+                                                       FontWeight="Medium"
+                                                       Foreground="White"
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+
+                            <!-- Empty State -->
+                            <ListView.Header>
+                                <Grid x:Name="EmptyStateGrid" 
+                                      Visibility="Collapsed" 
+                                      MinHeight="200"
+                                      Padding="40">
+                                    <StackPanel HorizontalAlignment="Center" 
+                                                VerticalAlignment="Center"
+                                                Spacing="16">
+                                        <FontIcon Glyph="&#xE7C3;" 
+                                                  FontSize="48" 
+                                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                        <TextBlock Text="ไม่มีข้อมูลใบเสร็จ" 
+                                                   FontSize="18" 
+                                                   FontWeight="Medium"
+                                                   HorizontalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock Text="ลองปรับเปลี่ยนเงื่อนไขการค้นหาหรือรีเฟรชข้อมูล" 
+                                                   FontSize="14"
+                                                   HorizontalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </ListView.Header>
+                        </ListView>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Action Buttons with improved styling -->
+        <Border Grid.Row="2" 
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="24,20">
+            <StackPanel Orientation="Horizontal" 
+                        HorizontalAlignment="Center" 
+                        Spacing="16">
+                
+                <Button x:Name="ReprintButton" 
+                        Click="ReprintButton_Click"
+                        IsEnabled="False"
+                        MinWidth="140"
+                        Height="40"
+                        CornerRadius="8">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                            <Setter Property="Background" Value="#FF107C10"/>
+                            <Setter Property="Foreground" Value="White"/>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE8AD;" FontSize="16"/>
+                        <TextBlock Text="พิมพ์ใหม่" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="CancelReceiptButton" 
+                        Click="CancelReceiptButton_Click"
+                        IsEnabled="False"
+                        MinWidth="140"
+                        Height="40"
+                        CornerRadius="8">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                            <Setter Property="Background" Value="#FFD13438"/>
+                            <Setter Property="Foreground" Value="White"/>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE711;" FontSize="16"/>
+                        <TextBlock Text="ยกเลิกใบเสร็จ" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="BackButton" 
+                        Click="BackButton_Click"
+                        MinWidth="140"
+                        Height="40"
+                        Style="{ThemeResource AccentButtonStyle}"
+                        CornerRadius="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE72B;" FontSize="16"/>
+                        <TextBlock Text="กลับหน้าหลัก" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>

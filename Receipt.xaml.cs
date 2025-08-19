@@ -1,11 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
+﻿using BootCoupon.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
+using Microsoft.UI.Xaml.Media; // เพิ่มบรรทัดนี้สำหรับ SolidColorBrush
+using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Navigation;
+using Microsoft.UI.Xaml.Printing;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Windows.ApplicationModel.Core;
+using Windows.Graphics.Printing;
+using Windows.Graphics.Printing.OptionDetails;
+using WinRT.Interop;
 
 namespace BootCoupon
 {
@@ -22,12 +34,19 @@ namespace BootCoupon
         private readonly ObservableCollection<Coupon> _coupons = new();
         private readonly ObservableCollection<ReceiptItem> _selectedItems = new();
         private readonly ObservableCollection<SalesPerson> _salesPersons = new();
+        private readonly ObservableCollection<CouponType> _couponTypes = new();
+
+        // เพิ่มตัวแปรสำหรับ debounce
+        private System.Threading.Timer? _searchTimer;
+        private readonly object _searchLock = new object();
+
         public Receipt()
         {
             InitializeComponent();
             CouponsListView.ItemsSource = _coupons;
             SelectedItemsListView.ItemsSource = _selectedItems;
             SalesPersonComboBox.ItemsSource = _salesPersons;
+            CouponTypeComboBox.ItemsSource = _couponTypes;
             this.Loaded += Receipt_Loaded;
         }
 
@@ -40,12 +59,14 @@ namespace BootCoupon
             {
                 await LoadAllCoupons();
                 await LoadSalesPersons();
+                await LoadCouponTypes(); // เพิ่มบรรทัดนี้
             }
             catch (Exception ex)
             {
                 await ShowErrorDialog($"Error during load: {ex.Message}");
             }
         }
+
         private async Task LoadSalesPersons() // โหลดเซลล์
         {
             await _context.Database.EnsureCreatedAsync();
@@ -57,6 +78,7 @@ namespace BootCoupon
                 _salesPersons.Add(sp);
             }
         }
+
         private async Task LoadAllCoupons()
         {
             await _context.Database.EnsureCreatedAsync();
@@ -72,31 +94,96 @@ namespace BootCoupon
             }
         }
 
-        private async void SearchButton_Click(object sender, RoutedEventArgs e)
+        private async Task LoadCouponTypes()
         {
-            string nameSearch = NameSearchTextBox.Text.Trim().ToLower();
-            string codeSearch = CodeSearchTextBox.Text.Trim().ToLower();
-
             await _context.Database.EnsureCreatedAsync();
 
-            var query = _context.Coupons.Include(c => c.CouponType).AsQueryable();
-
-            if (!string.IsNullOrEmpty(nameSearch))
+            var couponTypes = await _context.CouponTypes.ToListAsync();
+            _couponTypes.Clear();
+            
+            // เพิ่มตัวเลือก "ทั้งหมด"
+            _couponTypes.Add(new CouponType { Id = 0, Name = "ทั้งหมด" });
+            
+            foreach (var type in couponTypes)
             {
-                query = query.Where(c => c.Name.ToLower().Contains(nameSearch));
+                _couponTypes.Add(type);
             }
+        }
 
-            if (!string.IsNullOrEmpty(codeSearch))
+        // แทนที่ SearchButton_Click ด้วย event handlers สำหรับ real-time search
+        private void NameSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            PerformDelayedSearch();
+        }
+
+        private void CodeSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            PerformDelayedSearch();
+        }
+
+        private void CouponTypeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            PerformDelayedSearch();
+        }
+        private void PerformDelayedSearch()
+        {
+            lock (_searchLock)
             {
-                query = query.Where(c => c.Code.ToLower().Contains(codeSearch));
+                // ยกเลิก timer เก่า
+                _searchTimer?.Dispose();
+
+                // สร้าง timer ใหม่ที่จะค้นหาหลังจาก 300ms
+                _searchTimer = new System.Threading.Timer(_ =>
+                {
+                    DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        await PerformSearch();
+                    });
+                }, null, 300, Timeout.Infinite);
             }
+        }
 
-            var coupons = await query.ToListAsync();
-
-            _coupons.Clear();
-            foreach (var coupon in coupons)
+        // Method สำหรับค้นหาจริง
+        private async Task PerformSearch()
+        {
+            try
             {
-                _coupons.Add(coupon);
+                string nameSearch = NameSearchTextBox.Text.Trim().ToLower();
+                string codeSearch = CodeSearchTextBox.Text.Trim().ToLower();
+                var selectedType = CouponTypeComboBox.SelectedItem as CouponType;
+
+                await _context.Database.EnsureCreatedAsync();
+
+                var query = _context.Coupons.Include(c => c.CouponType).AsQueryable();
+
+                if (!string.IsNullOrEmpty(nameSearch))
+                {
+                    query = query.Where(c => c.Name.ToLower().Contains(nameSearch));
+                }
+
+                if (!string.IsNullOrEmpty(codeSearch))
+                {
+                    query = query.Where(c => c.Code.ToLower().Contains(codeSearch));
+                }
+
+                // เพิ่มการค้นหาตามประเภท (ไม่รวม "ทั้งหมด" ที่มี Id = 0)
+                if (selectedType != null && selectedType.Id > 0)
+                {
+                    query = query.Where(c => c.CouponTypeId == selectedType.Id);
+                }
+
+                var coupons = await query.ToListAsync();
+
+                _coupons.Clear();
+                foreach (var coupon in coupons)
+                {
+                    _coupons.Add(coupon);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ข้อผิดพลาดในการค้นหา: {ex.Message}");
+                // ไม่แสดง error dialog เพื่อไม่ให้รบกวนผู้ใช้ขณะพิมพ์
             }
         }
 
@@ -263,6 +350,7 @@ namespace BootCoupon
             }
         }
 
+        // Modified SaveReceiptButton_Click to show confirmation popup instead of navigating to preview
         private async void SaveReceiptButton_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedItems.Count == 0)
@@ -270,6 +358,7 @@ namespace BootCoupon
                 await ShowErrorDialog("ไม่มีรายการที่เลือก กรุณาเลือกคูปองอย่างน้อย 1 รายการ");
                 return;
             }
+
             // เช็คว่ามีการเลือก SalesPerson หรือไม่
             var selectedSalesPerson = SalesPersonComboBox.SelectedItem as SalesPerson;
             if (selectedSalesPerson == null)
@@ -314,9 +403,8 @@ namespace BootCoupon
 
                 try
                 {
-                    // Generate receipt code first
-                    var settings = await AppSettings.GetSettingsAsync();
-                    string receiptCode = settings.GetNextReceiptCode();
+                    // ใช้ Service ใหม่แทน AppSettings
+                    string receiptCode = await ReceiptNumberService.GenerateNextReceiptCodeAsync();
 
                     // Create and save receipt with customer information and receipt code
                     var receipt = new ReceiptModel
@@ -335,12 +423,12 @@ namespace BootCoupon
                     try
                     {
                         await _context.SaveChangesAsync();
-
-                        // Save settings only after successful save
-                        await AppSettings.SaveSettingsAsync(settings);
                     }
                     catch (Exception dbEx)
                     {
+                        // หากไม่สามารถบันทึกได้ ให้คืนหมายเลขใบเสร็จ
+                        await ReceiptNumberService.RecycleReceiptCodeAsync(receiptCode, "Database save failed");
+
                         string errorDetails = $"Error saving receipt: {dbEx.Message}";
                         if (dbEx.InnerException != null)
                         {
@@ -349,9 +437,6 @@ namespace BootCoupon
                         await ShowErrorDialog(errorDetails);
                         return;
                     }
-
-                    // List to store the receipt items
-                    var receiptItems = new List<DatabaseReceiptItem>();
 
                     // Save receipt items
                     foreach (var item in _selectedItems)
@@ -366,15 +451,14 @@ namespace BootCoupon
                         };
 
                         _context.ReceiptItems.Add(receiptItem);
-                        receiptItems.Add(receiptItem);
                     }
 
                     try
                     {
                         await _context.SaveChangesAsync();
 
-                        // นำทางไปยังหน้า ReceiptPrintPreview พร้อมส่งข้อมูลใบเสร็จ
-                        Frame.Navigate(typeof(ReceiptPrintPreview), receipt.ReceiptID);
+                        // ใช้ Service แทนการแสดง popup และ navigate
+                        await ShowPrintConfirmationDialog(receipt.ReceiptID, receiptCode);
 
                         // เคลียร์รายการที่เลือกหลังจากบันทึกเรียบร้อยแล้ว
                         _selectedItems.Clear();
@@ -419,6 +503,46 @@ namespace BootCoupon
         private void BackButton_Click(object sender, RoutedEventArgs e)
         {
             MainWindow.Instance.MainFrameControl.Navigate(typeof(MainPage));
+        }
+
+        // เพิ่ม method สำหรับแสดง popup ยืนยันการพิมพ์ใหม่
+        private async Task ShowPrintConfirmationDialog(int receiptId, string receiptCode)
+        {
+            // สร้าง popup ที่มีปุ่มพิมพ์และยกเลิก
+            var confirmDialog = new ContentDialog
+            {
+                Title = "บันทึกใบเสร็จสำเร็จ",
+                Content = $"ใบเสร็จเลขที่ {receiptCode} ถูกบันทึกเรียบร้อยแล้ว\n\nต้องการพิมพ์ใบเสร็จหรือไม่?",
+                PrimaryButtonText = "พิมพ์",
+                CloseButtonText = "ยกเลิก",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await confirmDialog.ShowAsync();
+
+            if (result == ContentDialogResult.Primary)
+            {
+                // กดปุ่มพิมพ์ - ใช้ Service พิมพ์โดยไม่เปิดหน้า Preview
+                bool printSuccess = await ReceiptPrintService.PrintReceiptAsync(receiptId, this.XamlRoot);
+
+                if (printSuccess)
+                {
+                    Debug.WriteLine("เรียกใช้งานการพิมพ์สำเร็จ");
+                }
+            }
+            else
+            {
+                // กดปุ่มยกเลิก - ใช้ Service จัดการการยกเลิก (เหมือนปุ่มปิดใน ReceiptPrintPreview)
+                await ReceiptPrintService.HandleReceiptCancellationAsync(receiptId, this.XamlRoot);
+            }
+        }
+
+        // เพิ่มการ dispose timer ใน destructor หรือ method ที่เหมาะสม
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            _searchTimer?.Dispose();
+            base.OnNavigatedFrom(e);
         }
     }
 }

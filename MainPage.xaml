@@ -32,23 +32,7 @@
         <StackPanel Grid.Row="1" 
                     HorizontalAlignment="Center" 
                     VerticalAlignment="Center" 
-                    Spacing="40">
-            <Button x:Name="AddCouponButton" 
-                    Content="เพิ่มคูปอง" 
-                    Click="AddCouponButton_Click" 
-                    Width="380" 
-                    Height="100" 
-                    FontSize="28"
-                    HorizontalAlignment="Stretch"
-                    CornerRadius="8">
-                <Button.Background>
-                    <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
-                        <GradientStop Color="#FF0078D7"/>
-                        <GradientStop Color="#FF005A9E" Offset="1"/>
-                    </LinearGradientBrush>
-                </Button.Background>
-            </Button>
-            
+                    Spacing="30">
             <Button x:Name="CreateReceiptButton" 
                     Content="ออกใบเสร็จ" 
                     Click="CreateReceiptButton_Click" 
@@ -64,6 +48,57 @@
                     </LinearGradientBrush>
                 </Button.Background>
             </Button>
+            
+            <!-- เพิ่มปุ่มสั่งพิมพ์ใหม่ -->
+            <Button x:Name="ReprintReceiptButton" 
+                    Content="สั่งพิมพ์ใหม่" 
+                    Click="ReprintReceiptButton_Click" 
+                    Width="380" 
+                    Height="100" 
+                    FontSize="28"
+                    HorizontalAlignment="Stretch"
+                    CornerRadius="8">
+                <Button.Background>
+                    <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+                        <GradientStop Color="#FF8E24AA"/>
+                        <GradientStop Color="#FF6A1B7A" Offset="1"/>
+                    </LinearGradientBrush>
+                </Button.Background>
+            </Button>
+
+            <!-- เพิ่มปุ่มรายงานการขาย -->
+            <Button x:Name="SalesReportButton" 
+                    Content="รายงานการขาย" 
+                    Click="SalesReportButton_Click" 
+                    Width="380" 
+                    Height="100" 
+                    FontSize="28"
+                    HorizontalAlignment="Stretch"
+                    CornerRadius="8">
+                <Button.Background>
+                    <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+                        <GradientStop Color="#FF00A4EF"/>
+                        <GradientStop Color="#FF0078A3" Offset="1"/>
+                    </LinearGradientBrush>
+                </Button.Background>
+            </Button>
+
+            <Button x:Name="AddCouponButton" 
+        Content="เพิ่มคูปอง" 
+        Click="AddCouponButton_Click" 
+        Width="380" 
+        Height="100" 
+        FontSize="28"
+        HorizontalAlignment="Stretch"
+        CornerRadius="8">
+                <Button.Background>
+                    <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+                        <GradientStop Color="#FF0078D7"/>
+                        <GradientStop Color="#FF005A9E" Offset="1"/>
+                    </LinearGradientBrush>
+                </Button.Background>
+            </Button>
+            
         </StackPanel>
         
         <!-- Footer with settings button -->

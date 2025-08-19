@@ -322,51 +322,28 @@
 								<TextBlock Text="หมายเลขคูปองห้องพัก" FontSize="12" Width="130" Foreground="Black" />
 								<Border BorderBrush="Black" BorderThickness="0,0,0,1" Width="170" Height="16" />
 							</StackPanel>
-
-							<!-- Rewards Section  -->
-							<!--<StackPanel Orientation="Vertical">
-                                <StackPanel Orientation="Horizontal" Margin="0,0,10,5">
-                                    <Border BorderBrush="Black" BorderThickness="1" Width="16" Height="16" Margin="0,0,6,0"/>
-                                    <TextBlock Text="cocktail 1 แก้ว" FontSize="12" VerticalAlignment="Center" Foreground="Black" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,10,5">
-                                    <Border BorderBrush="Black" BorderThickness="1" Width="16" Height="16" Margin="0,0,6,0" />
-                                    <TextBlock Text="Wine 1 ขวด" FontSize="12" VerticalAlignment="Center" Foreground="Black" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,10,5">
-                                    <Border BorderBrush="Black" BorderThickness="1" Width="16" Height="16" Margin="0,0,6,0" />
-                                    <TextBlock Text="พิซซ่า 1 ถาด" FontSize="12" VerticalAlignment="Center" Foreground="Black" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,10,5">
-                                    <Border BorderBrush="Black" BorderThickness="1" Width="16" Height="16" Margin="0,0,6,0" />
-                                    <TextBlock Text="เฝอ 1 ที่" FontSize="12" VerticalAlignment="Center" Foreground="Black" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,10,5">
-                                    <Border BorderBrush="Black" BorderThickness="1" Width="16" Height="16" Margin="0,0,6,0"/>
-                                    <TextBlock Text="เป็ด 1 ตัว" FontSize="12" VerticalAlignment="Center" Foreground="Black" />
-                                </StackPanel>
-                            </StackPanel> -->
 						</StackPanel>
-
 					</Grid>
-					<!-- Sales & Signature -->
-					<Grid Margin="0,15,0,0">
-						<Grid.ColumnDefinitions>
-							<ColumnDefinition Width="*" />
-							<ColumnDefinition Width="150" />
-						</Grid.ColumnDefinitions>
+					
+					<!-- Sales & Signature - Modified to move "ผู้รับเงิน" lower -->
+					<Grid Margin="0,25,0,0">
+						<Grid.RowDefinitions>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="40"/> <!-- Add space between sales and signature -->
+							<RowDefinition Height="Auto"/>
+						</Grid.RowDefinitions>
 
 						<!-- Sales + display name and phone -->
-						<StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+						<StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
 							<TextBlock Text="Sales: " FontWeight="SemiBold" FontSize="14" Foreground="Black"/>
 							<TextBlock Text="{Binding SalesPersonName}" FontWeight="Normal" FontSize="14" Foreground="Black" Margin="5,0,0,0"/>
 							<TextBlock Text="{Binding SalesPersonPhone}" FontSize="14" Foreground="Black" Margin="10,0,0,0"/>
 						</StackPanel>
 
-						<!-- ผู้รับเงิน -->
-						<StackPanel Grid.Column="1" VerticalAlignment="Center">
+						<!-- ผู้รับเงิน - Moved lower with more spacing -->
+						<StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Right">
 							<Border BorderBrush="Black" BorderThickness="0,0,0,1" Width="120" Height="16" HorizontalAlignment="Right" />
-							<TextBlock Text="ผู้รับเงิน" HorizontalAlignment="Center" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,0" Foreground="Black" />
+							<TextBlock Text="ผู้รับเงิน" HorizontalAlignment="Center" FontWeight="SemiBold" FontSize="14" Margin="0,5,0,0" Foreground="Black" />
 						</StackPanel>
 					</Grid>
 

@@ -1,4 +1,4 @@
-using BootCoupon;
+﻿using BootCoupon;
 using Microsoft.EntityFrameworkCore;
 
 public class CouponContext : DbContext
@@ -8,6 +8,10 @@ public class CouponContext : DbContext
     public DbSet<ReceiptModel> Receipts { get; set; } = null!;
     public DbSet<DatabaseReceiptItem> ReceiptItems { get; set; } = null!;
     public DbSet<SalesPerson> SalesPerson { get; set; } = null!;
+    
+    // เพิ่มตารางใหม่
+    public DbSet<ReceiptNumberManager> ReceiptNumberManagers { get; set; } = null!;
+    public DbSet<CanceledReceiptNumber> CanceledReceiptNumbers { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -21,8 +25,8 @@ public class CouponContext : DbContext
         modelBuilder.Entity<DatabaseReceiptItem>(entity =>
         {
             entity.ToTable("ReceiptItems");
-            entity.HasKey(e => e.ReceiptItemId); // Define primary key
-            entity.HasOne<ReceiptModel>() // Define relationship
+            entity.HasKey(e => e.ReceiptItemId);
+            entity.HasOne<ReceiptModel>()
                   .WithMany(r => r.Items)
                   .HasForeignKey(ri => ri.ReceiptId);
         });
@@ -33,9 +37,28 @@ public class CouponContext : DbContext
             entity.HasKey(e => e.ReceiptID);
             entity.Property(e => e.CustomerName).IsRequired();
             entity.Property(e => e.CustomerPhoneNumber).IsRequired();
+            entity.Property(e => e.Status).HasDefaultValue("Active");
             entity.HasMany(r => r.Items)
                   .WithOne()
                   .HasForeignKey(ri => ri.ReceiptId);
+        });
+
+        // เพิ่ม configuration สำหรับตารางใหม่
+        modelBuilder.Entity<ReceiptNumberManager>(entity =>
+        {
+            entity.ToTable("ReceiptNumberManager");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Prefix).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.UpdatedBy).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<CanceledReceiptNumber>(entity =>
+        {
+            entity.ToTable("CanceledReceiptNumbers");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ReceiptCode).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => e.ReceiptCode).IsUnique();
+            entity.Property(e => e.Reason).HasMaxLength(255);
         });
     }
 }

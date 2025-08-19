@@ -21,8 +21,10 @@ namespace BootCoupon
         public List<DatabaseReceiptItem> Items { get; set; } = new();
 
         public int? SalesPersonId { get; set; }
+        
+        // เพิ่มสถานะของใบเสร็จ
+        public string Status { get; set; } = "Active";
     }
-
 
     public class DatabaseReceiptItem
     {
@@ -35,4 +37,21 @@ namespace BootCoupon
         public decimal TotalPrice { get; set; }
     }
 
+    // เพิ่ม class สำหรับแสดงข้อมูลใน DataGrid
+    public class ReceiptDisplayModel
+    {
+        public int ReceiptID { get; set; }
+        public DateTime ReceiptDate { get; set; }
+        public decimal TotalAmount { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public string CustomerPhoneNumber { get; set; } = string.Empty;
+        public string ReceiptCode { get; set; } = string.Empty;
+        public int? SalesPersonId { get; set; }
+        public string Status { get; set; } = "Active";
+        
+        // Properties สำหรับแสดงผล
+        public string TotalAmountFormatted => TotalAmount.ToString("N2");
+        public string ReceiptDateFormatted => ReceiptDate.ToString("dd/MM/yyyy HH:mm:ss");
+        public string StatusText => Status == "Active" ? "ใช้งาน" : Status == "Cancelled" ? "ยกเลิก" : Status;
+    }
 }

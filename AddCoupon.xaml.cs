@@ -287,5 +287,176 @@ namespace BootCoupon
         {
             MainWindow.Instance.MainFrameControl.Navigate(typeof(MainPage));
         }
+
+        // เพิ่ม method สำหรับแก้ไขคูปอง - แก้ไข error
+        private async void EditCouponButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var button = sender as Button;
+                var coupon = button?.Tag as Coupon;
+                
+                if (coupon == null)
+                {
+                    await ShowErrorDialog("ไม่สามารถระบุคูปองที่ต้องการแก้ไขได้");
+                    return;
+                }
+
+                // สร้าง dialog สำหรับแก้ไขข้อมูล
+                var editPanel = new StackPanel { Spacing = 10 };
+
+                // ชื่อคูปอง
+                editPanel.Children.Add(new TextBlock { Text = "ชื่อคูปอง:", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+                var nameBox = new TextBox { Text = coupon.Name, PlaceholderText = "กรอกชื่อคูปอง" };
+                editPanel.Children.Add(nameBox);
+
+                // ราคา - วิธีง่ายๆ ไม่ต้องใช้ InputScope
+                editPanel.Children.Add(new TextBlock { Text = "ราคา/ใบ:", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+                var priceBox = new TextBox
+                {
+                    Text = coupon.Price.ToString(),
+                    PlaceholderText = "กรอกราคา"
+                };
+                editPanel.Children.Add(priceBox);
+
+                // โค้ด
+                editPanel.Children.Add(new TextBlock { Text = "โค้ด:", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+                var codeBox = new TextBox { Text = coupon.Code, PlaceholderText = "กรอกโค้ดคูปอง" };
+                editPanel.Children.Add(codeBox);
+
+                // ประเภทคูปอง
+                editPanel.Children.Add(new TextBlock { Text = "ประเภทคูปอง:", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+                var typeCombo = new ComboBox
+                {
+                    PlaceholderText = "เลือกประเภทคูปอง",
+                    DisplayMemberPath = "Name"
+                };
+
+                // โหลดประเภทคูปองใหม่
+                var types = await _context.CouponTypes.ToListAsync();
+                typeCombo.ItemsSource = types;
+
+                // เลือกประเภทปัจจุบัน
+                var currentType = types.FirstOrDefault(t => t.Id == coupon.CouponTypeId);
+                if (currentType != null)
+                {
+                    typeCombo.SelectedItem = currentType;
+                }
+
+                editPanel.Children.Add(typeCombo);
+
+                var editDialog = new ContentDialog
+                {
+                    Title = "แก้ไขข้อมูลคูปอง",
+                    Content = editPanel,
+                    PrimaryButtonText = "บันทึก",
+                    CloseButtonText = "ยกเลิก",
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = this.XamlRoot
+                };
+
+                var result = await editDialog.ShowAsync();
+
+                if (result == ContentDialogResult.Primary)
+                {
+                    // ตรวจสอบข้อมูล
+                    var newName = nameBox.Text.Trim();
+                    var newPriceText = priceBox.Text.Trim();
+                    var newCode = codeBox.Text.Trim();
+                    var newType = typeCombo.SelectedItem as CouponType;
+
+                    if (string.IsNullOrWhiteSpace(newName) ||
+                        string.IsNullOrWhiteSpace(newPriceText) ||
+                        string.IsNullOrWhiteSpace(newCode) ||
+                        newType == null)
+                    {
+                        await ShowErrorDialog("กรุณากรอกข้อมูลให้ครบทุกช่องและเลือกประเภทคูปอง");
+                        return;
+                    }
+
+                    if (!decimal.TryParse(newPriceText, out var newPrice) || newPrice < 0)
+                    {
+                        await ShowErrorDialog("กรุณากรอกราคาเป็นตัวเลขที่ถูกต้อง");
+                        return;
+                    }
+
+                    // อัพเดทข้อมูล
+                    coupon.Name = newName;
+                    coupon.Price = newPrice;
+                    coupon.Code = newCode;
+                    coupon.CouponTypeId = newType.Id;
+                    coupon.CouponType = newType;
+
+                    _context.Coupons.Update(coupon);
+                    await _context.SaveChangesAsync();
+
+                    await ShowErrorDialog("แก้ไขข้อมูลคูปองเรียบร้อยแล้ว");
+                    await LoadCoupons();
+                }
+            }
+            catch (Exception ex)
+            {
+                await ShowErrorDialog($"เกิดข้อผิดพลาดในการแก้ไข: {ex.Message}");
+            }
+        }
+
+        // เพิ่ม method สำหรับลบคูปอง
+        private async void DeleteCouponButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var button = sender as Button;
+                var coupon = button?.Tag as Coupon;
+
+                if (coupon == null)
+                {
+                    await ShowErrorDialog("ไม่สามารถระบุคูปองที่ต้องการลบได้");
+                    return;
+                }
+
+                // แสดง confirmation dialog
+                var confirmDialog = new ContentDialog
+                {
+                    Title = "ยืนยันการลบ",
+                    Content = $"คุณต้องการลบคูปอง '{coupon.Name}' ใช่หรือไม่?\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้",
+                    PrimaryButtonText = "ลบ",
+                    CloseButtonText = "ยกเลิก",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
+
+                var result = await confirmDialog.ShowAsync();
+                
+                if (result == ContentDialogResult.Primary)
+                {
+                    // ตรวจสอบว่าคูปองนี้ถูกใช้ในใบเสร็จแล้วหรือไม่
+                    var isUsedInReceipt = await _context.ReceiptItems.AnyAsync(ri => ri.CouponId == coupon.Id);
+                    
+                    if (isUsedInReceipt)
+                    {
+                        var warningDialog = new ContentDialog
+                        {
+                            Title = "ไม่สามารถลบได้",
+                            Content = "คูปองนี้ถูกใช้ในใบเสร็จแล้ว ไม่สามารถลบได้\n\nหากต้องการยกเลิกการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+                            CloseButtonText = "ตกลง",
+                            XamlRoot = this.XamlRoot
+                        };
+                        await warningDialog.ShowAsync();
+                        return;
+                    }
+
+                    // ลบข้อมูล
+                    _context.Coupons.Remove(coupon);
+                    await _context.SaveChangesAsync();
+
+                    await ShowErrorDialog("ลบคูปองเรียบร้อยแล้ว");
+                    await LoadCoupons();
+                }
+            }
+            catch (Exception ex)
+            {
+                await ShowErrorDialog($"เกิดข้อผิดพลาดในการลบ: {ex.Message}");
+            }
+        }
     }
 }

@@ -17,7 +17,8 @@
         <!-- Header Section -->
         <Grid Grid.Row="0" 
               Padding="20,10"
-              BorderThickness="0,0,0,1">
+              BorderThickness="0,0,0,1"
+              BorderBrush="Gray">
 
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -62,11 +63,10 @@
                     HorizontalAlignment="Right"
                     VerticalAlignment="Center"
                     Click="BackButton_Click"/>
-            
         </Grid>
 
         <!-- Content Area -->
-        <Grid Grid.Row="1" Padding="20">
+        <Grid Grid.Row="1" Padding="20,10,20,20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="30"/>
@@ -75,44 +75,161 @@
 
             <!-- Left: Coupon Form -->
             <StackPanel Width="350" HorizontalAlignment="Left" VerticalAlignment="Top" Spacing="16" Grid.Column="0">
-                <TextBlock Text="ชื่อคูปอง:" FontSize="16"/>
-                <TextBox x:Name="CouponNameTextBox" PlaceholderText="กรอกชื่อคูปอง" FontSize="16"/>
+                <TextBlock Text="ชื่อคูปอง:" FontSize="16" FontWeight="SemiBold"/>
+                <TextBox x:Name="CouponNameTextBox" PlaceholderText="กรอกชื่อคูปอง" FontSize="16" Height="35"/>
 
-                <TextBlock Text="ราคา/ใบ:" FontSize="16"/>
-                <TextBox x:Name="CouponPriceTextBox" PlaceholderText="กรอกราคา/ใบ" FontSize="16" InputScope="Number"/>
+                <TextBlock Text="ราคา/ใบ:" FontSize="16" FontWeight="SemiBold"/>
+                <TextBox x:Name="CouponPriceTextBox" PlaceholderText="กรอกราคา/ใบ" FontSize="16" InputScope="Number" Height="35"/>
 
-                <TextBlock Text="โค้ด:" FontSize="16"/>
-                <TextBox x:Name="CouponCodeTextBox" PlaceholderText="กรอกโค้ดคูปอง" FontSize="16"/>
+                <TextBlock Text="โค้ด:" FontSize="16" FontWeight="SemiBold"/>
+                <TextBox x:Name="CouponCodeTextBox" PlaceholderText="กรอกโค้ดคูปอง" FontSize="16" Height="35"/>
 
-                <Button x:Name="SaveCouponButton" Content="บันทึก" FontSize="16" Height="40" Click="SaveCouponButton_Click"/>
+                <Button x:Name="SaveCouponButton" Content="บันทึก" FontSize="16" Height="45" 
+                        Background="#0078D7" Foreground="White"
+                        Click="SaveCouponButton_Click"/>
             </StackPanel>
 
-            <!-- Right: Coupon List -->
-            <ListView x:Name="CouponListView" Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="20,0,0,0" Height="400">
-                <ListView.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="20">
-                        <TextBlock Text="ชื่อคูปอง" Width="120" FontWeight="Bold"/>
-                        <TextBlock Text="ราคา/ใบ" Width="80" FontWeight="Bold"/>
-                        <TextBlock Text="รหัส" Width="100" FontWeight="Bold"/>
-                        <TextBlock Text="ประเภทคูปอง" Width="120" FontWeight="Bold"/>
-                    </StackPanel>
-                </ListView.Header>
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="local:Coupon">
-                        <StackPanel Orientation="Horizontal" Spacing="20">
-                            <TextBlock Text="{x:Bind Name}" Width="120"/>
-                            <TextBlock Text="{x:Bind Price}" Width="80"/>
-                            <TextBlock Text="{x:Bind Code}" Width="100"/>
-                            <TextBlock Text="{x:Bind CouponType.Name}" Width="120"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+            <!-- Right: Coupon List - ขยายเต็มพื้นที่ -->
+            <Border Grid.Column="2" 
+                    BorderThickness="1" 
+                    BorderBrush="DarkGray" 
+                    CornerRadius="5">
+                
+                <ListView x:Name="CouponListView" 
+                          HorizontalAlignment="Stretch" 
+                          VerticalAlignment="Stretch" 
+                          Margin="0"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="MinHeight" Value="50"/> <!-- เพิ่มความสูงแถว -->
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    
+                    <ListView.Header>
+                        <Border BorderThickness="0,0,0,2" BorderBrush="DarkBlue" Background="#E6F3FF" Padding="10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" MinWidth="150"/>  <!-- ชื่อคูปอง -->
+                                    <ColumnDefinition Width="1*" MinWidth="100"/>  <!-- ราคา -->
+                                    <ColumnDefinition Width="1*" MinWidth="100"/>  <!-- รหัส -->
+                                    <ColumnDefinition Width="1.5*" MinWidth="130"/> <!-- ประเภท -->
+                                    <ColumnDefinition Width="1.2*" MinWidth="120"/> <!-- การจัดการ -->
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBlock Grid.Column="0" Text="ชื่อคูปอง" FontWeight="Bold" FontSize="14" 
+                                          VerticalAlignment="Center" Foreground="DarkBlue"/>
+                                <TextBlock Grid.Column="1" Text="ราคา/ใบ" FontWeight="Bold" FontSize="14" 
+                                          VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="DarkBlue"/>
+                                <TextBlock Grid.Column="2" Text="รหัส" FontWeight="Bold" FontSize="14" 
+                                          VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="DarkBlue"/>
+                                <TextBlock Grid.Column="3" Text="ประเภทคูปอง" FontWeight="Bold" FontSize="14" 
+                                          VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="DarkBlue"/>
+                                <TextBlock Grid.Column="4" Text="การจัดการ" FontWeight="Bold" FontSize="14" 
+                                          VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="DarkBlue"/>
+                            </Grid>
+                        </Border>
+                    </ListView.Header>
+                    
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:Coupon">
+                            <Border BorderThickness="0,0,0,1" BorderBrush="LightGray"
+                                    Margin="0" Padding="10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*" MinWidth="150"/>  <!-- ชื่อคูปอง -->
+                                        <ColumnDefinition Width="1*" MinWidth="100"/>  <!-- ราคา -->
+                                        <ColumnDefinition Width="1*" MinWidth="100"/>  <!-- รหัส -->
+                                        <ColumnDefinition Width="1.5*" MinWidth="130"/> <!-- ประเภท -->
+                                        <ColumnDefinition Width="1.2*" MinWidth="120"/> <!-- การจัดการ -->
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- ชื่อคูปอง -->
+                                    <Border Grid.Column="0" BorderThickness="0,0,1,0" BorderBrush="LightGray" Padding="0,0,10,0">
+                                        <TextBlock Text="{x:Bind Name}" 
+                                                  VerticalAlignment="Center" 
+                                                  TextTrimming="CharacterEllipsis"
+                                                  FontSize="13"
+                                                  ToolTipService.ToolTip="{x:Bind Name}"
+                                                  Foreground="White"/>
+                                    </Border>
+                                    
+                                    <!-- ราคา -->
+                                    <Border Grid.Column="1" BorderThickness="0,0,1,0" BorderBrush="LightGray" Padding="10,0">
+                                        <TextBlock Text="{x:Bind Price, Converter={StaticResource DecimalFormatter}}" 
+                                                  VerticalAlignment="Center" 
+                                                  HorizontalAlignment="Right"
+                                                  FontSize="13"
+                                                  FontWeight="SemiBold"
+                                                  Foreground="Green"/>
+                                    </Border>
+                                    
+                                    <!-- รหัส -->
+                                    <Border Grid.Column="2" BorderThickness="0,0,1,0" BorderBrush="LightGray" Padding="10,0">
+                                        <TextBlock Text="{x:Bind Code}" 
+                                                  VerticalAlignment="Center" 
+                                                  HorizontalAlignment="Center"
+                                                  FontSize="13"
+                                                  FontFamily="Consolas"
+                                                  Foreground="White"/>
+                                    </Border>
+                                    
+                                    <!-- ประเภทคูปอง -->
+                                    <Border Grid.Column="3" BorderThickness="0,0,1,0" BorderBrush="LightGray" Padding="10,0">
+                                        <TextBlock Text="{x:Bind CouponType.Name}" 
+                                                  VerticalAlignment="Center" 
+                                                  HorizontalAlignment="Center"
+                                                  TextTrimming="CharacterEllipsis"
+                                                  FontSize="13"
+                                                  ToolTipService.ToolTip="{x:Bind CouponType.Name}"
+                                                  Foreground="White"/>
+                                    </Border>
+                                    
+                                    <!-- ปุ่มการจัดการ -->
+                                    <StackPanel Grid.Column="4" 
+                                               Orientation="Horizontal" 
+                                               HorizontalAlignment="Center" 
+                                               VerticalAlignment="Center"
+                                               Spacing="8">
+                                        <Button Content="✏️ แก้ไข" 
+                                                FontSize="11"
+                                                Height="32"
+                                                Width="70"
+                                                Tag="{x:Bind}"
+                                                Click="EditCouponButton_Click"
+                                                Background="Orange"
+                                                Foreground="White"
+                                                CornerRadius="4"/>
+                                        
+                                        <Button Content="🗑️ ลบ" 
+                                                FontSize="11"
+                                                Height="32"
+                                                Width="60"
+                                                Tag="{x:Bind}"
+                                                Click="DeleteCouponButton_Click"
+                                                Background="Red"
+                                                Foreground="White"
+                                                CornerRadius="4"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Border>
         </Grid>
     </Grid>
 
-    <!-- Popup for adding new coupon type -->
+    <!-- Resources -->
     <Page.Resources>
+        <!-- เพิ่ม Converter สำหรับการแสดงผลทศนิยม -->
+        <local:DecimalFormatConverter x:Key="DecimalFormatter" Format="N2"/>
+        
         <ContentDialog x:Name="AddTypeDialog"
                       Title="เพิ่มประเภทคูปอง"
                       PrimaryButtonText="บันทึก"
