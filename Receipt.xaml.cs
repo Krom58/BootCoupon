@@ -2,7 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media; // เพิ่มบรรทัดนี้สำหรับ SolidColorBrush
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI.Xaml.Printing;
@@ -35,6 +34,8 @@ namespace BootCoupon
         private readonly ObservableCollection<ReceiptItem> _selectedItems = new();
         private readonly ObservableCollection<SalesPerson> _salesPersons = new();
         private readonly ObservableCollection<CouponType> _couponTypes = new();
+        private readonly List<PaymentMethod> _paymentMethods = new();
+        private readonly List<CheckBox> _paymentCheckBoxes = new();
 
         // เพิ่มตัวแปรสำหรับ debounce
         private System.Threading.Timer? _searchTimer;
@@ -59,12 +60,142 @@ namespace BootCoupon
             {
                 await LoadAllCoupons();
                 await LoadSalesPersons();
-                await LoadCouponTypes(); // เพิ่มบรรทัดนี้
+                await LoadCouponTypes();
+                await LoadPaymentMethods();
             }
             catch (Exception ex)
             {
                 await ShowErrorDialog($"Error during load: {ex.Message}");
             }
+        }
+
+        private async Task LoadPaymentMethods()
+        {
+            try
+            {
+                await _context.Database.EnsureCreatedAsync();
+
+                // ตรวจสอบว่าตาราง PaymentMethods มีข้อมูลหรือไม่
+                var paymentMethodsExist = await _context.PaymentMethods.AnyAsync();
+                
+                if (!paymentMethodsExist)
+                {
+                    // สร้างข้อมูลเริ่มต้นถ้ายังไม่มี
+                    var defaultPaymentMethods = new List<PaymentMethod>
+                    {
+                        new PaymentMethod { Name = "เงินสด", IsActive = true },
+                        new PaymentMethod { Name = "เงินโอน", IsActive = true },
+                        new PaymentMethod { Name = "เครดิตการ์ด", IsActive = true },
+                        new PaymentMethod { Name = "QR", IsActive = true }
+                    };
+
+                    _context.PaymentMethods.AddRange(defaultPaymentMethods);
+                    await _context.SaveChangesAsync();
+                    
+                    Debug.WriteLine("สร้างข้อมูล Payment Methods เริ่มต้นเรียบร้อย");
+                }
+
+                var paymentMethods = await _context.PaymentMethods
+                    .Where(pm => pm.IsActive)
+                    .OrderBy(pm => pm.Id)
+                    .ToListAsync();
+
+                _paymentMethods.Clear();
+                _paymentMethods.AddRange(paymentMethods);
+
+                Debug.WriteLine($"โหลด Payment Methods สำเร็จ: {paymentMethods.Count} รายการ");
+
+                // สร้างเช็คบ็อกแบบไดนามิก
+                CreatePaymentMethodCheckBoxes();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ข้อผิดพลาดในการโหลด Payment Methods: {ex.Message}");
+                
+                // สร้าง payment methods แบบ hardcode ถ้าเกิดข้อผิดพลาด
+                CreateFallbackPaymentMethods();
+            }
+        }
+
+        private void CreateFallbackPaymentMethods()
+        {
+            try
+            {
+                _paymentMethods.Clear();
+                _paymentMethods.AddRange(new List<PaymentMethod>
+                {
+                    new PaymentMethod { Id = 1, Name = "เงินสด", IsActive = true },
+                    new PaymentMethod { Id = 2, Name = "เงินโอน", IsActive = true },
+                    new PaymentMethod { Id = 3, Name = "เครดิตการ์ด", IsActive = true },
+                    new PaymentMethod { Id = 4, Name = "QR", IsActive = true }
+                });
+
+                CreatePaymentMethodCheckBoxes();
+                Debug.WriteLine("สร้าง Payment Methods แบบ fallback สำเร็จ");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ข้อผิดพลาดในการสร้าง fallback payment methods: {ex.Message}");
+            }
+        }
+
+        private void CreatePaymentMethodCheckBoxes()
+        {
+            PaymentMethodPanel.Children.Clear();
+            _paymentCheckBoxes.Clear();
+
+            foreach (var paymentMethod in _paymentMethods)
+            {
+                var checkBox = new CheckBox
+                {
+                    Content = paymentMethod.Name,
+                    Tag = paymentMethod,
+                    Margin = new Thickness(0, 0, 10, 0)
+                };
+
+                checkBox.Checked += PaymentMethodCheckBox_Checked;
+                checkBox.Unchecked += PaymentMethodCheckBox_Unchecked;
+
+                _paymentCheckBoxes.Add(checkBox);
+                PaymentMethodPanel.Children.Add(checkBox);
+            }
+        }
+
+        private void PaymentMethodCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            var checkedBox = sender as CheckBox;
+            if (checkedBox != null)
+            {
+                // ยกเลิกการเลือกเช็คบ็อกอื่นๆ (อนุญาตให้เลือกได้เพียง 1 อัน)
+                foreach (var checkBox in _paymentCheckBoxes)
+                {
+                    if (checkBox != checkedBox)
+                    {
+                        checkBox.Unchecked -= PaymentMethodCheckBox_Unchecked;
+                        checkBox.IsChecked = false;
+                        checkBox.Unchecked += PaymentMethodCheckBox_Unchecked;
+                    }
+                }
+
+                // ซ่อนข้อความเตือน
+                PaymentMethodErrorText.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void PaymentMethodCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            // ตรวจสอบว่ามีเช็คบ็อกใดถูกเลือกอยู่หรือไม่
+            var hasChecked = _paymentCheckBoxes.Any(cb => cb.IsChecked == true);
+            if (!hasChecked)
+            {
+                PaymentMethodErrorText.Visibility = Visibility.Visible;
+            }
+        }
+
+        private PaymentMethod? GetSelectedPaymentMethod()
+        {
+            var checkedBox = _paymentCheckBoxes.FirstOrDefault(cb => cb.IsChecked == true);
+            return checkedBox?.Tag as PaymentMethod;
         }
 
         private async Task LoadSalesPersons() // โหลดเซลล์
@@ -350,7 +481,7 @@ namespace BootCoupon
             }
         }
 
-        // Modified SaveReceiptButton_Click to show confirmation popup instead of navigating to preview
+        // Modified SaveReceiptButton_Click to include payment method validation
         private async void SaveReceiptButton_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedItems.Count == 0)
@@ -364,6 +495,15 @@ namespace BootCoupon
             if (selectedSalesPerson == null)
             {
                 await ShowErrorDialog("กรุณาเลือกเซลล์ก่อนบันทึกใบเสร็จ");
+                return;
+            }
+
+            // เช็คว่ามีการเลือกวิธีการชำระเงินหรือไม่
+            var selectedPaymentMethod = GetSelectedPaymentMethod();
+            if (selectedPaymentMethod == null)
+            {
+                PaymentMethodErrorText.Visibility = Visibility.Visible;
+                await ShowErrorDialog("กรุณาเลือกวิธีการชำระเงินก่อนบันทึกใบเสร็จ");
                 return;
             }
 
@@ -406,7 +546,7 @@ namespace BootCoupon
                     // ใช้ Service ใหม่แทน AppSettings
                     string receiptCode = await ReceiptNumberService.GenerateNextReceiptCodeAsync();
 
-                    // Create and save receipt with customer information and receipt code
+                    // Create and save receipt with customer information, receipt code and payment method
                     var receipt = new ReceiptModel
                     {
                         ReceiptCode = receiptCode,
@@ -414,7 +554,8 @@ namespace BootCoupon
                         CustomerName = customerName,
                         CustomerPhoneNumber = phoneNumber,
                         TotalAmount = _selectedItems.Sum(item => item.TotalPrice),
-                        SalesPersonId = selectedSalesPerson.ID
+                        SalesPersonId = selectedSalesPerson.ID,
+                        PaymentMethodId = selectedPaymentMethod.Id // เพิ่มวิธีการชำระเงิน
                     };
 
                     _context.Receipts.Add(receipt);
@@ -458,10 +599,11 @@ namespace BootCoupon
                         await _context.SaveChangesAsync();
 
                         // ใช้ Service แทนการแสดง popup และ navigate
-                        await ShowPrintConfirmationDialog(receipt.ReceiptID, receiptCode);
+                        await ShowPrintConfirmationDialog(receipt.ReceiptID, receiptCode, selectedPaymentMethod.Name);
 
-                        // เคลียร์รายการที่เลือกหลังจากบันทึกเรียบร้อยแล้ว
+                        // เคลียร์รายการและรีเซ็ตวิธีการชำระเงินหลังจากบันทึกเรียบร้อยแล้ว
                         _selectedItems.Clear();
+                        ClearPaymentMethodSelection();
                         UpdateTotalPrice();
                     }
                     catch (Exception dbEx)
@@ -479,6 +621,17 @@ namespace BootCoupon
                     await ShowErrorDialog($"เกิดข้อผิดพลาด: {ex.Message}");
                 }
             }
+        }
+
+        private void ClearPaymentMethodSelection()
+        {
+            foreach (var checkBox in _paymentCheckBoxes)
+            {
+                checkBox.Unchecked -= PaymentMethodCheckBox_Unchecked;
+                checkBox.IsChecked = false;
+                checkBox.Unchecked += PaymentMethodCheckBox_Unchecked;
+            }
+            PaymentMethodErrorText.Visibility = Visibility.Collapsed;
         }
 
         private void UpdateTotalPrice()
@@ -506,13 +659,13 @@ namespace BootCoupon
         }
 
         // เพิ่ม method สำหรับแสดง popup ยืนยันการพิมพ์ใหม่
-        private async Task ShowPrintConfirmationDialog(int receiptId, string receiptCode)
+        private async Task ShowPrintConfirmationDialog(int receiptId, string receiptCode, string paymentMethodName)
         {
             // สร้าง popup ที่มีปุ่มพิมพ์และยกเลิก
             var confirmDialog = new ContentDialog
             {
                 Title = "บันทึกใบเสร็จสำเร็จ",
-                Content = $"ใบเสร็จเลขที่ {receiptCode} ถูกบันทึกเรียบร้อยแล้ว\n\nต้องการพิมพ์ใบเสร็จหรือไม่?",
+                Content = $"ใบเสร็จเลขที่ {receiptCode} ถูกบันทึกเรียบร้อยแล้ว\nวิธีการชำระเงิน: {paymentMethodName}\n\nต้องการพิมพ์ใบเสร็จหรือไม่?",
                 PrimaryButtonText = "พิมพ์",
                 CloseButtonText = "ยกเลิก",
                 DefaultButton = ContentDialogButton.Primary,

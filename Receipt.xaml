@@ -105,17 +105,19 @@
                 </ListView>
             </Grid>
 
-            <!-- Right Panel - Selected Items and Actions (ลดความสูง 20%) -->
+            <!-- Right Panel - Selected Items and Actions -->
             <Grid Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="600" />
+                    <RowDefinition Height="500" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Text="รายการที่เลือก" FontSize="18" FontWeight="Bold" Margin="0,0,0,10" />
 
-                <!-- Selected Items ListView with fixed height to achieve 20% reduction -->
+                <!-- Selected Items ListView -->
                 <ListView x:Name="SelectedItemsListView" Grid.Row="1" BorderThickness="1" BorderBrush="{ThemeResource SystemControlForegroundBaseMediumLowBrush}" Margin="0,0,0,10">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="local:ReceiptItem">
@@ -141,8 +143,19 @@
                     </ListView.ItemTemplate>
                 </ListView>
 
+                <!-- Payment Method Section -->
+                <StackPanel Grid.Row="2" Margin="0,10,0,10">
+                    <TextBlock Text="วิธีการชำระเงิน" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock x:Name="PaymentMethodErrorText" Text="* กรุณาเลือกวิธีการชำระเงิน" 
+                               Foreground="Red" FontSize="12" Visibility="Collapsed" Margin="0,0,0,5" />
+                    
+                    <StackPanel x:Name="PaymentMethodPanel" Orientation="Horizontal" Spacing="15">
+                        <!-- เช็คบ็อกจะถูกสร้างแบบไดนามิกใน code-behind -->
+                    </StackPanel>
+                </StackPanel>
+
                 <!-- Total Price -->
-                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,10"
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,10"
                             Padding="10" CornerRadius="8">
                     <TextBlock Text="รวมทั้งหมด: " FontSize="64" FontWeight="Bold" VerticalAlignment="Center" />
                     <TextBlock x:Name="TotalPriceTextBlock" Text="0" FontSize="62" FontWeight="Bold" VerticalAlignment="Center" 

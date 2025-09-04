@@ -12,12 +12,14 @@ public class CouponContext : DbContext
     // เพิ่มตารางใหม่
     public DbSet<ReceiptNumberManager> ReceiptNumberManagers { get; set; } = null!;
     public DbSet<CanceledReceiptNumber> CanceledReceiptNumbers { get; set; } = null!;
+    public DbSet<PaymentMethod> PaymentMethods { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseSqlServer("Server=10.10.0.42;Database=CouponDB;User Id=sa;Password=Wutt@1976;TrustServerCertificate=True;");
     }
-
+    //Server=10.10.0.42;Database=CouponDB;User Id=sa;Password=Wutt@1976;TrustServerCertificate=True;
+    //Server=KROM\\SQLEXPRESS;Database=CouponDB;Integrated Security=True;TrustServerCertificate=True;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -59,6 +61,16 @@ public class CouponContext : DbContext
             entity.Property(e => e.ReceiptCode).IsRequired().HasMaxLength(50);
             entity.HasIndex(e => e.ReceiptCode).IsUnique();
             entity.Property(e => e.Reason).HasMaxLength(255);
+        });
+
+        // เพิ่ม configuration สำหรับ PaymentMethod
+        modelBuilder.Entity<PaymentMethod>(entity =>
+        {
+            entity.ToTable("PaymentMethods");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
         });
     }
 }

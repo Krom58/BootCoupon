@@ -24,6 +24,9 @@ namespace BootCoupon
         
         // เพิ่มสถานะของใบเสร็จ
         public string Status { get; set; } = "Active";
+        
+        // เพิ่มวิธีการชำระเงิน
+        public int? PaymentMethodId { get; set; }
     }
 
     public class DatabaseReceiptItem
@@ -48,6 +51,7 @@ namespace BootCoupon
         public string ReceiptCode { get; set; } = string.Empty;
         public int? SalesPersonId { get; set; }
         public string Status { get; set; } = "Active";
+        public int? PaymentMethodId { get; set; }
         
         // Properties สำหรับแสดงผล
         public string TotalAmountFormatted => TotalAmount.ToString("N2");

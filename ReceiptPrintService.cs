@@ -28,6 +28,7 @@ namespace BootCoupon
         private static List<ReceiptItemDisplay> currentItems = new();
         private static string salesPersonName = string.Empty;
         private static string salesPersonPhone = string.Empty;
+        private static string selectedPaymentMethod = string.Empty; // เพิ่มในส่วนตัวแปร
 
         // Dialog management
         private static readonly SemaphoreSlim dialogSemaphore = new(1, 1);
@@ -146,6 +147,9 @@ namespace BootCoupon
                     // โหลดข้อมูล Sales Person
                     await LoadSalesPersonDataAsync(context);
 
+                    // โหลดข้อมูล Payment Method
+                    await LoadPaymentMethodDataAsync(context);
+
                     Debug.WriteLine($"โหลดข้อมูลใบเสร็จ {currentReceipt.ReceiptCode} สำเร็จ");
                     return true;
                 }
@@ -184,6 +188,43 @@ namespace BootCoupon
                 Debug.WriteLine($"ข้อผิดพลาดในการโหลด Sales Person: {ex.Message}");
                 salesPersonName = "ไม่สามารถโหลดข้อมูลได้";
                 salesPersonPhone = "";
+            }
+        }
+
+        private static async Task LoadPaymentMethodDataAsync(CouponContext context) // เพิ่ม method ใหม่
+        {
+            try
+            {
+                Debug.WriteLine($"LoadPaymentMethodDataAsync: currentReceipt?.PaymentMethodId = {currentReceipt?.PaymentMethodId}");
+                
+                if (currentReceipt?.PaymentMethodId.HasValue == true)
+                {
+                    var paymentMethod = await context.PaymentMethods
+                        .FirstOrDefaultAsync(pm => pm.Id == currentReceipt.PaymentMethodId.Value);
+
+                    if (paymentMethod != null)
+                    {
+                        selectedPaymentMethod = paymentMethod.Name;
+                        Debug.WriteLine($"โหลดข้อมูลวิธีการชำระเงิน: '{selectedPaymentMethod}' (ID: {paymentMethod.Id})");
+                    }
+                    else
+                    {
+                        selectedPaymentMethod = "ไม่ระบุ";
+                        Debug.WriteLine($"ไม่พบข้อมูล PaymentMethod สำหรับ ID: {currentReceipt.PaymentMethodId.Value}");
+                    }
+                }
+                else
+                {
+                    selectedPaymentMethod = "ไม่ระบุ";
+                    Debug.WriteLine("ไม่มี PaymentMethodId ในใบเสร็จ");
+                }
+                
+                Debug.WriteLine($"selectedPaymentMethod ถูกตั้งค่าเป็น: '{selectedPaymentMethod}'");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ข้อผิดพลาดในการโหลดวิธีการชำระเงิน: {ex.Message}");
+                selectedPaymentMethod = "ไม่สามารถโหลดข้อมูลได้";
             }
         }
 
@@ -1073,6 +1114,8 @@ namespace BootCoupon
 
                 var paymentMethods = new[] { "เงินสด", "เงินโอน", "เครดิตการ์ด", "QR" };
 
+                Debug.WriteLine($"กำลังสร้าง Payment Section สำหรับ: '{selectedPaymentMethod}'");
+
                 for (int i = 0; i < paymentMethods.Length; i++)
                 {
                     var paymentPanel = new StackPanel
@@ -1087,8 +1130,33 @@ namespace BootCoupon
                         BorderThickness = new Thickness(1),
                         Width = 16,
                         Height = 16,
-                        Margin = new Thickness(0, 0, 6, 0)
+                        Margin = new Thickness(0, 0, 6, 0),
+                        Background = new SolidColorBrush(Microsoft.UI.Colors.White)
                     };
+
+                    // เปรียบเทียบแบบไม่คำนึงถึงตัวพิมพ์เล็กใหญ่และช่องว่าง
+                    string currentMethod = paymentMethods[i].Trim();
+                    string selectedMethod = selectedPaymentMethod?.Trim() ?? "";
+                    
+                    bool isSelected = string.Equals(currentMethod, selectedMethod, StringComparison.OrdinalIgnoreCase);
+                    
+                    Debug.WriteLine($"เปรียบเทียบ: '{currentMethod}' กับ '{selectedMethod}' = {isSelected}");
+
+                    // เพิ่มเครื่องหมายถูกถ้าตรงกับวิธีการชำระเงินที่เลือก
+                    if (isSelected)
+                    {
+                        checkbox.Child = new TextBlock
+                        {
+                            Text = "✓",
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            FontSize = 12,
+                            FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                            Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green)
+                        };
+                        
+                        Debug.WriteLine($"แสดงเครื่องหมายถูกสำหรับ: {currentMethod}");
+                    }
 
                     var label = new TextBlock
                     {
@@ -1330,7 +1398,6 @@ namespace BootCoupon
                 Debug.WriteLine($"ข้อผิดพลาดในการทำความสะอาด: {ex.Message}");
             }
         }
-
         // Safe dialog methods ที่ป้องกัน dialog ซ้อนกัน
         private static async Task ShowErrorDialogSafe(XamlRoot xamlRoot, string message)
         {
