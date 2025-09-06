@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="BootCoupon.SalesReportPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BootCoupon"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Grid.Row="0" Text="รายงานการขาย" 
+                   FontSize="28" FontWeight="Bold" 
+                   HorizontalAlignment="Center" 
+                   Margin="0,0,0,30"/>
+
+        <!-- Filters Panel -->
+        <Border Grid.Row="1" Background="{ThemeResource LayerFillColorDefaultBrush}" 
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" 
+                BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,0,20">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Title -->
+                <TextBlock Grid.Row="0" Grid.ColumnSpan="3" Text="ตัวกรองข้อมูล" 
+                           FontSize="18" FontWeight="SemiBold" 
+                           Margin="0,0,0,15"/>
+
+                <!-- Row 1: Date Range -->
+                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,15,15">
+                    <TextBlock Text="วันที่เริ่มต้น:" Margin="0,0,0,5"/>
+                    <DatePicker x:Name="StartDatePicker" 
+                                SelectedDate="{x:Bind ViewModel.StartDate, Mode=TwoWay}"
+                                HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,15,15">
+                    <TextBlock Text="วันที่สิ้นสุด:" Margin="0,0,0,5"/>
+                    <DatePicker x:Name="EndDatePicker" 
+                                SelectedDate="{x:Bind ViewModel.EndDate, Mode=TwoWay}"
+                                HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,15">
+                    <TextBlock Text="เซล:" Margin="0,0,0,5"/>
+                    <ComboBox x:Name="SalesPersonComboBox" 
+                              ItemsSource="{x:Bind ViewModel.SalesPersons, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.SelectedSalesPerson, Mode=TwoWay}"
+                              DisplayMemberPath="Name"
+                              PlaceholderText="ทุกคน"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <!-- Row 2: Coupon Filters -->
+                <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,15,15">
+                    <TextBlock Text="ประเภทคูปอง:" Margin="0,0,0,5"/>
+                    <ComboBox x:Name="CouponTypeComboBox" 
+                              ItemsSource="{x:Bind ViewModel.CouponTypes, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.SelectedCouponType, Mode=TwoWay}"
+                              DisplayMemberPath="Name"
+                              PlaceholderText="ทุกประเภท"
+                              HorizontalAlignment="Stretch"
+                              SelectionChanged="CouponTypeComboBox_SelectionChanged"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,15,15">
+                    <TextBlock Text="ชื่อคูปอง:" Margin="0,0,0,5"/>
+                    <ComboBox x:Name="CouponComboBox" 
+                              ItemsSource="{x:Bind ViewModel.FilteredCoupons, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.SelectedCoupon, Mode=TwoWay}"
+                              DisplayMemberPath="Name"
+                              PlaceholderText="ทุกคูปอง"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,15">
+                    <TextBlock Text="วิธีการชำระเงิน:" Margin="0,0,0,5"/>
+                    <ComboBox x:Name="PaymentMethodComboBox" 
+                              ItemsSource="{x:Bind ViewModel.PaymentMethods, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.SelectedPaymentMethod, Mode=TwoWay}"
+                              DisplayMemberPath="Name"
+                              PlaceholderText="ทุกประเภท"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <!-- Row 3: Quick Date Buttons -->
+                <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Orientation="Horizontal" 
+                            Spacing="10" Margin="0,0,0,15">
+                    <TextBlock Text="ช่วงเวลาด่วน:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <Button Content="วันนี้" Click="TodayButton_Click" Style="{StaticResource AccentButtonStyle}"/>
+                    <Button Content="7 วันที่แล้ว" Click="Last7DaysButton_Click"/>
+                    <Button Content="30 วันที่แล้ว" Click="Last30DaysButton_Click"/>
+                    <Button Content="เดือนนี้" Click="ThisMonthButton_Click"/>
+                    <Button Content="เดือนที่แล้ว" Click="LastMonthButton_Click"/>
+                    <Button Content="ปีนี้" Click="ThisYearButton_Click"/>
+                </StackPanel>
+
+                <!-- Row 4: Action Buttons -->
+                <StackPanel Grid.Row="4" Grid.ColumnSpan="3" Orientation="Horizontal" 
+                            HorizontalAlignment="Center" Spacing="15">
+                    <Button x:Name="SearchButton" Content="ค้นหา" 
+                            Click="SearchButton_Click" 
+                            Style="{StaticResource AccentButtonStyle}"
+                            MinWidth="120"/>
+                    <Button x:Name="ClearButton" Content="ล้างตัวกรอง" 
+                            Click="ClearButton_Click" 
+                            MinWidth="120"/>
+                    <!-- แก้ไข: เอา IsEnabled ออกเพื่อให้ปุ่มใช้งานได้เสมอ และจะตรวจสอบข้อมูลใน code-behind แทน -->
+                    <Button x:Name="ExportExcelButton" Content="ส่งออก Excel" 
+                            Click="ExportExcelButton_Click"
+                            MinWidth="120"/>
+                    <Button x:Name="PrintButton" Content="พิมพ์" 
+                            Click="PrintButton_Click"
+                            MinWidth="120"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Results Area with ScrollViewer only for data -->
+        <Border Grid.Row="2" Background="{ThemeResource LayerFillColorDefaultBrush}" 
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" 
+                BorderThickness="1" CornerRadius="8" Padding="20">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Summary -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="30" Margin="0,0,0,15">
+                    <TextBlock Text="{x:Bind ViewModel.TotalRecordsText, Mode=OneWay}" 
+                               FontWeight="SemiBold"/>
+                    <TextBlock Text="{x:Bind ViewModel.TotalAmountText, Mode=OneWay}" 
+                               FontWeight="SemiBold" Foreground="{ThemeResource SystemAccentColor}"/>
+                </StackPanel>
+
+                <!-- Data List with ScrollViewer -->
+                <ScrollViewer Grid.Row="1" Grid.RowSpan="2" VerticalScrollBarVisibility="Auto" 
+                              VerticalScrollMode="Auto" HorizontalScrollBarVisibility="Auto" 
+                              HorizontalScrollMode="Auto" ZoomMode="Disabled">
+                    <!-- ใช้ DataGrid แทน ListView เพื่อให้ Column ขยายได้ -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Column Headers -->
+                        <Border Grid.Row="0" Background="{ThemeResource SubtleFillColorSecondaryBrush}" 
+                                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" 
+                                BorderThickness="0,0,0,1" Padding="10,8">
+                            <Grid MinWidth="1200">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" MinWidth="130"/>
+                                    <ColumnDefinition Width="Auto" MinWidth="110"/>
+                                    <ColumnDefinition Width="*" MinWidth="150"/>
+                                    <ColumnDefinition Width="Auto" MinWidth="120"/>
+                                    <ColumnDefinition Width="*" MinWidth="150"/>
+                                    <ColumnDefinition Width="Auto" MinWidth="120"/>
+                                    <ColumnDefinition Width="Auto" MinWidth="120"/>
+                                    <ColumnDefinition Width="Auto" MinWidth="80"/>
+                                    <ColumnDefinition Width="Auto" MinWidth="100"/>
+                                    <ColumnDefinition Width="Auto" MinWidth="100"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="วันที่" FontWeight="SemiBold" Padding="5"/>
+                                <TextBlock Grid.Column="1" Text="เลขที่ใบเสร็จ" FontWeight="SemiBold" Padding="5"/>
+                                <TextBlock Grid.Column="2" Text="ลูกค้า" FontWeight="SemiBold" Padding="5"/>
+                                <TextBlock Grid.Column="3" Text="เซล" FontWeight="SemiBold" Padding="5"/>
+                                <TextBlock Grid.Column="4" Text="คูปอง" FontWeight="SemiBold" Padding="5"/>
+                                <TextBlock Grid.Column="5" Text="ประเภท" FontWeight="SemiBold" Padding="5"/>
+                                <TextBlock Grid.Column="6" Text="การชำระเงิน" FontWeight="SemiBold" Padding="5"/>
+                                <TextBlock Grid.Column="7" Text="จำนวน" FontWeight="SemiBold" TextAlignment="Right" Padding="5"/>
+                                <TextBlock Grid.Column="8" Text="ราคา/หน่วย" FontWeight="SemiBold" TextAlignment="Right" Padding="5"/>
+                                <TextBlock Grid.Column="9" Text="รวม" FontWeight="SemiBold" TextAlignment="Right" Padding="5"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Data Rows -->
+                        <ItemsControl Grid.Row="1" x:Name="ReportItemsControl" 
+                                      ItemsSource="{x:Bind ViewModel.ReportData, Mode=OneWay}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:SalesReportItem">
+                                    <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" 
+                                            BorderThickness="0,0,0,1" Padding="10,8">
+                                        <Grid MinWidth="1200">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" MinWidth="130"/>
+                                                <ColumnDefinition Width="Auto" MinWidth="110"/>
+                                                <ColumnDefinition Width="*" MinWidth="150"/>
+                                                <ColumnDefinition Width="Auto" MinWidth="120"/>
+                                                <ColumnDefinition Width="*" MinWidth="150"/>
+                                                <ColumnDefinition Width="Auto" MinWidth="120"/>
+                                                <ColumnDefinition Width="Auto" MinWidth="120"/>
+                                                <ColumnDefinition Width="Auto" MinWidth="80"/>
+                                                <ColumnDefinition Width="Auto" MinWidth="100"/>
+                                                <ColumnDefinition Width="Auto" MinWidth="100"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{x:Bind ReceiptDateDisplay}" 
+                                                       VerticalAlignment="Center" Padding="5"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ReceiptCode}" 
+                                                       VerticalAlignment="Center" Padding="5"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind CustomerName}" 
+                                                       VerticalAlignment="Center" TextWrapping="Wrap" Padding="5"/>
+                                            <TextBlock Grid.Column="3" Text="{x:Bind SalesPersonName}" 
+                                                       VerticalAlignment="Center" TextWrapping="Wrap" Padding="5"/>
+                                            <TextBlock Grid.Column="4" Text="{x:Bind CouponName}" 
+                                                       VerticalAlignment="Center" TextWrapping="Wrap" Padding="5"/>
+                                            <TextBlock Grid.Column="5" Text="{x:Bind CouponTypeName}" 
+                                                       VerticalAlignment="Center" TextWrapping="Wrap" Padding="5"/>
+                                            <TextBlock Grid.Column="6" Text="{x:Bind PaymentMethodName}" 
+                                                       VerticalAlignment="Center" TextWrapping="Wrap" Padding="5"/>
+                                            <TextBlock Grid.Column="7" Text="{x:Bind Quantity}" 
+                                                       VerticalAlignment="Center" TextAlignment="Right" Padding="5"/>
+                                            <TextBlock Grid.Column="8" Text="{x:Bind UnitPriceDisplay}" 
+                                                       VerticalAlignment="Center" TextAlignment="Right" Padding="5"/>
+                                            <TextBlock Grid.Column="9" Text="{x:Bind TotalPriceDisplay}" 
+                                                       VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold" Padding="5"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Back Button - Fixed at bottom -->
+        <Button Grid.Row="3" Content="กลับหน้าหลัก" 
+                Click="BackButton_Click" 
+                HorizontalAlignment="Center" 
+                Margin="0,20,0,0" 
+                MinWidth="150"/>
+    </Grid>
+</Page>

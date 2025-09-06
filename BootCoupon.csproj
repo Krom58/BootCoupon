@@ -29,6 +29,7 @@
     <None Remove="Receipt.xaml" />
     <None Remove="ReceiptPrintPreview.xaml" />
     <None Remove="ReprintReceiptPage.xaml" />
+    <None Remove="SalesReportPage.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -66,6 +67,11 @@
     <Content Update="Assets\AsiaHotelLogo.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="SalesReportPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <Page Update="ReprintReceiptPage.xaml">
