@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="BootCoupon.Receipt"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BootCoupon"
+    xmlns:models="using:CouponManagement.Shared.Models"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid x:Name="RootGrid">
+        <!-- Top Button Bar -->
+        <Grid VerticalAlignment="Top" Height="60" BorderBrush="Gray" BorderThickness="0,0,0,1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- Back Button - Top Left (Red) -->
+            <Button Grid.Column="0" x:Name="BackButton" Content="⟵ กลับ" Click="BackButton_Click" 
+                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="20,0,0,0"
+                    Background="Red" Foreground="White" FontSize="16" Padding="15,8" 
+                    CornerRadius="5" BorderThickness="0"/>
+            
+            <!-- Save Button - Top Right (Green) -->
+            <Button Grid.Column="2" x:Name="SaveReceiptButton" Content="💾 บันทึกใบเสร็จ" Click="SaveReceiptButton_Click" 
+                    HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0"
+                    Background="Green" Foreground="White" FontSize="16" Padding="15,8" 
+                    CornerRadius="5" BorderThickness="0"/>
+        </Grid>
+
+        <!-- Main Content -->
+        <Grid Padding="20" Margin="0,70,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Panel - Search and Display -->
+            <Grid Grid.Column="0" Margin="0,0,10,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="ค้นหาคูปอง" FontSize="20" FontWeight="Bold" Margin="0,0,0,10" />
+
+                <!-- Search Controls - ลบปุ่มค้นหา -->
+                <Grid Grid.Row="1" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Search by Name -->
+                    <TextBox x:Name="NameSearchTextBox" Grid.Column="0" PlaceholderText="ค้นหาตามชื่อ" 
+                             Margin="0,0,5,0" TextChanged="NameSearchTextBox_TextChanged" />
+
+                    <!-- Search by Code -->
+                    <TextBox x:Name="CodeSearchTextBox" Grid.Column="1" PlaceholderText="ค้นหาตามรหัส" 
+                             Margin="5,0,5,0" TextChanged="CodeSearchTextBox_TextChanged" />
+
+                    <!-- Search by Coupon Type -->
+                    <ComboBox x:Name="CouponTypeComboBox" Grid.Column="2" PlaceholderText="ค้นหาตามประเภท" 
+                              Margin="5,0,0,0" DisplayMemberPath="Name" SelectedValuePath="Id" 
+                              SelectionChanged="CouponTypeComboBox_SelectionChanged" />
+                </Grid>
+
+                <!-- Sales Person Selection - ย้ายมาอยู่ฝั่งซ้ายและชิดขวา -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10" HorizontalAlignment="Right">
+                    <TextBlock Text="เลือกเซลล์:" VerticalAlignment="Center" Margin="0,0,10,0" FontWeight="SemiBold" />
+                    <ComboBox x:Name="SalesPersonComboBox"
+                              Width="200"
+                              DisplayMemberPath="Name"
+                              SelectedValuePath="ID"
+                              PlaceholderText="เลือกเซลล์" />
+                </StackPanel>
+
+                <!-- Coupons ListView -->
+                <ListView x:Name="CouponsListView" Grid.Row="3" SelectionMode="Single" BorderThickness="1" BorderBrush="{ThemeResource SystemControlForegroundBaseMediumLowBrush}">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Coupon">
+                            <Grid Padding="5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{x:Bind Code}" FontSize="12" Opacity="0.8" />
+                                    <TextBlock Text="{x:Bind CouponType.Name}" FontStyle="Italic" FontSize="12" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{x:Bind Price}" TextAlignment="Right" VerticalAlignment="Center" Margin="10,0" />
+                                <TextBlock Grid.Column="2" Text="บาท/ใบ" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <Button Grid.Column="3" Content="เลือก" Tag="{x:Bind}" Click="SelectCouponButton_Click" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+
+            <!-- Right Panel - Selected Items and Actions -->
+            <Grid Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Top">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="500" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="รายการที่เลือก" FontSize="18" FontWeight="Bold" Margin="0,0,0,10" />
+
+                <!-- Selected Items ListView -->
+                <ListView x:Name="SelectedItemsListView" Grid.Row="1" BorderThickness="1" BorderBrush="{ThemeResource SystemControlForegroundBaseMediumLowBrush}" Margin="0,0,0,10">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:ReceiptItem">
+                            <Grid Padding="5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{x:Bind Coupon.Name}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{x:Bind Coupon.Code}" FontSize="12" Opacity="0.8" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{x:Bind Quantity}" TextAlignment="Center" VerticalAlignment="Center" Margin="5,0" />
+                                <TextBlock Grid.Column="2" Text="{x:Bind TotalPrice}" TextAlignment="Right" VerticalAlignment="Center" Margin="5,0" />
+                                <StackPanel Grid.Column="3" Orientation="Vertical" Margin="5,0,0,0">
+                                    <Button Content="แก้ไข" Tag="{x:Bind}" Click="EditItemButton_Click" FontSize="12" Padding="8,4" Margin="0,0,0,2" />
+                                    <Button Content="ลบ" Tag="{x:Bind}" Click="DeleteItemButton_Click" FontSize="12" Padding="8,4" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <!-- Payment Method Section -->
+                <StackPanel Grid.Row="2" Margin="0,10,0,10">
+                    <TextBlock Text="วิธีการชำระเงิน" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBlock x:Name="PaymentMethodErrorText" Text="* กรุณาเลือกวิธีการชำระเงิน" 
+                               Foreground="Red" FontSize="12" Visibility="Collapsed" Margin="0,0,0,5" />
+                    
+                    <StackPanel x:Name="PaymentMethodPanel" Orientation="Horizontal" Spacing="15">
+                        <!-- เช็คบ็อกจะถูกสร้างแบบไดนามิกใน code-behind -->
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Total Price -->
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,10"
+                            Padding="10" CornerRadius="8">
+                    <TextBlock Text="รวมทั้งหมด: " FontSize="64" FontWeight="Bold" VerticalAlignment="Center" />
+                    <TextBlock x:Name="TotalPriceTextBlock" Text="0" FontSize="62" FontWeight="Bold" VerticalAlignment="Center" 
+                               Margin="5,0" Foreground="DarkGreen" />
+                    <TextBlock Text="บาท" FontSize="64" FontWeight="Bold" VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</Page>
