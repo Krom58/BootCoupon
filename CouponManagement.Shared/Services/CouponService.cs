@@ -26,12 +26,19 @@ namespace CouponManagement.Shared.Services
             return await _context.CouponTypes.ToListAsync();
         }
 
-        public async Task<CouponType> AddCouponTypeAsync(string name)
+        // New overload to accept createdBy
+        public async Task<CouponType> AddCouponTypeAsync(string name, string createdBy)
         {
-            var couponType = new CouponType { Name = name };
+            var couponType = new CouponType { Name = name, CreatedBy = createdBy, CreatedAt = DateTime.Now };
             _context.CouponTypes.Add(couponType);
             await _context.SaveChangesAsync();
             return couponType;
+        }
+
+        // Backward compatible method
+        public async Task<CouponType> AddCouponTypeAsync(string name)
+        {
+            return await AddCouponTypeAsync(name, Environment.UserName);
         }
 
         public async Task<bool> UpdateCouponTypeAsync(int id, string name)
@@ -61,9 +68,8 @@ namespace CouponManagement.Shared.Services
         // Coupon Methods
         public async Task<List<Coupon>> GetAllCouponsAsync()
         {
-            return await _context.Coupons
-                .Include(c => c.CouponType)
-                .ToListAsync();
+            // Do not include CouponType navigation; consumers should use CouponTypeId or call CouponService.GetAllCouponTypesAsync
+            return await _context.Coupons.ToListAsync();
         }
 
         public async Task<Coupon> AddCouponAsync(string name, decimal price, string code, int couponTypeId)
@@ -79,7 +85,7 @@ namespace CouponManagement.Shared.Services
             _context.Coupons.Add(coupon);
             await _context.SaveChangesAsync();
 
-            await _context.Entry(coupon).Reference(c => c.CouponType).LoadAsync();
+            // Do not load CouponType navigation here
             return coupon;
         }
 

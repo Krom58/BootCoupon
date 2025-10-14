@@ -1,0 +1,209 @@
+<ContentDialog x:Class="CouponManagement.Dialogs.CouponDefinitionDialog"
+               xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+               Title="คำนิยามคูปอง"
+               PrimaryButtonText="บันทึก"
+               CloseButtonText="ยกเลิก"
+               DefaultButton="Primary"
+               IsPrimaryButtonEnabled="True"
+               PrimaryButtonClick="ContentDialog_PrimaryButtonClick"
+               CloseButtonClick="ContentDialog_CloseButtonClick">
+
+    <ContentDialog.Resources>
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        
+        <Style x:Key="PreviewTextStyle" TargetType="TextBlock">
+            <Setter Property="FontStyle" Value="Italic"/>
+            <Setter Property="Foreground" Value="{ThemeResource SystemColorGrayTextBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,4,0,0"/>
+        </Style>
+    </ContentDialog.Resources>
+
+    <ScrollViewer MaxHeight="600" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="0" Margin="20">
+            
+            <!-- Basic Information -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="ข้อมูลพื้นฐาน" Style="{StaticResource SectionHeaderStyle}"/>
+                    
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="รหัสคูปอง *" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox x:Name="CodeTextBox" PlaceholderText="เช่น COFFEE50"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="ชื่อคูปอง *" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox x:Name="NameTextBox" PlaceholderText="เช่น คูปองกาแฟ 50 บาท"/>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="ประเภทคูปอง *" Style="{StaticResource FieldLabelStyle}"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <ComboBox x:Name="TypeComboBox" Grid.Column="0" HorizontalAlignment="Stretch" SelectionChanged="TypeComboBox_SelectionChanged"/>
+                                <Button x:Name="AddTypeButton" Grid.Column="1" Content="เพิ่มประเภท" Margin="8,0,0,0" Click="AddTypeButton_Click"/>
+                            </Grid>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="ราคาคูปอง *" Style="{StaticResource FieldLabelStyle}"/>
+                            <muxc:NumberBox x:Name="PriceNumberBox" 
+                                       Minimum="0" 
+                                       PlaceholderText="0.00"
+                                       SpinButtonPlacementMode="Inline"
+                                       ValueChanged="PriceNumberBox_ValueChanged"/>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="วันที่เริ่มใช้งาน *" Style="{StaticResource FieldLabelStyle}"/>
+                            <muxc:DatePicker x:Name="ValidFromDatePicker"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="วันที่หมดอายุ *" Style="{StaticResource FieldLabelStyle}"/>
+                            <muxc:DatePicker x:Name="ValidToDatePicker"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Type-specific Parameters (only coupon value supported) -->
+            <Border x:Name="ParametersSection" Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="พารามิเตอร์" Style="{StaticResource SectionHeaderStyle}"/>
+                    
+                    <!-- COUPON Parameters -->
+                    <StackPanel x:Name="CouponParamsPanel" Visibility="Visible" Spacing="12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="15"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="มูลค่าคูปอง *" Style="{StaticResource FieldLabelStyle}"/>
+                                <muxc:NumberBox x:Name="CouponValueNumberBox" 
+                                           Minimum="0" 
+                                           PlaceholderText="0.00"
+                                           ValueChanged="CouponValueNumberBox_ValueChanged"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="คำอธิบาย" Style="{StaticResource FieldLabelStyle}"/>
+                                <TextBox x:Name="CouponDescriptionTextBox" PlaceholderText="คำอธิบายเพิ่มเติม" TextChanged="UpdatePreview"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Code Generator Settings -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="การตั้งค่ารหัสคูปอง" Style="{StaticResource SectionHeaderStyle}"/>
+                    
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="รหัสหน้า *" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox x:Name="PrefixTextBox" 
+                                     PlaceholderText="เช่น CF" 
+                                     MaxLength="10"
+                                     TextChanged="CodeGenerator_TextChanged"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="รหัสหลัง *" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox x:Name="SuffixTextBox" 
+                                     PlaceholderText="เช่น END" 
+                                     MaxLength="10"
+                                     TextChanged="CodeGenerator_TextChanged"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="ความยาวตัวเลข *" Style="{StaticResource FieldLabelStyle}"/>
+                            <muxc:NumberBox x:Name="SequenceLengthNumberBox" 
+                                       Minimum="1" 
+                                       Maximum="10" 
+                                       Value="4"
+                                       ValueChanged="CodeGenerator_TextChanged"/>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <StackPanel>
+                        <TextBlock Text="ตัวอย่างรหัสที่จะสร้าง" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock x:Name="CodePreviewTextBlock" 
+                                   Style="{StaticResource PreviewTextStyle}"
+                                   Text="CF0001END"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Preview -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="ตัวอย่าง" Style="{StaticResource SectionHeaderStyle}"/>
+                    <TextBlock x:Name="DescriptionPreviewTextBlock" 
+                               Style="{StaticResource PreviewTextStyle}"
+                               Text="กรุณาเลือกประเภทคูปองและกรอกข้อมูล"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>
