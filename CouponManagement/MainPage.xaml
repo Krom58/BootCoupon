@@ -9,13 +9,44 @@
     mc:Ignorable="d">
   <Page.Resources>
     <Style x:Key="MenuButtonStyle" TargetType="Button">
-      <Setter Property="Padding" Value="8"/>
+      <Setter Property="Padding" Value="24,16"/>
       <Setter Property="Background" Value="{ThemeResource SystemControlBackgroundAccentBrush}"/>
-      <!-- other setters -->
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="FontSize" Value="20"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="MinWidth" Value="300"/>
+      <Setter Property="MinHeight" Value="60"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+    
+    <Style x:Key="TitleTextStyle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="36"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,40,0,60"/>
     </Style>
   </Page.Resources>
     <Grid>
-        <StackPanel Orientation="Vertical" Spacing="10" Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <!-- หัวข้อหลัก -->
+        <TextBlock Grid.Row="0" 
+                   Text="ระบบจัดการคูปอง" 
+                   Style="{StaticResource TitleTextStyle}"/>
+        
+        <!-- ปุ่มเมนูหลัก -->
+        <StackPanel Grid.Row="1" 
+                    Orientation="Vertical" 
+                    Spacing="30"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
             <Button x:Name="CouponDefinitionButton" 
                     Content="จัดการคำนิยามคูปอง" 
                     Click="CouponDefinitionButton_Click"

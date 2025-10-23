@@ -17,6 +17,9 @@ namespace CouponManagement.Shared.Models
         public string CustomerName { get; set; } = null!;
         public string CustomerPhoneNumber { get; set; } = null!;
 
+        // New: optional CustomerId FK
+        public int? CustomerId { get; set; }
+
         public decimal TotalAmount { get; set; }
         public List<DatabaseReceiptItem> Items { get; set; } = new();
 
@@ -52,6 +55,7 @@ namespace CouponManagement.Shared.Models
         public int? SalesPersonId { get; set; }
         public string Status { get; set; } = "Active";
         public int? PaymentMethodId { get; set; }
+        public int? CustomerId { get; set; }
         
         // Properties สำหรับแสดงผล
         public string TotalAmountFormatted => TotalAmount.ToString("N2");

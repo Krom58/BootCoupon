@@ -3,6 +3,7 @@
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:models="using:CouponManagement.Shared.Models"
+        xmlns:local="using:CouponManagement"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -34,6 +35,9 @@
             <Setter Property="Foreground" Value="{ThemeResource SystemColorGrayTextBrush}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
+
+        <!-- Register converter so StaticResource can find it -->
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
     </Page.Resources>
 
     <Grid>
@@ -201,11 +205,12 @@
                                             Style="{StaticResource AccentButtonStyle}"
                                             Click="GenerateButton_Click"
                                             Tag="{x:Bind}"
+                                            Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}"
                                             IsEnabled="{x:Bind IsCurrentlyValid}"/>
                                     <ToggleButton Content="{x:Bind IsActive, Converter={StaticResource ActiveToggleConverter}}"
-                                                  IsChecked="{x:Bind IsActive}"
-                                                  Click="ActiveToggle_Click"
-                                                  Tag="{x:Bind}"/>
+                                                      IsChecked="{x:Bind IsActive}"
+                                                      Click="ActiveToggle_Click"
+                                                      Tag="{x:Bind}"/>
                                 </StackPanel>
                             </Grid>
                         </Border>

@@ -88,6 +88,24 @@ namespace CouponManagement
         }
     }
 
+    // New converter to map bool -> Visibility
+    public class BoolToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is bool b && b)
+                return Visibility.Visible;
+            return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            if (value is Visibility v)
+                return v == Visibility.Visible;
+            return false;
+        }
+    }
+
     public sealed partial class CouponDefinitionPage : Page
     {
         private readonly CouponDefinitionService _service;
@@ -106,6 +124,7 @@ namespace CouponManagement
             this.Resources["CurrencyConverter"] = new CurrencyConverter();
             this.Resources["DateConverter"] = new DateConverter();
             this.Resources["ActiveToggleConverter"] = new ActiveToggleConverter();
+            this.Resources["BoolToVisibilityConverter"] = new BoolToVisibilityConverter();
 
             _service = new CouponDefinitionService();
             _couponService = new CouponService();
@@ -366,6 +385,13 @@ namespace CouponManagement
         {
             if (sender is Button button && button.Tag is CouponDefinition definition)
             {
+                // Prevent generation for unlimited coupons
+                if (!definition.IsLimited)
+                {
+                    ShowWarningMessage("คูปองนี้เป็นแบบไม่จำกัดจำนวน — ไม่มีรหัสให้สร้าง");
+                    return;
+                }
+
                 try
                 {
                     // Disable button ระหว่างเปิด dialog

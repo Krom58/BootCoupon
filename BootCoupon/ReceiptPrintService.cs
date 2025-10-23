@@ -127,18 +127,18 @@ namespace BootCoupon
 
                     currentItems.Clear();
 
-                    // สร้างข้อมูลสำหรับแสดงในตาราง
+                    // สร้างข้อมูลสำหรับแสดงในตาราง - ใช้ CouponDefinition แทน Coupon
                     for (int i = 0; i < items.Count; i++)
                     {
                         var item = items[i];
-                        var coupon = await context.Coupons.FindAsync(item.CouponId);
+                        var couponDefinition = await context.CouponDefinitions.FindAsync(item.CouponId);
 
-                        if (coupon != null)
+                        if (couponDefinition != null)
                         {
                             currentItems.Add(new ReceiptItemDisplay
                             {
                                 Index = i + 1,
-                                Name = coupon.Name,
+                                Name = couponDefinition.Name,
                                 Quantity = item.Quantity,
                                 UnitPrice = item.UnitPrice,
                                 TotalPrice = item.TotalPrice
@@ -639,7 +639,7 @@ namespace BootCoupon
 
                 var titleTextBlock = new TextBlock
                 {
-                    Text = "ใบเสร็จรับเงิน/ใบกำกับภาษีอย่างย่อ\nต้นฉบับ",
+                    Text = "ใบเสร็จรับเงิน/ใบกำกับภาษีอย่างย่อ",
                     TextWrapping = TextWrapping.Wrap,
                     TextAlignment = TextAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
@@ -1114,7 +1114,7 @@ namespace BootCoupon
                 paymentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 paymentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                var paymentMethods = new[] { "เงินสด", "เงินโอน", "เครดิตการ์ด", "QR" };
+                var paymentMethods = new[] { "เงินสด", "เงินโอน/QR", "เครดิตการ์ด"};
 
                 Debug.WriteLine($"กำลังสร้าง Payment Section สำหรับ: '{selectedPaymentMethod}'");
 

@@ -786,7 +786,7 @@ namespace BootCoupon
 
                 var titleTextBlock = new TextBlock
                 {
-                    Text = "ใบเสร็จรับเงิน/ใบกำกับภาษีอย่างย่อ\nต้นฉบับ",
+                    Text = "ใบเสร็จรับเงิน/ใบกำกับภาษีอย่างย่อ",
                     TextWrapping = TextWrapping.Wrap,
                     TextAlignment = TextAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
@@ -1264,7 +1264,7 @@ namespace BootCoupon
                 paymentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 paymentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                var paymentMethods = new[] { "เงินสด", "เงินโอน", "เครดิตการ์ด", "QR" };
+                var paymentMethods = new[] { "เงินสด", "เงินโอน/QR", "เครดิตการ์ด"};
 
                 for (int i = 0; i < paymentMethods.Length; i++)
                 {

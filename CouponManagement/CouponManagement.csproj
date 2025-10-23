@@ -20,6 +20,9 @@
     <None Remove="GeneratedCouponsPage.xaml" />
     <None Remove="MainPage.xaml" />
   </ItemGroup>
+  <ItemGroup>
+    <Page Remove="Receipt.xaml" />
+  </ItemGroup>
 
   <ItemGroup>
     <Content Include="Assets\SplashScreen.scale-200.png" />
@@ -81,6 +84,11 @@
 	<ItemGroup>
 		<!-- Reference to the shared project containing CouponManagement.Shared.Models -->
 		<ProjectReference Include="..\CouponManagement.Shared\CouponManagement.Shared.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Update="Receipt.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </None>
 	</ItemGroup>
 	<ItemGroup>
 	  <Page Update="Dialogs\CouponDetailDialog.xaml">

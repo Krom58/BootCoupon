@@ -7,7 +7,6 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64;AnyCPU</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-    <PublishProfile>BootCoupon.pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsPackageType>MSIX</WindowsPackageType>
@@ -20,7 +19,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="AddCoupon.xaml" />
     <None Remove="Assets\AsiaHotelLogo.jpg" />
     <None Remove="MainPage.xaml" />
     <None Remove="Receipt.xaml" />
@@ -81,9 +79,6 @@
     <Page Update="MainPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Update="AddCoupon.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
   </ItemGroup>
 
   <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
@@ -114,5 +109,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CouponManagement.Shared\CouponManagement.Shared.csproj" />
+  </ItemGroup>
+  <!-- BootCoupon\BootCoupon.csproj: make sure ProjectReference explicitly copies the referenced project output -->
+  <ItemGroup>
+    <ProjectReference Include="..\CouponManagement.Shared\CouponManagement.Shared.csproj">
+      <Private>true</Private>
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+    </ProjectReference>
   </ItemGroup>
 </Project>

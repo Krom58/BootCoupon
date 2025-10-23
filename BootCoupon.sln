@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CouponManagement.Shared", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CouponManagement.Standalone", "CouponManagement.Standalone\CouponManagement.Standalone.csproj", "{3928C31D-E9AC-4498-86FC-E7A899CE9F59}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CouponManagement", "CouponManagement\CouponManagement.csproj", "{1A524037-5A23-4A58-9E30-24709C3B1851}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -85,6 +87,30 @@ Global
 		{3928C31D-E9AC-4498-86FC-E7A899CE9F59}.Release|x86.ActiveCfg = Release|x86
 		{3928C31D-E9AC-4498-86FC-E7A899CE9F59}.Release|x86.Build.0 = Release|x86
 		{3928C31D-E9AC-4498-86FC-E7A899CE9F59}.Release|x86.Deploy.0 = Release|x86
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|Any CPU.Build.0 = Debug|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|Any CPU.Deploy.0 = Debug|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|ARM64.Build.0 = Debug|ARM64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|ARM64.Deploy.0 = Debug|ARM64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|x64.ActiveCfg = Debug|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|x64.Build.0 = Debug|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|x64.Deploy.0 = Debug|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|x86.ActiveCfg = Debug|x86
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|x86.Build.0 = Debug|x86
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Debug|x86.Deploy.0 = Debug|x86
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|Any CPU.ActiveCfg = Release|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|Any CPU.Build.0 = Release|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|Any CPU.Deploy.0 = Release|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|ARM64.ActiveCfg = Release|ARM64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|ARM64.Build.0 = Release|ARM64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|ARM64.Deploy.0 = Release|ARM64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|x64.ActiveCfg = Release|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|x64.Build.0 = Release|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|x64.Deploy.0 = Release|x64
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|x86.ActiveCfg = Release|x86
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|x86.Build.0 = Release|x86
+		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|x86.Deploy.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

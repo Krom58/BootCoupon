@@ -166,6 +166,20 @@ namespace CouponManagement.Dialogs
                                 break;
                             }
                         }
+
+                        // Set limited/unlimited radio buttons and visibility
+                        if (fresh.IsLimited)
+                        {
+                            LimitedRadioButton.IsChecked = true;
+                            UnlimitedRadioButton.IsChecked = false;
+                            if (CodeGeneratorBorder != null) CodeGeneratorBorder.Visibility = Visibility.Visible;
+                        }
+                        else
+                        {
+                            LimitedRadioButton.IsChecked = false;
+                            UnlimitedRadioButton.IsChecked = true;
+                            if (CodeGeneratorBorder != null) CodeGeneratorBorder.Visibility = Visibility.Collapsed;
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -189,6 +203,12 @@ namespace CouponManagement.Dialogs
                     ValidToDatePicker.Date = DateTime.Today.AddYears(1);
                 
                 Title = _isEditMode ? "แก้ไขคำนิยามคูปอง" : "สร้างคำนิยามคูปองใหม่";
+
+                // Default: limited selected so code settings visible
+                if (LimitedRadioButton != null) LimitedRadioButton.IsChecked = true;
+                if (UnlimitedRadioButton != null) UnlimitedRadioButton.IsChecked = false;
+                if (CodeGeneratorBorder != null) CodeGeneratorBorder.Visibility = Visibility.Visible;
+
                 UpdateCodePreview();
                 UpdateDescriptionPreview();
             }
@@ -422,10 +442,22 @@ namespace CouponManagement.Dialogs
                 Price = SafeDecimalFromDouble(PriceNumberBox?.Value ?? 0),
                 ValidFrom = ValidFromDatePicker?.Date.DateTime ?? DateTime.Today,
                 ValidTo = ValidToDatePicker?.Date.DateTime ?? DateTime.Today.AddYears(1),
-                Prefix = (PrefixTextBox?.Text ?? string.Empty).Trim(),
-                Suffix = (SuffixTextBox?.Text ?? string.Empty).Trim(),
                 SequenceLength = Math.Clamp(SafeIntFromDouble(SequenceLengthNumberBox?.Value ?? 4), 1, 10)
             };
+
+            // Set IsLimited based on radio button
+            request.IsLimited = LimitedRadioButton?.IsChecked == true;
+
+            if (request.IsLimited)
+            {
+                request.Prefix = (PrefixTextBox?.Text ?? string.Empty).Trim();
+                request.Suffix = (SuffixTextBox?.Text ?? string.Empty).Trim();
+            }
+            else
+            {
+                request.Prefix = string.Empty;
+                request.Suffix = string.Empty;
+            }
 
             var jsonOptions = new JsonSerializerOptions { Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
 
@@ -436,7 +468,7 @@ namespace CouponManagement.Dialogs
             };
             request.Params = JsonSerializer.Serialize(couponParams, jsonOptions);
 
-            System.Diagnostics.Debug.WriteLine($"BuildCreateCouponRequest - CouponTypeId: {request.CouponTypeId}, Code: {request.Code}");
+            System.Diagnostics.Debug.WriteLine($"BuildCreateCouponRequest - CouponTypeId: {request.CouponTypeId}, Code: {request.Code}, IsLimited: {request.IsLimited}");
 
             return request;
         }
@@ -447,8 +479,13 @@ namespace CouponManagement.Dialogs
             if (string.IsNullOrEmpty(request.Name)) return (false, "กรุณาระบุชื่อคูปอง");
             if (request.Price <= 0) return (false, "ราคาคูปองต้องมากกว่า 0");
             if (request.ValidFrom >= request.ValidTo) return (false, "วันที่เริ่มต้องน้อยกว่าวันที่สิ้นสุด");
-            if (string.IsNullOrEmpty(request.Prefix) && string.IsNullOrEmpty(request.Suffix)) return (false, "กรุณาระบุรหัสหน้าหรือรหัสหลัง");
-            if (request.SequenceLength < 1 || request.SequenceLength > 10) return (false, "ความยาวตัวเลขต้องอยู่ระหว่าง 1-10");
+
+            // Only require code generator settings when limited
+            if (request.IsLimited)
+            {
+                if (string.IsNullOrEmpty(request.Prefix) && string.IsNullOrEmpty(request.Suffix)) return (false, "กรุณาระบุรหัสหน้าหรือรหัสหลัง");
+                if (request.SequenceLength < 1 || request.SequenceLength > 10) return (false, "ความยาวตัวเลขต้องอยู่ระหว่าง 1-10");
+            }
 
             if (request.CouponTypeId <= 0) return (false, "กรุณาเลือกประเภทคูปอง");
 
@@ -568,6 +605,31 @@ namespace CouponManagement.Dialogs
         private void ContentDialog_CloseButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
         {
             // No special action required on close; keep method so generated code wiring compiles.
+        }
+
+        // Radio button handlers
+        private void LimitedRadioButton_Checked(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (CodeGeneratorBorder != null) CodeGeneratorBorder.Visibility = Visibility.Visible;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"LimitedRadioButton_Checked error: {ex.Message}");
+            }
+        }
+
+        private void UnlimitedRadioButton_Checked(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (CodeGeneratorBorder != null) CodeGeneratorBorder.Visibility = Visibility.Collapsed;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"UnlimitedRadioButton_Checked error: {ex.Message}");
+            }
         }
     }
 }

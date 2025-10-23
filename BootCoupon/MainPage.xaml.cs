@@ -32,11 +32,6 @@ namespace BootCoupon
             InitializeComponent();
             // ลบการตั้งค่า EPPlus license ออก
         }
-        
-        private void AddCouponButton_Click(object sender, RoutedEventArgs e)
-        {
-            MainWindow.Instance.MainFrameControl.Navigate(typeof(AddCoupon));
-        }
 
         private void CreateReceiptButton_Click(object sender, RoutedEventArgs e)
         {

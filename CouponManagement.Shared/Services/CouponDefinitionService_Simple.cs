@@ -137,7 +137,8 @@ namespace CouponManagement.Shared.Services
                         Params = request.Params,
                         ValidFrom = request.ValidFrom,
                         ValidTo = request.ValidTo,
-                        CreatedBy = userId
+                        CreatedBy = userId,
+                        IsLimited = request.IsLimited
                     };
 
                     System.Diagnostics.Debug.WriteLine($"Adding CouponDefinition with Type: {couponDefinition.CouponTypeId}");
@@ -147,23 +148,27 @@ namespace CouponManagement.Shared.Services
 
                     System.Diagnostics.Debug.WriteLine($"CouponDefinition saved with ID: {couponDefinition.Id}");
 
-                    // สร้าง Code Generator
-                    var codeGenerator = new CouponCodeGenerator
+                    // สร้าง Code Generator only when IsLimited == true
+                    if (request.IsLimited)
                     {
-                        CouponDefinitionId = couponDefinition.Id,
-                        Prefix = request.Prefix,
-                        Suffix = request.Suffix,
-                        SequenceLength = request.SequenceLength,
-                        UpdatedBy = userId,
-                        UpdatedAt = DateTime.Now
-                    };
+                        var codeGenerator = new CouponCodeGenerator
+                        {
+                            CouponDefinitionId = couponDefinition.Id,
+                            Prefix = request.Prefix,
+                            Suffix = request.Suffix,
+                            SequenceLength = request.SequenceLength,
+                            UpdatedBy = userId,
+                            UpdatedAt = DateTime.Now
+                        };
 
-                    context.CouponCodeGenerators.Add(codeGenerator);
-                    await context.SaveChangesAsync();
+                        context.CouponCodeGenerators.Add(codeGenerator);
+                        await context.SaveChangesAsync();
+
+                        couponDefinition.CodeGenerator = codeGenerator;
+                    }
 
                     await transaction.CommitAsync();
 
-                    couponDefinition.CodeGenerator = codeGenerator;
                     return couponDefinition;
                 }
                 catch (Exception ex)
@@ -220,9 +225,38 @@ namespace CouponManagement.Shared.Services
                 existing.UpdatedBy = userId;
                 existing.UpdatedAt = DateTime.Now;
 
-                // Update Code Generator
-                if (existing.CodeGenerator != null)
+                // Update IsLimited flag and manage CodeGenerator accordingly
+                var wasLimited = existing.IsLimited;
+                existing.IsLimited = request.IsLimited;
+
+                if (wasLimited && !request.IsLimited)
                 {
+                    // Toggled from limited -> unlimited: remove existing CodeGenerator
+                    if (existing.CodeGenerator != null)
+                    {
+                        context.CouponCodeGenerators.Remove(existing.CodeGenerator);
+                        existing.CodeGenerator = null;
+                    }
+                }
+                else if (!wasLimited && request.IsLimited)
+                {
+                    // Toggled from unlimited -> limited: create a new CodeGenerator
+                    var newGenerator = new CouponCodeGenerator
+                    {
+                        CouponDefinitionId = existing.Id,
+                        Prefix = request.Prefix,
+                        Suffix = request.Suffix,
+                        SequenceLength = request.SequenceLength,
+                        UpdatedBy = userId,
+                        UpdatedAt = DateTime.Now
+                    };
+
+                    context.CouponCodeGenerators.Add(newGenerator);
+                    // Attach later after Save
+                }
+                else if (existing.CodeGenerator != null && request.IsLimited)
+                {
+                    // Update existing code generator settings
                     existing.CodeGenerator.Prefix = request.Prefix;
                     existing.CodeGenerator.Suffix = request.Suffix;
                     existing.CodeGenerator.SequenceLength = request.SequenceLength;
@@ -296,12 +330,21 @@ namespace CouponManagement.Shared.Services
             try
             {
                 var definition = await GetByIdAsync(request.CouponDefinitionId);
-                if (definition?.CodeGenerator == null)
+                if (definition == null)
                 {
                     return new CodePreviewResponse
                     {
                         IsValid = false,
-                        ErrorMessage = "ไม่พบข้อมูลคำนิยามคูปองหรือ Code Generator"
+                        ErrorMessage = "ไม่พบข้อมูลคำนิยามคูปอง"
+                    };
+                }
+
+                if (!definition.IsLimited || definition.CodeGenerator == null)
+                {
+                    return new CodePreviewResponse
+                    {
+                        IsValid = false,
+                        ErrorMessage = "คูปองนี้ไม่มีการตั้งค่ารหัส"
                     };
                 }
 
@@ -333,9 +376,19 @@ namespace CouponManagement.Shared.Services
                     .Include(d => d.CodeGenerator)
                     .FirstOrDefaultAsync(d => d.Id == request.CouponDefinitionId);
 
+                if (definition == null)
+                {
+                    throw new InvalidOperationException("ไม่พบข้อมูลคำนิยามคูปอง");
+                }
+
+                if (!definition.IsLimited)
+                {
+                    throw new InvalidOperationException("คูปองนี้เป็นแบบไม่จำกัดจำนวน - ไม่มีรหัสให้สร้าง");
+                }
+
                 if (definition?.CodeGenerator == null)
                 {
-                    throw new InvalidOperationException("ไม่พบข้อมูลคำนิยามคูปองหรือ Code Generator");
+                    throw new InvalidOperationException("ไม่พบข้อมูล Code Generator สำหรับคูปองนี้");
                 }
 
                 if (!definition.IsCurrentlyValid)

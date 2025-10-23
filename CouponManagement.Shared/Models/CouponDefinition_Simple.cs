@@ -57,6 +57,9 @@ namespace CouponManagement.Shared.Models
         // Navigation properties
         public CouponCodeGenerator? CodeGenerator { get; set; }
         public List<GeneratedCoupon> GeneratedCoupons { get; set; } = new();
+
+        // New flag to indicate limited (has codes) vs unlimited
+        public bool IsLimited { get; set; } = false;
         
         // Helper properties
         [NotMapped]
@@ -195,6 +198,14 @@ namespace CouponManagement.Shared.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+        // New: link to ReceiptItem when this generated coupon was allocated/sold
+        public int? ReceiptItemId { get; set; }
+        public DatabaseReceiptItem? ReceiptItem { get; set; }
+
+        // Optional denormalized customer reference for faster reporting
+        public int? CustomerId { get; set; }
+        public Customer? Customer { get; set; }
+
         // Navigation property
         public CouponDefinition? CouponDefinition { get; set; }
     }
@@ -241,13 +252,14 @@ namespace CouponManagement.Shared.Models
         
         public DateTime ValidFrom { get; set; }
         public DateTime ValidTo { get; set; }
+
+        // Indicates whether this definition uses generated codes (limited quantity)
+        public bool IsLimited { get; set; } = false;
         
-        // Code Generator settings
-        [Required]
+        // Code Generator settings (optional unless IsLimited == true)
         [StringLength(10)]
         public string Prefix { get; set; } = string.Empty;
         
-        [Required]
         [StringLength(10)]
         public string Suffix { get; set; } = string.Empty;
         
