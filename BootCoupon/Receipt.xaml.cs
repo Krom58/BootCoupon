@@ -72,6 +72,21 @@ namespace BootCoupon
         }
     }
 
+    // Converter to map bool (IsLimited) -> Visibility (Collapsed when true)
+    public class BoolToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            bool isLimited = value as bool? ?? false;
+            return isLimited ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
     public class ReceiptItem : INotifyPropertyChanged
     {
         private CouponDefinition _couponDefinition = null!;
@@ -448,18 +463,19 @@ namespace BootCoupon
             _couponDefinitionDisplays.Clear();
             foreach (var definition in couponDefinitions)
             {
-                var totalGenerated = definition.GeneratedCoupons?.Count ?? 0;
-                var totalUsed = definition.GeneratedCoupons?.Count(gc => gc.IsUsed) ?? 0;
+                var totalGenerated = definition.GeneratedCoupons?.Count ??0;
+                // consider a coupon allocated to a receipt (ReceiptItemId != null) as already sold
+                var totalAllocatedOrUsed = definition.GeneratedCoupons?.Count(gc => gc.IsUsed || gc.ReceiptItemId != null) ??0;
                 
                 // เพิ่มเฉพาะคูปองที่ยังมีคงเหลือ หรือที่ยังไม่เคยสร้างเลย
-                var availableCount = totalGenerated - totalUsed;
+                var availableCount = totalGenerated - totalAllocatedOrUsed;
                 if (totalGenerated == 0 || availableCount > 0)
                 {
                     var display = new CouponDefinitionDisplay
                     {
                         CouponDefinition = definition,
                         TotalGenerated = totalGenerated,
-                        TotalUsed = totalUsed
+                        TotalUsed = totalAllocatedOrUsed
                     };
                     _couponDefinitionDisplays.Add(display);
                 }
@@ -583,9 +599,10 @@ namespace BootCoupon
                 _couponDefinitionDisplays.Clear();
                 foreach (var definition in couponDefinitions)
                 {
-                    var totalGenerated = definition.GeneratedCoupons?.Count ?? 0;
-                    var totalUsed = definition.GeneratedCoupons?.Count(gc => gc.IsUsed) ?? 0;
-                    var availableCount = totalGenerated - totalUsed;
+                    var totalGenerated = definition.GeneratedCoupons?.Count ??0;
+                    // consider a coupon allocated to a receipt (ReceiptItemId != null) as already sold
+                    var totalAllocatedOrUsed = definition.GeneratedCoupons?.Count(gc => gc.IsUsed || gc.ReceiptItemId != null) ??0;
+                    var availableCount = totalGenerated - totalAllocatedOrUsed;
 
                     // เพิ่มเฉพาะคูปองที่ยังมีคงเหลือ หรือที่ยังไม่เคยสร้างเลย
                     if (totalGenerated == 0 || availableCount > 0)
@@ -594,7 +611,7 @@ namespace BootCoupon
                         {
                             CouponDefinition = definition,
                             TotalGenerated = totalGenerated,
-                            TotalUsed = totalUsed
+                            TotalUsed = totalAllocatedOrUsed
                         };
                         _couponDefinitionDisplays.Add(display);
                     }
@@ -652,43 +669,36 @@ namespace BootCoupon
                     var selectedIds = await ShowPickGeneratedCodesDialogAsync(selectedDefinition, null);
                     if (selectedIds == null || !selectedIds.Any()) return;
 
-                    // NOTE: single-user mode - do NOT call ReservationService for specific IDs.
-                    // We'll allocate/validate at Save time. Just update UI state.
+                    // Work with distinct ids
+                    var distinctIds = selectedIds.Distinct().ToList();
 
-                    // If existing selectedItem exists, merge
-                    var existingItem = _selectedItems.FirstOrDefault(it => it.CouponDefinition.Id == selectedDefinition.Id);
-                    if (existingItem != null)
-                    {
-                        // merge avoiding duplicates
-                        var beforeCount = existingItem.SelectedGeneratedIds?.Count ?? existingItem.Quantity;
-                        var merged = (existingItem.SelectedGeneratedIds ?? new List<int>()).Union(selectedIds ?? Enumerable.Empty<int>()).Distinct().ToList();
-                        existingItem.SelectedGeneratedIds = merged;
-                        existingItem.Quantity = merged.Count;
+                    // Load generated codes for preview
+                    var codesMap = await _context.GeneratedCoupons
+                        .Where(g => distinctIds.Contains(g.Id))
+                        .ToDictionaryAsync(g => g.Id, g => g.GeneratedCode);
 
-                        var display2 = GetDisplayByDefinitionId(selectedDefinition.Id);
-                        if (display2 != null)
-                        {
-                            display2.TotalUsed += (merged.Count - beforeCount);
-                        }
-                    }
-                    else
+                    var display2 = GetDisplayByDefinitionId(selectedDefinition.Id);
+
+                    // Add each selected generated id as its own ReceiptItem (Quantity =1),
+                    // skip any ids that are already present in selected items
+                    foreach (var gid in distinctIds)
                     {
+                        var alreadySelected = _selectedItems.Any(it => it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Contains(gid));
+                        if (alreadySelected) continue;
+
                         var receiptItem = new ReceiptItem
                         {
                             CouponDefinition = selectedDefinition,
-                            Quantity = selectedIds.Distinct().Count(),
-                            SelectedGeneratedIds = selectedIds.Distinct().ToList()
+                            Quantity =1,
+                            SelectedGeneratedIds = new List<int> { gid },
+                            SelectedCodesPreview = codesMap.TryGetValue(gid, out var code) ? code ?? string.Empty : string.Empty
                         };
-
-                        // preview selected codes for UI (comma separated limited length)
-                        receiptItem.SelectedCodesPreview = string.Join(", ", await _context.GeneratedCoupons.Where(g => receiptItem.SelectedGeneratedIds.Contains(g.Id)).Select(g => g.GeneratedCode).Take(5).ToListAsync());
 
                         _selectedItems.Add(receiptItem);
 
-                        var display2 = GetDisplayByDefinitionId(selectedDefinition.Id);
                         if (display2 != null)
                         {
-                            display2.TotalUsed += receiptItem.Quantity;
+                            display2.TotalUsed +=1;
                         }
                     }
 
@@ -832,7 +842,7 @@ namespace BootCoupon
 
             // Include currently selected ids even if marked IsUsed, so user can manage them
             var availableCodes = await _context.GeneratedCoupons
-                .Where(g => g.CouponDefinitionId == selectedDefinition.Id && (!g.IsUsed || initialSelectedIds.Contains(g.Id)))
+                .Where(g => g.CouponDefinitionId == selectedDefinition.Id && ((g.ReceiptItemId == null && !g.IsUsed) || initialSelectedIds.Contains(g.Id)))
                 .OrderBy(g => g.Id)
                 .Take(2000)
                 .ToListAsync();
@@ -1013,9 +1023,9 @@ namespace BootCoupon
                     return;
                 }
 
-                var totalGenerated = currentDefinition.GeneratedCoupons?.Count ?? 0;
-                var totalUsed = currentDefinition.GeneratedCoupons?.Count(gc => gc.IsUsed) ?? 0;
-                var availableCount = totalGenerated - totalUsed;
+                var totalGenerated = currentDefinition.GeneratedCoupons?.Count ??0;
+                var totalAllocatedOrUsed = currentDefinition.GeneratedCoupons?.Count(gc => gc.IsUsed || gc.ReceiptItemId != null) ??0;
+                var availableCount = totalGenerated - totalAllocatedOrUsed;
 
                 // เฉพาะกรณีคูปองจำกัดเท่านั้นจึงตรวจสอบจำนวนคงเหลือ
                 if (currentDefinition.IsLimited && item.Quantity > availableCount)
@@ -1065,30 +1075,6 @@ namespace BootCoupon
                     // ใช้ Service ใหม่แทน AppSettings
                     string receiptCode = await ReceiptNumberService.GenerateNextReceiptCodeAsync();
 
-                    // Find or create customer (prefer phone match)
-                    Customer? customer = null;
-                    if (!string.IsNullOrWhiteSpace(phoneNumber))
-                    {
-                        customer = await _context.Customers.FirstOrDefaultAsync(c => c.Phone == phoneNumber);
-                    }
-
-                    if (customer == null && !string.IsNullOrWhiteSpace(customerName))
-                    {
-                        customer = await _context.Customers.FirstOrDefaultAsync(c => c.Name == customerName);
-                    }
-
-                    if (customer == null)
-                    {
-                        customer = new Customer
-                        {
-                            Name = string.IsNullOrWhiteSpace(customerName) ? "ลูกค้าไม่ระบุ" : customerName,
-                            Phone = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber,
-                            CreatedAt = DateTime.Now
-                        };
-                        _context.Customers.Add(customer);
-                        await _context.SaveChangesAsync(); // ensure Id is generated
-                    }
-
                     // Create and save receipt with customer information, receipt code and payment method
                     var receipt = new ReceiptModel
                     {
@@ -1096,7 +1082,6 @@ namespace BootCoupon
                         ReceiptDate = DateTime.Now,
                         CustomerName = customerName,
                         CustomerPhoneNumber = phoneNumber,
-                        CustomerId = customer?.Id,
                         TotalAmount = _selectedItems.Sum(item => item.TotalPrice),
                         SalesPersonId = selectedSalesPerson.ID,
                         PaymentMethodId = selectedPaymentMethod.Id // เพิ่มวิธีการชำระเงิน
@@ -1154,7 +1139,7 @@ namespace BootCoupon
                     }
 
                     // Reserve coupons / allocate specific selected codes
-                    for (int i = 0; i < _selectedItems.Count; i++)
+                    for (int i =0; i < _selectedItems.Count; i++)
                     {
                         var item = _selectedItems[i];
                         var receiptItem = createdReceiptItems[i];
@@ -1165,7 +1150,7 @@ namespace BootCoupon
                             {
                                 // allocate those specific ids
                                 var allocate = await _context.GeneratedCoupons
-                                    .Where(g => item.SelectedGeneratedIds.Contains(g.Id) && !g.IsUsed)
+                                    .Where(g => item.SelectedGeneratedIds.Contains(g.Id) && !g.IsUsed && g.ReceiptItemId == null)
                                     .ToListAsync();
 
                                 if (allocate.Count < item.Quantity)
@@ -1177,11 +1162,10 @@ namespace BootCoupon
 
                                 foreach (var g in allocate)
                                 {
-                                    g.IsUsed = true;
-                                    g.UsedDate = DateTime.Now;
+                                    // Previously set IsUsed and UsedDate here — change: do NOT mark as redeemed on sale/print.
+                                    // Only link the generated coupon to the receipt item to indicate it was sold/allocated.
                                     g.ReceiptItemId = receiptItem.ReceiptItemId; // link to receipt item
-                                    // denormalize customer for faster reporting
-                                    g.CustomerId = receipt.CustomerId;
+                                    // do not set g.IsUsed/g.UsedDate/g.UsedBy here; redemption should be a separate action
                                     _context.GeneratedCoupons.Update(g);
                                 }
                             }
@@ -1189,7 +1173,7 @@ namespace BootCoupon
                             {
                                 // original allocation by selecting first available
                                 var allocate = await _context.GeneratedCoupons
-                                    .Where(g => g.CouponDefinitionId == item.CouponDefinition.Id && !g.IsUsed)
+                                    .Where(g => g.CouponDefinitionId == item.CouponDefinition.Id && !g.IsUsed && g.ReceiptItemId == null)
                                     .OrderBy(g => g.Id)
                                     .Take(item.Quantity)
                                     .ToListAsync();
@@ -1198,11 +1182,10 @@ namespace BootCoupon
 
                                 foreach (var g in allocate)
                                 {
-                                    g.IsUsed = true;
-                                    g.UsedDate = DateTime.Now;
+                                    // Previously set IsUsed and UsedDate here — change: do NOT mark as redeemed on sale/print.
+                                    // Only link the generated coupon to the receipt item to indicate it was sold/allocated.
                                     g.ReceiptItemId = receiptItem.ReceiptItemId; // link to receipt item
-                                    // denormalize customer for faster reporting
-                                    g.CustomerId = receipt.CustomerId;
+                                    // do not set g.IsUsed/g.UsedDate/g.UsedBy here; redemption should be a separate action
                                     _context.GeneratedCoupons.Update(g);
                                 }
                             }
@@ -1339,69 +1322,33 @@ namespace BootCoupon
             var button = sender as Button;
             if (button?.Tag is ReceiptItem selectedItem)
             {
-                // If coupon definition is limited (has generated codes), Edit should open the pick dialog
+                // Only allow editing for unlimited coupons
                 if (selectedItem.CouponDefinition.IsLimited)
                 {
-                    var newSelectedIds = await ShowPickGeneratedCodesDialogAsync(selectedItem.CouponDefinition, selectedItem);
-                    if (newSelectedIds == null)
-                    {
-                        return; // cancelled
-                    }
-
-                    var oldCount = selectedItem.SelectedGeneratedIds?.Count ?? 0;
-                    var uniqueNew = newSelectedIds.Distinct().ToList();
-                    var newCount = uniqueNew.Count;
-                    var delta = newCount - oldCount;
-
-                    selectedItem.SelectedGeneratedIds = uniqueNew;
-                    selectedItem.Quantity = newCount;
-
-                    var remainingCodes = await _context.GeneratedCoupons
-                        .Where(g => uniqueNew.Contains(g.Id))
-                        .OrderBy(g => g.Id)
-                        .Select(g => g.GeneratedCode)
-                        .ToListAsync();
-
-                    selectedItem.SelectedCodesPreview = string.Join(", ", remainingCodes.Take(5));
-
-                    var dsp = GetDisplayByDefinitionId(selectedItem.CouponDefinition.Id);
-                    if (dsp != null)
-                    {
-                        dsp.TotalUsed += delta;
-                        if (dsp.TotalUsed < 0) dsp.TotalUsed = 0;
-                    }
-
-                    var idx = _selectedItems.IndexOf(selectedItem);
-                    if (idx >= 0)
-                    {
-                        _selectedItems.RemoveAt(idx);
-                        _selectedItems.Insert(idx, selectedItem);
-                    }
-
-                    UpdateTotalPrice();
+                    // Do nothing (Edit not available for limited coupons)
                     return;
                 }
 
                 // For unlimited coupons, edit should allow changing quantity only
                 var quantityBox = new NumberBox
                 {
-                    Value = selectedItem.Quantity > 0 ? selectedItem.Quantity : 1,
-                    Minimum = 1,
+                    Value = selectedItem.Quantity >0 ? selectedItem.Quantity :1,
+                    Minimum =1,
                     Maximum = int.MaxValue,
                     SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
-                    Margin = new Thickness(0, 10, 0, 0)
+                    Margin = new Thickness(0,10,0,0)
                 };
 
                 var totalPriceTextBlock = new TextBlock
                 {
                     Text = $"รวมเป็นเงิน: {selectedItem.CouponDefinition.Price * (decimal)quantityBox.Value} บาท",
                     FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                    Margin = new Thickness(0, 8, 0, 10)
+                    Margin = new Thickness(0,8,0,10)
                 };
 
                 quantityBox.ValueChanged += (s, args) =>
                 {
-                    if (quantityBox.Value > 0)
+                    if (quantityBox.Value >0)
                     {
                         totalPriceTextBlock.Text = $"รวมเป็นเงิน: {selectedItem.CouponDefinition.Price * (decimal)quantityBox.Value} บาท";
                     }
@@ -1427,7 +1374,7 @@ namespace BootCoupon
                 var result = await dialog.ShowAsync();
                 if (result == ContentDialogResult.Primary)
                 {
-                    if (double.IsNaN(quantityBox.Value) || quantityBox.Value <= 0)
+                    if (double.IsNaN(quantityBox.Value) || quantityBox.Value <=0)
                     {
                         await ShowErrorDialog("กรุณาระบุจำนวนคูปองที่ถูกต้อง");
                         return;
@@ -1442,11 +1389,11 @@ namespace BootCoupon
                     if (display != null)
                     {
                         display.TotalUsed += (newQuantity - oldQuantity);
-                        if (display.TotalUsed < 0) display.TotalUsed = 0;
+                        if (display.TotalUsed <0) display.TotalUsed =0;
                     }
 
-                    var index = _selectedItems.IndexOf(selectedItem);
-                    if (index >= 0)
+                    int index = _selectedItems.IndexOf(selectedItem);
+                    if (index >=0)
                     {
                         _selectedItems.RemoveAt(index);
                         _selectedItems.Insert(index, selectedItem);

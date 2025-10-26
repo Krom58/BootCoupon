@@ -111,8 +111,8 @@
                                   HorizontalAlignment="Stretch"
                                   SelectionChanged="StatusComboBox_SelectionChanged">
                             <ComboBoxItem Content="ทั้งหมด" Tag=""/>
-                            <ComboBoxItem Content="ยังไม่ใช้" Tag="false"/>
-                            <ComboBoxItem Content="ใช้แล้ว" Tag="true"/>
+                            <ComboBoxItem Content="ยังไม่ได้ขาย" Tag="false"/>
+                            <ComboBoxItem Content="ขายแล้ว" Tag="true"/>
                         </ComboBox>
                     </StackPanel>
 
@@ -178,7 +178,7 @@
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="20">
                     <TextBlock x:Name="ResultCountTextBlock"
-                               Text="พบ 0 รายการ"
+                               Text="พบ0 รายการ"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
 
@@ -200,7 +200,7 @@
                             Click="PreviousPageButton_Click"/>
 
                     <TextBlock x:Name="PageInfoTextBlock"
-                               Text="หน้า 1 จาก 1"
+                               Text="หน้า1 จาก1"
                                VerticalAlignment="Center"
                                MinWidth="80"
                                TextAlignment="Center"/>
@@ -255,22 +255,22 @@
                             <Border Grid.Column="2" Padding="10,0">
                                 <TextBlock Text="ชื่อคำนิยาม" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"/>
                             </Border>
-                            <Border Grid.Column="3" Padding="10,0">
-                                <TextBlock Text="แบทช์" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"/>
-                            </Border>
 
-                            <Border Grid.Column="4" Padding="10,0">
+                            <Border Grid.Column="3" Padding="10,0">
                                 <TextBlock Text="สถานะ" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"/>
                             </Border>
 
-                            <Border Grid.Column="5" Padding="10,0">
+                            <Border Grid.Column="4" Padding="10,0">
                                 <TextBlock Text="สร้างโดย" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"/>
                             </Border>
-                            <Border Grid.Column="6" Padding="10,0">
+                            <Border Grid.Column="5" Padding="10,0">
                                 <TextBlock Text="วันที่สร้าง" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"/>
                             </Border>
+                            <Border Grid.Column="6" Padding="10,0">
+                                <TextBlock Text="วันหมดอายุ" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"/>
+                            </Border>
                             <Border Grid.Column="7" Padding="10,0">
-                                <TextBlock Text="การใช้งาน" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Text="ใบเสร็จ" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"/>
                             </Border>
 
                             <!-- separators placed between columns, rendered on top -->
@@ -280,7 +280,6 @@
                             <Rectangle Grid.Column="3" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                             <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                             <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
-                            <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                         </Grid>
                     </DataTemplate>
                 </ListView.HeaderTemplate>
@@ -314,26 +313,26 @@
                                     <TextBlock Text="{Binding CouponDefinitionName}" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                 </Border>
 
-                                <Border Grid.Column="3" Padding="10,0">
-                                    <TextBlock Text="{Binding BatchNumber}" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                </Border>
-
-                                <Border Grid.Column="4" Padding="10,0" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Border CornerRadius="10" Padding="8,4" Background="{Binding IsUsed, Converter={StaticResource BoolToStatusColorConverter}}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Grid.Column="3" Padding="10,0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Border CornerRadius="10" Padding="8,4" Background="{Binding IsSold, Converter={StaticResource BoolToStatusColorConverter}}" HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding StatusText}" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
                                     </Border>
                                 </Border>
 
-                                <Border Grid.Column="5" Padding="10,0">
+                                <Border Grid.Column="4" Padding="10,0">
                                     <TextBlock Text="{Binding CreatedBy}" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"/>
                                 </Border>
 
-                                <Border Grid.Column="6" Padding="10,0">
+                                <Border Grid.Column="5" Padding="10,0">
                                     <TextBlock Text="{Binding CreatedAt, Converter={StaticResource DateTimeToStringConverter}}" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" FontSize="12"/>
                                 </Border>
 
+                                <Border Grid.Column="6" Padding="10,0">
+                                    <TextBlock Text="{Binding ExpiresAt, Converter={StaticResource DateTimeToStringConverter}}" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" FontSize="12"/>
+                                </Border>
+
                                 <Border Grid.Column="7" Padding="10,0">
-                                    <TextBlock Text="{Binding UsageText}" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding UsageText}" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" FontSize="12" TextTrimming="CharacterEllipsis"/>
                                 </Border>
 
                                 <!-- separators placed between columns, rendered on top to ensure visibility over badges -->
@@ -344,6 +343,7 @@
                                 <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                 <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                 <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="7" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                             </Grid>
                         </Border>
                     </DataTemplate>

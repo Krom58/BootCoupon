@@ -254,17 +254,19 @@ namespace CouponManagement
                 // Always keep "ทั้งหมด"
                 TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = "ทั้งหมด", Tag = "ALL", IsSelected = true });
 
-                if (types.Count == 0)
+                if (types.Count > 0)
                 {
-                    // Create default type if DB is empty
-                    var defaultType = await _couponService.AddCouponTypeAsync("คูปอง", Environment.UserName);
-                    types.Add(defaultType);
+                    foreach (var t in types)
+                    {
+                        // Use CouponType.Id as Tag for filtering instead of behavior code
+                        TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = t.Name, Tag = t.Id.ToString() });
+                    }
                 }
-
-                foreach (var t in types)
+                else
                 {
-                    // Use CouponType.Id as Tag for filtering instead of behavior code
-                    TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = t.Name, Tag = t.Id.ToString() });
+                    // No types: do not create default in DB. Let UI indicate no types available.
+                    // Optionally add a disabled placeholder entry.
+                    TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = "(ไม่มีประเภท)", Tag = "ALL" });
                 }
             }
             catch (Exception ex)

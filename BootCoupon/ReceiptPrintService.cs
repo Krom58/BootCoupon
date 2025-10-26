@@ -128,22 +128,73 @@ namespace BootCoupon
                     currentItems.Clear();
 
                     // สร้างข้อมูลสำหรับแสดงในตาราง - ใช้ CouponDefinition แทน Coupon
-                    for (int i = 0; i < items.Count; i++)
+                    int displayIndex =0;
+                    for (int i =0; i < items.Count; i++)
                     {
                         var item = items[i];
                         var couponDefinition = await context.CouponDefinitions.FindAsync(item.CouponId);
 
-                        if (couponDefinition != null)
+                        if (couponDefinition != null && couponDefinition.IsLimited)
                         {
-                            currentItems.Add(new ReceiptItemDisplay
+                            try
                             {
-                                Index = i + 1,
-                                Name = couponDefinition.Name,
-                                Quantity = item.Quantity,
-                                UnitPrice = item.UnitPrice,
-                                TotalPrice = item.TotalPrice
-                            });
+                                var codes = await context.GeneratedCoupons
+                                    .Where(g => g.ReceiptItemId == item.ReceiptItemId)
+                                    .OrderBy(g => g.Id)
+                                    .Select(g => g.GeneratedCode)
+                                    .ToListAsync();
+
+                                if (codes != null && codes.Count >0)
+                                {
+                                    // create one display entry per code
+                                    foreach (var code in codes)
+                                    {
+                                        displayIndex++;
+                                        currentItems.Add(new ReceiptItemDisplay
+                                        {
+                                            Index = displayIndex,
+                                            Name = string.IsNullOrWhiteSpace(code) ? couponDefinition.Name : $"{couponDefinition.Name} ({code})",
+                                            Quantity =1,
+                                            UnitPrice = item.UnitPrice,
+                                            TotalPrice = item.UnitPrice
+                                        });
+                                    }
+
+                                    // if quantity recorded is larger than the number of codes, add placeholders
+                                    int remaining = item.Quantity - codes.Count;
+                                    for (int r =0; r < remaining; r++)
+                                    {
+                                        displayIndex++;
+                                        currentItems.Add(new ReceiptItemDisplay
+                                        {
+                                            Index = displayIndex,
+                                            Name = $"{couponDefinition.Name} (ไม่ระบุรหัส)",
+                                            Quantity =1,
+                                            UnitPrice = item.UnitPrice,
+                                            TotalPrice = item.UnitPrice
+                                        });
+                                    }
+
+                                    continue; // processed this receipt item
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Failed to load generated codes for ReceiptItem {item.ReceiptItemId}: {ex.Message}");
+                                // fall through to add as single row
+                            }
                         }
+
+                        // Fallback: non-limited or no codes found -> single row
+                        displayIndex++;
+                        currentItems.Add(new ReceiptItemDisplay
+                        {
+                            Index = displayIndex,
+                            Name = couponDefinition != null ? couponDefinition.Name : $"Coupon #{item.CouponId}",
+                            Quantity = item.Quantity,
+                            UnitPrice = item.UnitPrice,
+                            TotalPrice = item.TotalPrice
+                        });
                     }
 
                     // โหลดข้อมูล Sales Person
@@ -226,7 +277,7 @@ namespace BootCoupon
             catch (Exception ex)
             {
                 Debug.WriteLine($"ข้อผิดพลาดในการโหลดวิธีการชำระเงิน: {ex.Message}");
-                selectedPaymentMethod = "ไม่สามารถโหลดข้อมูลได้";
+                selectedPaymentMethod = "不สามารถโหลดข้อมูลได้";
             }
         }
 
@@ -1343,6 +1394,38 @@ namespace BootCoupon
 
                     if (receiptItems.Any())
                     {
+                        // Restore any GeneratedCoupons that were linked to these receipt items
+                        try
+                        {
+                            var receiptItemIds = receiptItems.Select(ri => ri.ReceiptItemId).ToList();
+
+                            var linkedGenerated = await context.GeneratedCoupons
+                                .Where(g => g.ReceiptItemId != null && receiptItemIds.Contains(g.ReceiptItemId.Value))
+                                .ToListAsync();
+
+                            if (linkedGenerated.Any())
+                            {
+                                Debug.WriteLine($"พบ GeneratedCoupons ที่เชื่อมกับ ReceiptItems จำนวน {linkedGenerated.Count} – จะคืนสถานะเป็นยังไม่ใช้");
+
+                                foreach (var g in linkedGenerated)
+                                {
+                                    g.IsUsed = false;
+                                    g.UsedDate = null;
+                                    g.UsedBy = null;
+                                    g.ReceiptItemId = null;
+                                    context.GeneratedCoupons.Update(g);
+                                }
+
+                                await context.SaveChangesAsync();
+                                Debug.WriteLine("คืนสถานะ GeneratedCoupons เรียบร้อย");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Failed to restore GeneratedCoupons for receipt {receiptCodeToDelete}: {ex.Message}");
+                            // ไม่หยุดการลบใบเสร็จ แต่บันทึกข้อผิดพลาด
+                        }
+
                         context.ReceiptItems.RemoveRange(receiptItems);
                         await context.SaveChangesAsync();
                         Debug.WriteLine($"ลบ ReceiptItems จำนวน {receiptItems.Count} รายการแล้ว");

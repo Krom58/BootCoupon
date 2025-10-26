@@ -22,14 +22,12 @@ namespace CouponManagement.Shared
         public DbSet<PaymentMethod> PaymentMethods { get; set; } = null!;
         public DbSet<BootCoupon.Models.ReservedCoupon> ReservedCoupons { get; set; } = null!;
 
-        // New: Customers table
-        public DbSet<Customer> Customers { get; set; } = null!;
-
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseSqlServer("Server=KROM\\SQLEXPRESS;Database=CouponDbV2;Integrated Security=True;TrustServerCertificate=True;");
         }
-
+        //"Server=KROM\\SQLEXPRESS;Database=CouponDbV2;Integrated Security=True;TrustServerCertificate=True;"
+        //"Server=10.10.0.42\\SQLSET;User Id=sa;Password=Wutt@1976;Trusted_Connection=False;"
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -89,12 +87,7 @@ namespace CouponManagement.Shared
                       .WithOne()
                       .HasForeignKey(ri => ri.ReceiptId);
 
-                // New FK to Customers
-                entity.Property<int?>("CustomerId");
-                entity.HasOne<Customer>()
-                      .WithMany()
-                      .HasForeignKey("CustomerId")
-                      .OnDelete(DeleteBehavior.SetNull);
+                // Note: CustomerId removed - customer info stored denormalized in ReceiptModel (CustomerName / CustomerPhoneNumber)
             });
 
             // CouponDefinition configuration
@@ -215,12 +208,6 @@ namespace CouponManagement.Shared
                       .HasForeignKey(g => g.ReceiptItemId)
                       .OnDelete(DeleteBehavior.SetNull);
 
-                // New: optional FK to Customers for denormalized queries
-                entity.HasOne(g => g.Customer)
-                      .WithMany()
-                      .HasForeignKey(g => g.CustomerId)
-                      .OnDelete(DeleteBehavior.SetNull);
-
                 entity.HasIndex(e => e.GeneratedCode)
                       .IsUnique()
                       .HasDatabaseName("UK_GeneratedCoupons_GeneratedCode");
@@ -233,9 +220,6 @@ namespace CouponManagement.Shared
 
                 entity.HasIndex(e => e.BatchNumber)
                       .HasDatabaseName("IX_GeneratedCoupons_BatchNumber");
-
-                // Index on CustomerId to speed up reporting joins
-                entity.HasIndex(e => e.CustomerId).HasDatabaseName("IX_GeneratedCoupons_CustomerId");
             });
 
             // SalesPerson mapping
@@ -275,18 +259,6 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            });
-
-            // Customers configuration
-            modelBuilder.Entity<Customer>(entity =>
-            {
-                entity.ToTable("Customers");
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Phone).HasMaxLength(50);
-                entity.Property(e => e.Email).HasMaxLength(200);
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
-                entity.HasIndex(e => e.Name).HasDatabaseName("IX_Customers_Name");
             });
         }
     }

@@ -61,7 +61,7 @@
                         
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="ชื่อคูปอง *" Style="{StaticResource FieldLabelStyle}"/>
-                            <TextBox x:Name="NameTextBox" PlaceholderText="เช่น คูปองกาแฟ 50 บาท"/>
+                            <TextBox x:Name="NameTextBox" PlaceholderText="เช่น คูปองกาแฟ50 บาท"/>
                         </StackPanel>
                     </Grid>
                     
@@ -121,31 +121,25 @@
                 </StackPanel>
             </Border>
 
-            <!-- Type-specific Parameters (only coupon value supported) -->
+            <!-- Type-specific Parameters (only coupon description supported) -->
             <Border x:Name="ParametersSection" Style="{StaticResource CardBorderStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="พารามิเตอร์" Style="{StaticResource SectionHeaderStyle}"/>
+                    <TextBlock Text="รายละเอียดคูปอง" Style="{StaticResource SectionHeaderStyle}"/>
                     
                     <!-- COUPON Parameters -->
                     <StackPanel x:Name="CouponParamsPanel" Visibility="Visible" Spacing="12">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="15"/>
+                                <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="มูลค่าคูปอง *" Style="{StaticResource FieldLabelStyle}"/>
-                                <muxc:NumberBox x:Name="CouponValueNumberBox" 
-                                           Minimum="0" 
-                                           PlaceholderText="0.00"
-                                           ValueChanged="CouponValueNumberBox_ValueChanged"/>
-                            </StackPanel>
-                            
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="คำอธิบาย" Style="{StaticResource FieldLabelStyle}"/>
-                                <TextBox x:Name="CouponDescriptionTextBox" PlaceholderText="คำอธิบายเพิ่มเติม" TextChanged="UpdatePreview"/>
+
+                            <StackPanel Grid.Column="0" Grid.ColumnSpan="3">
+                                <TextBlock Text="รายละเอียดคูปอง" Style="{StaticResource FieldLabelStyle}"/>
+                                <TextBox x:Name="CouponDescriptionTextBox" PlaceholderText="รายละเอียดคูปอง" TextChanged="UpdatePreview"
+                                         AcceptsReturn="True" TextWrapping="Wrap" Height="120" MaxLength="1000"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
@@ -187,7 +181,7 @@
                             <muxc:NumberBox x:Name="SequenceLengthNumberBox" 
                                        Minimum="1" 
                                        Maximum="10" 
-                                       Value="4"
+                                       Value="3"
                                        ValueChanged="CodeGenerator_TextChanged"/>
                         </StackPanel>
                     </Grid>
@@ -196,7 +190,7 @@
                         <TextBlock Text="ตัวอย่างรหัสที่จะสร้าง" Style="{StaticResource FieldLabelStyle}"/>
                         <TextBlock x:Name="CodePreviewTextBlock" 
                                    Style="{StaticResource PreviewTextStyle}"
-                                   Text="CF0001END"/>
+                                   Text="CF001END"/>
                     </StackPanel>
                 </StackPanel>
             </Border>

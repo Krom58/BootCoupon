@@ -36,6 +36,7 @@ namespace CouponManagement.Shared.Services
         {
             var query = _context.GeneratedCoupons
                 .Include(gc => gc.CouponDefinition)
+                .Include(gc => gc.ReceiptItem)
                 .AsQueryable();
 
             // Apply filters
@@ -79,12 +80,22 @@ namespace CouponManagement.Shared.Services
                     CreatedAt = gc.CreatedAt,
                     // populate CreatedBy for display
                     CreatedBy = gc.CreatedBy,
-                    StatusText = gc.IsUsed ? "ใช้แล้ว" : "ยังไม่ใช้",
-                    UsageText = gc.IsUsed && gc.UsedDate.HasValue ? 
-                        $"ใช้โดย {gc.UsedBy} เมื่อ {gc.UsedDate.Value:dd/MM/yyyy HH:mm}" : 
-                        "ยังไม่มีการใช้งาน"
+                    // ExpiresAt copied from generated coupon
+                    ExpiresAt = gc.ExpiresAt,
+                    // If ReceiptItemId is present, treat as sold (ขายแล้ว)
+                    IsSold = gc.ReceiptItemId != null,
+                    // store ReceiptItemId for later lookup if needed
+                    ReceiptItemId = gc.ReceiptItemId,
+                    StatusText = gc.ReceiptItemId != null ? "ขายแล้ว" : "ยังไม่ได้ขาย",
+                    UsageText = gc.ReceiptItemId != null && gc.ReceiptItem != null ?
+                        $"ขายในใบเสร็จ #{gc.ReceiptItem.ReceiptId}" :
+                        (gc.IsUsed && gc.UsedDate.HasValue ?
+                            $"ใช้โดย {gc.UsedBy} เมื่อ {gc.UsedDate.Value:dd/MM/yyyy HH:mm}" :
+                            "ยังไม่มีการใช้งาน")
                 })
                 .ToListAsync();
+
+            // NOTE: removed lookup for SoldReceiptCode — only ReceiptItemId is returned to caller.
 
             return new PagedResult<GeneratedCouponDisplayModel>
             {
@@ -103,6 +114,7 @@ namespace CouponManagement.Shared.Services
         {
             return await _context.GeneratedCoupons
                 .Include(gc => gc.CouponDefinition)
+                .Include(gc => gc.ReceiptItem)
                 .FirstOrDefaultAsync(gc => gc.Id == id);
         }
 
@@ -113,6 +125,7 @@ namespace CouponManagement.Shared.Services
         {
             return await _context.GeneratedCoupons
                 .Include(gc => gc.CouponDefinition)
+                .Include(gc => gc.ReceiptItem)
                 .FirstOrDefaultAsync(gc => gc.GeneratedCode == code);
         }
 
@@ -140,8 +153,9 @@ namespace CouponManagement.Shared.Services
         /// </summary>
         public async Task<List<GeneratedCouponDisplayModel>> GetByBatchAsync(int couponDefinitionId, int batchNumber)
         {
-            return await _context.GeneratedCoupons
+            var items = await _context.GeneratedCoupons
                 .Include(gc => gc.CouponDefinition)
+                .Include(gc => gc.ReceiptItem)
                 .Where(gc => gc.CouponDefinitionId == couponDefinitionId && gc.BatchNumber == batchNumber)
                 .OrderBy(gc => gc.GeneratedCode)
                 .Select(gc => new GeneratedCouponDisplayModel
@@ -158,12 +172,21 @@ namespace CouponManagement.Shared.Services
                     CreatedAt = gc.CreatedAt,
                     // populate CreatedBy
                     CreatedBy = gc.CreatedBy,
-                    StatusText = gc.IsUsed ? "ใช้แล้ว" : "ยังไม่ใช้",
-                    UsageText = gc.IsUsed && gc.UsedDate.HasValue ? 
-                        $"ใช้โดย {gc.UsedBy} เมื่อ {gc.UsedDate.Value:dd/MM/yyyy HH:mm}" : 
-                        "ยังไม่มีการใช้งาน"
+                    ExpiresAt = gc.ExpiresAt,
+                    IsSold = gc.ReceiptItemId != null,
+                    ReceiptItemId = gc.ReceiptItemId,
+                    StatusText = gc.ReceiptItemId != null ? "ขายแล้ว" : "ยังไม่ได้ขาย",
+                    UsageText = gc.ReceiptItemId != null && gc.ReceiptItem != null ?
+                        $"ขายในใบเสร็จ #{gc.ReceiptItem.ReceiptId}" :
+                        (gc.IsUsed && gc.UsedDate.HasValue ?
+                            $"ใช้โดย {gc.UsedBy} เมื่อ {gc.UsedDate.Value:dd/MM/yyyy HH:mm}" :
+                            "ยังไม่มีการใช้งาน")
                 })
                 .ToListAsync();
+
+            // NOTE: removed lookup for SoldReceiptCode — only ReceiptItemId is returned to caller.
+
+            return items;
         }
 
         /// <summary>
@@ -177,15 +200,15 @@ namespace CouponManagement.Shared.Services
             DateTime? createdTo = null)
         {
             var result = await GetGeneratedCouponsAsync(1, int.MaxValue, couponDefinitionId, searchCode, isUsed, createdFrom, createdTo);
-            
+
             var csv = new System.Text.StringBuilder();
-            csv.AppendLine("รหัสคูปอง,รหัสคำนิยาม,ชื่อคำนิยาม,แบทช์,สถานะ,สร้างโดย,ใช้โดย,วันที่ใช้,วันที่สร้าง");
-            
+            csv.AppendLine("รหัสคูปอง,รหัสคำนิยาม,ชื่อคำนิยาม,สถานะ,สร้างโดย,ใช้โดย/ขายในใบเสร็จ,ใบเสร็จ,วันที่ใช้/ขาย,วันที่สร้าง,วันหมดอายุ");
+
             foreach (var item in result.Items)
             {
-                csv.AppendLine($"\"{item.GeneratedCode}\",\"{item.CouponDefinitionCode}\",\"{item.CouponDefinitionName}\",{item.BatchNumber},\"{item.StatusText}\",\"{item.CreatedBy ?? ""}\",\"{item.UsedBy ?? ""}\",\"{item.UsedDate?.ToString("dd/MM/yyyy HH:mm") ?? ""}\",\"{item.CreatedAt:dd/MM/yyyy HH:mm}\"");
+                csv.AppendLine($"\"{item.GeneratedCode}\",\"{item.CouponDefinitionCode}\",\"{item.CouponDefinitionName}\",\"{item.StatusText}\",\"{item.CreatedBy ?? ""}\",\"{item.UsedBy ?? (item.StatusText == "ขายแล้ว" ? item.UsageText : "") }\",\"{item.ReceiptItemId?.ToString() ?? ""}\",\"{item.UsedDate?.ToString("dd/MM/yyyy HH:mm") ?? (item.StatusText == "ขายแล้ว" ? item.UsageText : "") }\",\"{item.CreatedAt:dd/MM/yyyy HH:mm}\",\"{item.ExpiresAt?.ToString("dd/MM/yyyy") ?? ""}\"");
             }
-            
+
             return System.Text.Encoding.UTF8.GetBytes(csv.ToString());
         }
 
@@ -221,6 +244,12 @@ namespace CouponManagement.Shared.Services
         public DateTime CreatedAt { get; set; }
         // New: include CreatedBy for display in UI
         public string? CreatedBy { get; set; }
+        // New: indicate sold (allocated to a receipt)
+        public bool IsSold { get; set; }
+        // ExpiresAt for generated coupon
+        public DateTime? ExpiresAt { get; set; }
+        // ReceiptItemId and resolved ReceiptCode for sold coupons
+        public int? ReceiptItemId { get; set; }
         public string StatusText { get; set; } = string.Empty;
         public string UsageText { get; set; } = string.Empty;
     }

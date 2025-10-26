@@ -138,7 +138,7 @@ namespace CouponManagement.Shared.Models
         public int CurrentSequence { get; set; } = 0;
         
         [Range(1, 10)]
-        public int SequenceLength { get; set; } = 4;
+        public int SequenceLength { get; set; } = 3;
         
         public int GeneratedCount { get; set; } = 0;
         
@@ -202,9 +202,8 @@ namespace CouponManagement.Shared.Models
         public int? ReceiptItemId { get; set; }
         public DatabaseReceiptItem? ReceiptItem { get; set; }
 
-        // Optional denormalized customer reference for faster reporting
-        public int? CustomerId { get; set; }
-        public Customer? Customer { get; set; }
+        // New: optional expiration date for this generated coupon
+        public DateTime? ExpiresAt { get; set; }
 
         // Navigation property
         public CouponDefinition? CouponDefinition { get; set; }
@@ -219,12 +218,13 @@ namespace CouponManagement.Shared.Models
     // คูปองธรรมดา
     public class CouponParams : CouponParameters
     {
-        public decimal value { get; set; }
+        // removed numeric value - project now uses Price for amount
         public string description { get; set; } = string.Empty;
         
         public override string GetDescription()
         {
-            return $"คูปองมูลค่า {value:N2} บาท - {description}";
+            // Return description only; Price is shown from CouponDefinition.Price elsewhere
+            return description;
         }
     }
     
@@ -263,8 +263,8 @@ namespace CouponManagement.Shared.Models
         [StringLength(10)]
         public string Suffix { get; set; } = string.Empty;
         
-        [Range(1, 10)]
-        public int SequenceLength { get; set; } = 4;
+        [Range(1,10)]
+        public int SequenceLength { get; set; } =3;
     }
     
     public class GenerateCouponsRequest

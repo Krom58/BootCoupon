@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 namespace CouponManagement.Dialogs
 {
@@ -67,6 +68,15 @@ namespace CouponManagement.Dialogs
                 {
                     TypeComboBox.Items.Clear();
 
+                    // If there are no types, add a placeholder 'ไม่ระบุ' so that the dialog shows a clear state
+                    // but does not create any DB records. The placeholder has no Tag (or Tag != CouponType)
+                    // so BuildCreateCouponRequest will leave CouponTypeId as0 and validation will prevent saving.
+                    if (types.Count ==0)
+                    {
+                        System.Diagnostics.Debug.WriteLine("No coupon types found - adding placeholder 'ไม่ระบุ'");
+                        TypeComboBox.Items.Add(new ComboBoxItem { Content = "ไม่ระบุ", Tag = null, IsSelected = true });
+                    }
+
                     // Add items; store actual CouponType in Tag so we can read Id/Name reliably
                     foreach (var t in types)
                     {
@@ -75,17 +85,9 @@ namespace CouponManagement.Dialogs
                         System.Diagnostics.Debug.WriteLine($"Added CouponType: {t.Name} (ID: {t.Id})");
                     }
 
-                    if (TypeComboBox.Items.Count == 0)
+                    if (TypeComboBox.Items.Count >0 && TypeComboBox.SelectedIndex <0)
                     {
-                        // Ensure at least one default
-                        System.Diagnostics.Debug.WriteLine("No coupon types found, creating default");
-                        var created = await _couponService.AddCouponTypeAsync("คูปอง", Environment.UserName);
-                        TypeComboBox.Items.Add(new ComboBoxItem { Content = created.Name, Tag = created });
-                    }
-
-                    if (TypeComboBox.Items.Count > 0 && TypeComboBox.SelectedIndex < 0)
-                    {
-                        TypeComboBox.SelectedIndex = 0;
+                        TypeComboBox.SelectedIndex =0;
                         System.Diagnostics.Debug.WriteLine($"Selected default item: {TypeComboBox.SelectedIndex}");
                     }
                 }
@@ -227,8 +229,7 @@ namespace CouponManagement.Dialogs
                 var couponParams = JsonSerializer.Deserialize<CouponParams>(_editingDefinition.Params);
                 if (couponParams != null)
                 {
-                    if (CouponValueNumberBox != null)
-                        CouponValueNumberBox.Value = (double)couponParams.value;
+                    // Coupon value removed; description only
                     if (CouponDescriptionTextBox != null)
                         CouponDescriptionTextBox.Text = couponParams.description;
                 }
@@ -257,19 +258,12 @@ namespace CouponManagement.Dialogs
         {
             try
             {
-                if (CouponValueNumberBox != null)
-                    CouponValueNumberBox.Value = sender.Value;
                 UpdateDescriptionPreview();
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error in PriceNumberBox_ValueChanged: {ex.Message}");
             }
-        }
-
-        private void CouponValueNumberBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
-        {
-            UpdateDescriptionPreview();
         }
 
         private void UpdatePreview(object sender, object e)
@@ -288,7 +282,7 @@ namespace CouponManagement.Dialogs
             {
                 var prefix = (PrefixTextBox?.Text ?? string.Empty).Trim();
                 var suffix = (SuffixTextBox?.Text ?? string.Empty).Trim();
-                var sequenceLength = Math.Max(1, SafeIntFromDouble(SequenceLengthNumberBox?.Value ?? 4));
+                var sequenceLength = Math.Max(1, SafeIntFromDouble(SequenceLengthNumberBox?.Value ??3));
 
                 if (string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(suffix))
                 {
@@ -314,7 +308,8 @@ namespace CouponManagement.Dialogs
             try
             {
                 var price = SafeDecimalFromDouble(PriceNumberBox?.Value ?? 0);
-                var couponValue = SafeDecimalFromDouble(CouponValueNumberBox?.Value ?? 0);
+                // use Price as coupon value
+                var couponValue = price;
                 var couponDesc = CouponDescriptionTextBox?.Text?.Trim() ?? string.Empty;
                 
                 if (DescriptionPreviewTextBlock != null)
@@ -322,8 +317,7 @@ namespace CouponManagement.Dialogs
                     DescriptionPreviewTextBlock.Text = $"คูปองมูลค่า {couponValue:N2} บาท (ราคาขาย {price:N2} บาท)" +
                         (string.IsNullOrEmpty(couponDesc) ? "" : $" - {couponDesc}");
                 }
-            }
-            catch (Exception ex)
+            }catch (Exception ex)
             {
                 if (DescriptionPreviewTextBlock != null)
                     DescriptionPreviewTextBlock.Text = $"ข้อผิดพลาด: {ex.Message}";
@@ -342,9 +336,45 @@ namespace CouponManagement.Dialogs
             try
             {
                 var request = BuildCreateCouponRequest();
+                // normalize code at UI level too
+                request.Code = (request.Code ?? string.Empty).Trim().ToUpperInvariant();
                 
                 // Debug: Log the request details
                 System.Diagnostics.Debug.WriteLine($"Creating coupon with CouponTypeId: {request.CouponTypeId}");
+                
+                // New: check duplicate code early to provide inline validation
+                try
+                {
+                    var existingByCode = await _service.GetByCodeAsync(request.Code);
+                    if (!_isEditMode)
+                    {
+                        if (existingByCode != null)
+                        {
+                            await ShowInlineErrorAsync($"รหัสคูปอง '{request.Code}' มีอยู่แล้ว");
+                            _isSaving = false;
+                            IsPrimaryButtonEnabled = true;
+                            PrimaryButtonText = "บันทึก";
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // Edit mode: if another definition uses the same code, block
+                        if (existingByCode != null && _editingDefinition != null && existingByCode.Id != _editingDefinition.Id)
+                        {
+                            await ShowInlineErrorAsync($"รหัสคูปอง '{request.Code}' ถูกใช้งานโดยคำนิยามอื่น");
+                            _isSaving = false;
+                            IsPrimaryButtonEnabled = true;
+                            PrimaryButtonText = "บันทึก";
+                            return;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Non-fatal: log and continue - service may be unavailable but validation will be handled server-side
+                    System.Diagnostics.Debug.WriteLine($"Warning: unable to check duplicate code: {ex.Message}");
+                }
                 
                 var validationResult = ValidateRequest(request);
                 if (!validationResult.IsValid)
@@ -355,14 +385,33 @@ namespace CouponManagement.Dialogs
                     PrimaryButtonText = "บันทึก";
                     return;
                 }
-
+                
                 bool success = false;
                 if (_isEditMode && _editingDefinition != null)
                 {
-                    success = await _service.UpdateAsync(_editingDefinition.Id, request, Environment.UserName);
-                    if (!success)
+                    try
                     {
-                        await ShowInlineErrorAsync("ไม่พบข้อมูลคำนิยามคูปองที่ต้องการแก้ไข");
+                        success = await _service.UpdateAsync(_editingDefinition.Id, request, Environment.UserName);
+                        if (!success)
+                        {
+                            await ShowInlineErrorAsync("ไม่พบข้อมูลคำนิยามคูปองที่ต้องการแก้ไข");
+                            _isSaving = false;
+                            IsPrimaryButtonEnabled = true;
+                            PrimaryButtonText = "บันทึก";
+                            return;
+                        }
+                    }
+                    catch (InvalidOperationException invEx)
+                    {
+                        await ShowInlineErrorAsync(invEx.Message);
+                        _isSaving = false;
+                        IsPrimaryButtonEnabled = true;
+                        PrimaryButtonText = "บันทึก";
+                        return;
+                    }
+                    catch (DbUpdateException dbEx)
+                    {
+                        await ShowInlineErrorAsync($"ไม่สามารถบันทึกข้อมูล: {dbEx.Message}");
                         _isSaving = false;
                         IsPrimaryButtonEnabled = true;
                         PrimaryButtonText = "บันทึก";
@@ -371,11 +420,30 @@ namespace CouponManagement.Dialogs
                 }
                 else
                 {
-                    var result = await _service.CreateAsync(request, Environment.UserName);
-                    success = result != null;
-                    if (!success)
+                    try
                     {
-                        await ShowInlineErrorAsync("ไม่สามารถสร้างคำนิยามคูปองได้");
+                        var result = await _service.CreateAsync(request, Environment.UserName);
+                        success = result != null;
+                        if (!success)
+                        {
+                            await ShowInlineErrorAsync("ไม่สามารถสร้างคำนิยามคูปองได้");
+                            _isSaving = false;
+                            IsPrimaryButtonEnabled = true;
+                            PrimaryButtonText = "บันทึก";
+                            return;
+                        }
+                    }
+                    catch (InvalidOperationException invEx)
+                    {
+                        await ShowInlineErrorAsync(invEx.Message);
+                        _isSaving = false;
+                        IsPrimaryButtonEnabled = true;
+                        PrimaryButtonText = "บันทึก";
+                        return;
+                    }
+                    catch (DbUpdateException dbEx)
+                    {
+                        await ShowInlineErrorAsync($"ไม่สามารถบันทึกข้อมูล: {dbEx.Message}");
                         _isSaving = false;
                         IsPrimaryButtonEnabled = true;
                         PrimaryButtonText = "บันทึก";
@@ -415,7 +483,7 @@ namespace CouponManagement.Dialogs
         private CreateCouponRequest BuildCreateCouponRequest()
         {
             // Get selected CouponType
-            int selectedTypeId = 0;
+            int selectedTypeId =0;
             
             if (TypeComboBox?.SelectedItem is ComboBoxItem selectedItem)
             {
@@ -439,10 +507,10 @@ namespace CouponManagement.Dialogs
                 Code = (CodeTextBox?.Text ?? string.Empty).Trim(),
                 Name = (NameTextBox?.Text ?? string.Empty).Trim(),
                 CouponTypeId = selectedTypeId, // เปลี่ยนเป็น CouponTypeId
-                Price = SafeDecimalFromDouble(PriceNumberBox?.Value ?? 0),
+                Price = SafeDecimalFromDouble(PriceNumberBox?.Value ??0),
                 ValidFrom = ValidFromDatePicker?.Date.DateTime ?? DateTime.Today,
                 ValidTo = ValidToDatePicker?.Date.DateTime ?? DateTime.Today.AddYears(1),
-                SequenceLength = Math.Clamp(SafeIntFromDouble(SequenceLengthNumberBox?.Value ?? 4), 1, 10)
+                SequenceLength = Math.Clamp(SafeIntFromDouble(SequenceLengthNumberBox?.Value ??3),1,10)
             };
 
             // Set IsLimited based on radio button
@@ -463,7 +531,7 @@ namespace CouponManagement.Dialogs
 
             var couponParams = new CouponParams
             {
-                value = SafeDecimalFromDouble(CouponValueNumberBox?.Value ?? 0),
+                // value removed
                 description = (CouponDescriptionTextBox?.Text ?? string.Empty).Trim()
             };
             request.Params = JsonSerializer.Serialize(couponParams, jsonOptions);
@@ -491,8 +559,9 @@ namespace CouponManagement.Dialogs
 
             try
             {
+                // Ensure params JSON deserializes to the expected shape
                 var couponParams = JsonSerializer.Deserialize<CouponParams>(request.Params);
-                if (couponParams?.value <= 0) return (false, "มูลค่าคูปองต้องมากกว่า 0");
+                if (couponParams == null) return (false, "พารามิเตอร์คูปองไม่ถูกต้อง");
             }
             catch
             {
@@ -507,7 +576,7 @@ namespace CouponManagement.Dialogs
             IsPrimaryButtonEnabled = true;
             PrimaryButtonText = "บันทึก";
 
-            var errorTextBlock = new TextBlock { Text = message, Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Red), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 0) };
+            var errorTextBlock = new TextBlock { Text = message, Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Red), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,0) };
 
             if (Content is ScrollViewer scrollViewer && scrollViewer.Content is StackPanel mainPanel)
             {
@@ -550,8 +619,8 @@ namespace CouponManagement.Dialogs
         {
             try
             {
-                var input = new TextBox { PlaceholderText = "ชื่อประเภทคูปองใหม่", Width = 240, Margin = new Thickness(0, 0, 0, 8) };
-                var addBtn = new Button { Content = "เพิ่ม", Margin = new Thickness(0, 0, 8, 0) };
+                var input = new TextBox { PlaceholderText = "ชื่อประเภทคูปองใหม่", Width =240, Margin = new Thickness(0,0,0,8) };
+                var addBtn = new Button { Content = "เพิ่ม", Margin = new Thickness(0,0,8,0) };
                 var cancelBtn = new Button { Content = "ยกเลิก" };
 
                 var buttonsPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
@@ -577,7 +646,7 @@ namespace CouponManagement.Dialogs
                         Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().TryEnqueue(() =>
                         {
                             TypeComboBox.Items.Add(new ComboBoxItem { Content = created.Name, Tag = created });
-                            TypeComboBox.SelectedIndex = TypeComboBox.Items.Count - 1;
+                            TypeComboBox.SelectedIndex = TypeComboBox.Items.Count -1;
                         });
                     }
                     catch (Exception ex)

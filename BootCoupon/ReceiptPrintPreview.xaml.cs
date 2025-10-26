@@ -119,30 +119,84 @@ namespace BootCoupon
             // ดึงข้อมูลรายการสินค้า
             using (var context = new CouponContext())
             {
-                // ดึงข้อมูล receipt items พร้อมกับข้อมูล coupon
+                // ดึงข้อมูล receipt items พร้อมกับข้อมูล coupon definition (CouponDefinition)
                 var items = await context.ReceiptItems
                     .Where(ri => ri.ReceiptId == receiptId)
                     .ToListAsync();
 
                 _displayItems.Clear();
 
+                int displayIndex =0;
+
                 // สร้างข้อมูลสำหรับแสดงในตาราง
-                for (int i = 0; i < items.Count; i++)
+                for (int i =0; i < items.Count; i++)
                 {
                     var item = items[i];
-                    var coupon = await context.Coupons.FindAsync(item.CouponId);
 
-                    if (coupon != null)
+                    // Find CouponDefinition instead of Coupon (project uses CouponDefinition.Id in ReceiptItems)
+                    var couponDef = await context.CouponDefinitions.FindAsync(item.CouponId);
+
+                    if (couponDef != null && couponDef.IsLimited)
                     {
-                        _displayItems.Add(new ReceiptItemDisplay
+                        try
                         {
-                            Index = i + 1,
-                            Name = coupon.Name,
-                            Quantity = item.Quantity,
-                            UnitPrice = item.UnitPrice,
-                            TotalPrice = item.TotalPrice
-                        });
+                            var codes = await context.GeneratedCoupons
+                                .Where(g => g.ReceiptItemId == item.ReceiptItemId)
+                                .OrderBy(g => g.Id)
+                                .Select(g => g.GeneratedCode)
+                                .ToListAsync();
+
+                            if (codes != null && codes.Count >0)
+                            {
+                                // If there are generated codes, create one display line per code
+                                foreach (var code in codes)
+                                {
+                                    displayIndex++;
+                                    _displayItems.Add(new ReceiptItemDisplay
+                                    {
+                                        Index = displayIndex,
+                                        Name = string.IsNullOrWhiteSpace(code) ? couponDef.Name : $"{couponDef.Name} ({code})",
+                                        Quantity =1,
+                                        UnitPrice = item.UnitPrice,
+                                        TotalPrice = item.UnitPrice
+                                    });
+                                }
+
+                                // If quantity is greater than number of codes (unlikely), add placeholder entries
+                                int remaining = item.Quantity - codes.Count;
+                                for (int r =0; r < remaining; r++)
+                                {
+                                    displayIndex++;
+                                    _displayItems.Add(new ReceiptItemDisplay
+                                    {
+                                        Index = displayIndex,
+                                        Name = $"{couponDef.Name} (ไม่ระบุรหัส)",
+                                        Quantity =1,
+                                        UnitPrice = item.UnitPrice,
+                                        TotalPrice = item.UnitPrice
+                                    });
+                                }
+
+                                continue; // processed this item
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Failed to load generated codes for ReceiptItem {item.ReceiptItemId}: {ex.Message}");
+                            // fall through to add as single row below
+                        }
                     }
+
+                    // Fallback: add as a single row (either not limited or no codes found)
+                    displayIndex++;
+                    _displayItems.Add(new ReceiptItemDisplay
+                    {
+                        Index = displayIndex,
+                        Name = couponDef != null ? couponDef.Name : $"Coupon #{item.CouponId}",
+                        Quantity = item.Quantity,
+                        UnitPrice = item.UnitPrice,
+                        TotalPrice = item.TotalPrice
+                    });
                 }
             }
 
@@ -688,7 +742,7 @@ namespace BootCoupon
             }
         }
 
-        // สร้างส่วนหัว
+        // แก้ไข CreateHeaderSection method
         private Grid? CreateHeaderSection()
         {
             try

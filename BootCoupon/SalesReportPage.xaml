@@ -13,6 +13,7 @@
 
     <Page.Resources>
         <conv:ReportModeToVisibilityConverter x:Key="ReportModeToVisibility" />
+        <local:NullableDateToStringConverter x:Key="NullableDateToString" />
     </Page.Resources>
 
     <Grid Margin="20">
@@ -50,25 +51,25 @@
                 <!-- Title -->
                 <TextBlock Grid.Row="0" Grid.ColumnSpan="3" Text="ตัวกรองข้อมูล" 
                            FontSize="18" FontWeight="SemiBold" 
-                           Margin="0,0,0,15"/>
+                           Margin="0,0,0,15" HorizontalAlignment="Center" TextAlignment="Center"/>
 
-                <!-- Row 1: Date Range -->
+                <!-- Row1: Date Range -->
                 <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,15,15">
-                    <TextBlock Text="วันที่เริ่มต้น:" Margin="0,0,0,5"/>
+                    <TextBlock Text="วันที่เริ่มต้น:" Margin="0,0,0,5" HorizontalAlignment="Center" TextAlignment="Center"/>
                     <DatePicker x:Name="StartDatePicker" 
                                 SelectedDate="{x:Bind ViewModel.StartDate, Mode=TwoWay}"
                                 HorizontalAlignment="Stretch"/>
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,15,15">
-                    <TextBlock Text="วันที่สิ้นสุด:" Margin="0,0,0,5"/>
+                    <TextBlock Text="วันที่สิ้นสุด:" Margin="0,0,0,5" HorizontalAlignment="Center" TextAlignment="Center"/>
                     <DatePicker x:Name="EndDatePicker" 
                                 SelectedDate="{x:Bind ViewModel.EndDate, Mode=TwoWay}"
                                 HorizontalAlignment="Stretch"/>
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,15">
-                    <TextBlock Text="เซล:" Margin="0,0,0,5"/>
+                    <TextBlock Text="เซล:" Margin="0,0,0,5" HorizontalAlignment="Center" TextAlignment="Center"/>
                     <ComboBox x:Name="SalesPersonComboBox" 
                               ItemsSource="{x:Bind ViewModel.SalesPersons, Mode=OneWay}"
                               SelectedItem="{x:Bind ViewModel.SelectedSalesPerson, Mode=TwoWay}"
@@ -77,9 +78,9 @@
                               HorizontalAlignment="Stretch"/>
                 </StackPanel>
 
-                <!-- Row 2: Coupon Filters -->
+                <!-- Row2: Coupon Filters -->
                 <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,15,15">
-                    <TextBlock Text="ประเภทคูปอง:" Margin="0,0,0,5"/>
+                    <TextBlock Text="ประเภทคูปอง:" Margin="0,0,0,5" HorizontalAlignment="Center" TextAlignment="Center"/>
                     <ComboBox x:Name="CouponTypeComboBox" 
                               ItemsSource="{x:Bind ViewModel.CouponTypes, Mode=OneWay}"
                               SelectedItem="{x:Bind ViewModel.SelectedCouponType, Mode=TwoWay}"
@@ -90,7 +91,7 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,15,15">
-                    <TextBlock Text="ชื่อคูปอง:" Margin="0,0,0,5"/>
+                    <TextBlock Text="ชื่อคูปอง:" Margin="0,0,0,5" HorizontalAlignment="Center" TextAlignment="Center"/>
                     <ComboBox x:Name="CouponComboBox" 
                               ItemsSource="{x:Bind ViewModel.FilteredCoupons, Mode=OneWay}"
                               SelectedItem="{x:Bind ViewModel.SelectedCoupon, Mode=TwoWay}"
@@ -100,7 +101,7 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,15">
-                    <TextBlock Text="วิธีการชำระเงิน:" Margin="0,0,0,5"/>
+                    <TextBlock Text="วิธีการชำระเงิน:" Margin="0,0,0,5" HorizontalAlignment="Center" TextAlignment="Center"/>
                     <ComboBox x:Name="PaymentMethodComboBox" 
                               ItemsSource="{x:Bind ViewModel.PaymentMethods, Mode=OneWay}"
                               SelectedItem="{x:Bind ViewModel.SelectedPaymentMethod, Mode=TwoWay}"
@@ -111,7 +112,7 @@
 
                 <!-- New: Report mode buttons (simpler than TabView) -->
                 <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="10" Margin="0,0,0,15">
-                    <TextBlock Text="รูปแบบรายงาน:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="รูปแบบรายงาน:" VerticalAlignment="Center" Margin="0,0,10,0" HorizontalAlignment="Center" TextAlignment="Center"/>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button x:Name="ByReceiptButton" Content="จัดตามใบเสร็จ" Tag="ByReceipt" Click="ReportModeButton_Click"/>
                         <Button x:Name="LimitedCouponsButton" Content="คูปองจำกัดจำนวนพร้อมชื่อลูกค้า" Tag="LimitedCoupons" Click="ReportModeButton_Click"/>
@@ -120,7 +121,7 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- Row 4: Action Buttons -->
+                <!-- Row4: Action Buttons -->
                 <StackPanel Grid.Row="4" Grid.ColumnSpan="3" Orientation="Horizontal" 
                             HorizontalAlignment="Center" Spacing="15">
                     <Button x:Name="SearchButton" Content="ค้นหา" 
@@ -157,9 +158,9 @@
                 <!-- Summary -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="30" Margin="0,0,0,15">
                     <TextBlock Text="{x:Bind ViewModel.TotalRecordsText, Mode=OneWay}" 
-                               FontWeight="SemiBold"/>
+                               FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center"/>
                     <TextBlock Text="{x:Bind ViewModel.TotalAmountText, Mode=OneWay}" 
-                               FontWeight="SemiBold" Foreground="{ThemeResource SystemAccentColor}"/>
+                               FontWeight="SemiBold" Foreground="{ThemeResource SystemAccentColor}" HorizontalAlignment="Center" TextAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Data List with ScrollViewer -->
@@ -177,27 +178,32 @@
                         <Border Grid.Row="0" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,8" Visibility="{Binding Path=ViewModel.ReportMode, ElementName=RootPage, Converter={StaticResource ReportModeToVisibility}, ConverterParameter=ByReceipt}">
                             <Grid MinWidth="1200">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" MinWidth="80"/>
-                                    <ColumnDefinition Width="Auto" MinWidth="80"/>
-                                    <ColumnDefinition Width="2*" MinWidth="140"/>
-                                    <ColumnDefinition Width="1*" MinWidth="120"/>
-                                    <ColumnDefinition Width="3*" MinWidth="180"/>
-                                    <ColumnDefinition Width="1*" MinWidth="100"/>
-                                    <ColumnDefinition Width="1*" MinWidth="120"/>
-                                    <ColumnDefinition Width="0.8*" MinWidth="70"/>
-                                    <ColumnDefinition Width="1*" MinWidth="90"/>
-                                    <ColumnDefinition Width="1*" MinWidth="100"/>
+                                    <ColumnDefinition Width="*" MinWidth="80"/>
+                                    <ColumnDefinition Width="*" MinWidth="80"/>
+                                    <ColumnDefinition Width="*" MinWidth="80"/>
+                                    <ColumnDefinition Width="*" MinWidth="80"/>
+                                    <ColumnDefinition Width="*" MinWidth="80"/>
+                                    <ColumnDefinition Width="*" MinWidth="80"/>
+                                    <ColumnDefinition Width="*" MinWidth="80"/>
+                                    <ColumnDefinition Width="*" MinWidth="80"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="วันที่" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="1" Text="เลขที่ใบเสร็จ" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="2" Text="ลูกค้า" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="3" Text="เซล" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="4" Text="คูปอง" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="5" Text="ประเภท" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="6" Text="การชำระเงิน" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="7" Text="จำนวน" FontWeight="SemiBold" TextAlignment="Right" Padding="5"/>
-                                <TextBlock Grid.Column="8" Text="ราคา/หน่วย" FontWeight="SemiBold" TextAlignment="Right" Padding="5"/>
-                                <TextBlock Grid.Column="9" Text="รวม" FontWeight="SemiBold" TextAlignment="Right" Padding="5"/>
+                                <TextBlock Grid.Column="0" Text="วันที่" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="เลขที่ใบเสร็จ" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="ลูกค้า" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="เบอร์โทร" FontWeight="SemiBold" TextAlignment="Center" Padding="5"/>
+                                <TextBlock Grid.Column="4" Text="เซล" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="5" Text="การชำระเงิน" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="6" Text="จำนวน" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="7" Text="รวม" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+
+                                <!-- vertical separators -->
+                                <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="1" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="2" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="3" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                             </Grid>
                         </Border>
 
@@ -207,27 +213,32 @@
                                     <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,8">
                                         <Grid MinWidth="1200">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" MinWidth="80"/>
-                                                <ColumnDefinition Width="Auto" MinWidth="80"/>
-                                                <ColumnDefinition Width="2*" MinWidth="140"/>
-                                                <ColumnDefinition Width="1*" MinWidth="120"/>
-                                                <ColumnDefinition Width="3*" MinWidth="180"/>
-                                                <ColumnDefinition Width="1*" MinWidth="100"/>
-                                                <ColumnDefinition Width="1*" MinWidth="120"/>
-                                                <ColumnDefinition Width="0.8*" MinWidth="70"/>
-                                                <ColumnDefinition Width="1*" MinWidth="90"/>
-                                                <ColumnDefinition Width="1*" MinWidth="100"/>
+                                                <ColumnDefinition Width="*" MinWidth="80"/>
+                                                <ColumnDefinition Width="*" MinWidth="80"/>
+                                                <ColumnDefinition Width="*" MinWidth="80"/>
+                                                <ColumnDefinition Width="*" MinWidth="80"/>
+                                                <ColumnDefinition Width="*" MinWidth="80"/>
+                                                <ColumnDefinition Width="*" MinWidth="80"/>
+                                                <ColumnDefinition Width="*" MinWidth="80"/>
+                                                <ColumnDefinition Width="*" MinWidth="80"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{x:Bind ReceiptDateDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Left"/>
-                                            <TextBlock Grid.Column="1" Text="{x:Bind ReceiptCode}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Left"/>
-                                            <TextBlock Grid.Column="2" Text="{x:Bind CustomerName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" TextTrimming="CharacterEllipsis" MaxLines="2" />
-                                            <TextBlock Grid.Column="3" Text="{x:Bind SalesPersonName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5"/>
-                                            <TextBlock Grid.Column="4" Text="{x:Bind CouponName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" TextTrimming="CharacterEllipsis" MaxLines="2"/>
-                                            <TextBlock Grid.Column="5" Text="{x:Bind CouponTypeName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5"/>
-                                            <TextBlock Grid.Column="6" Text="{x:Bind PaymentMethodName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5"/>
-                                            <TextBlock Grid.Column="7" Text="{x:Bind Quantity}" VerticalAlignment="Center" TextAlignment="Right" Padding="5"/>
-                                            <TextBlock Grid.Column="8" Text="{x:Bind UnitPriceDisplay}" VerticalAlignment="Center" TextAlignment="Right" Padding="5"/>
-                                            <TextBlock Grid.Column="9" Text="{x:Bind TotalPriceDisplay}" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold" Padding="5"/>
+                                            <TextBlock Grid.Column="0" Text="{x:Bind ReceiptDateDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ReceiptCode}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind CustomerName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" TextTrimming="CharacterEllipsis" MaxLines="2" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="3" Text="{x:Bind CustomerPhone}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="4" Text="{x:Bind SalesPersonName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="5" Text="{x:Bind PaymentMethodName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="6" Text="{x:Bind Quantity}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="7" Text="{x:Bind TotalPriceDisplay}" VerticalAlignment="Center" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+
+                                            <!-- vertical separators -->
+                                            <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="1" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="2" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="3" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -236,19 +247,36 @@
 
                         <!-- LimitedCoupons table -->
                         <Border Grid.Row="0" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,8" Visibility="{Binding Path=ViewModel.ReportMode, ElementName=RootPage, Converter={StaticResource ReportModeToVisibility}, ConverterParameter=LimitedCoupons}">
-                            <Grid MinWidth="1000">
+                            <Grid MinWidth="1200">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.5*" MinWidth="140"/>
-                                    <ColumnDefinition Width="3*" MinWidth="180"/>
-                                    <ColumnDefinition Width="1*" MinWidth="100"/>
-                                    <ColumnDefinition Width="1*" MinWidth="120"/>
-                                    <ColumnDefinition Width="1*" MinWidth="90"/>
+                                    <ColumnDefinition Width="*" MinWidth="100"/>
+                                    <ColumnDefinition Width="*" MinWidth="120"/>
+                                    <ColumnDefinition Width="*" MinWidth="120"/>
+                                    <ColumnDefinition Width="*" MinWidth="180"/>
+                                    <ColumnDefinition Width="*" MinWidth="180"/>
+                                    <ColumnDefinition Width="*" MinWidth="120"/>
+                                    <ColumnDefinition Width="*" MinWidth="120"/>
+                                    <ColumnDefinition Width="*" MinWidth="100"/>
+                                    <ColumnDefinition Width="*" MinWidth="100"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="รหัสคูปอง" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="1" Text="คูปอง" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="2" Text="ประเภท" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="3" Text="เซล" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="4" Text="รวม" FontWeight="SemiBold" TextAlignment="Right" Padding="5"/>
+                                <TextBlock Grid.Column="0" Text="วันที่" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="เลขที่ใบเสร็จ" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="รหัสคูปอง" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="คูปอง" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="4" Text="ลูกค้า" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="5" Text="เบอร์โทร" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="6" Text="เซล" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="7" Text="วันหมดอายุ" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="8" Text="ราคา" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+
+                                <!-- vertical separators -->
+                                <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="1" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="2" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="3" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                             </Grid>
                         </Border>
 
@@ -256,36 +284,72 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="local:SalesReportItem">
                                     <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,8">
-                                        <Grid MinWidth="1000">
+                                        <Grid MinWidth="1200">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="1.5*" MinWidth="140"/>
-                                                <ColumnDefinition Width="3*" MinWidth="180"/>
-                                                <ColumnDefinition Width="1*" MinWidth="100"/>
-                                                <ColumnDefinition Width="1*" MinWidth="120"/>
-                                                <ColumnDefinition Width="1*" MinWidth="90"/>
+                                                <ColumnDefinition Width="*" MinWidth="100"/>
+                                                <ColumnDefinition Width="*" MinWidth="120"/>
+                                                <ColumnDefinition Width="*" MinWidth="120"/>
+                                                <ColumnDefinition Width="*" MinWidth="180"/>
+                                                <ColumnDefinition Width="*" MinWidth="180"/>
+                                                <ColumnDefinition Width="*" MinWidth="120"/>
+                                                <ColumnDefinition Width="*" MinWidth="120"/>
+                                                <ColumnDefinition Width="*" MinWidth="100"/>
+                                                <ColumnDefinition Width="*" MinWidth="100"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{x:Bind GeneratedCode}" VerticalAlignment="Center" Padding="5"/>
-                                            <TextBlock Grid.Column="1" Text="{x:Bind CouponName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5"/>
-                                            <TextBlock Grid.Column="2" Text="{x:Bind CouponTypeName}" VerticalAlignment="Center" Padding="5"/>
-                                            <TextBlock Grid.Column="3" Text="{x:Bind SalesPersonName}" VerticalAlignment="Center" Padding="5"/>
-                                            <TextBlock Grid.Column="4" Text="{x:Bind TotalPriceDisplay}" VerticalAlignment="Center" TextAlignment="Right" Padding="5"/>
+                                            <TextBlock Grid.Column="0" Text="{x:Bind ReceiptDateDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ReceiptCode}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind GeneratedCode}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="3" Text="{x:Bind CouponName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="4" Text="{x:Bind CustomerName}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="5" Text="{x:Bind CustomerPhone}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="6" Text="{x:Bind SalesPersonName}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="7" Text="{Binding ExpiresAt, Converter={StaticResource NullableDateToString}}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="8" Text="{x:Bind TotalPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+
+                                            <!-- vertical separators -->
+                                            <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="1" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="2" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="3" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- UnlimitedGrouped table -->
+                        <!-- UnlimitedGrouped table (replaced to match LimitedCoupons columns, removed GeneratedCode and added ExpiresAt) -->
                         <Border Grid.Row="0" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,8" Visibility="{Binding Path=ViewModel.ReportMode, ElementName=RootPage, Converter={StaticResource ReportModeToVisibility}, ConverterParameter=UnlimitedGrouped}">
-                            <Grid MinWidth="900">
+                            <Grid MinWidth="1200">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3*" MinWidth="180"/>
-                                    <ColumnDefinition Width="1*" MinWidth="100"/>
-                                    <ColumnDefinition Width="1*" MinWidth="90"/>
+                                    <ColumnDefinition Width="*" MinWidth="100"/>
+                                    <ColumnDefinition Width="*" MinWidth="120"/>
+                                    <ColumnDefinition Width="*" MinWidth="180"/>
+                                    <ColumnDefinition Width="*" MinWidth="180"/>
+                                    <ColumnDefinition Width="*" MinWidth="120"/>
+                                    <ColumnDefinition Width="*" MinWidth="120"/>
+                                    <ColumnDefinition Width="*" MinWidth="100"/>
+                                    <ColumnDefinition Width="*" MinWidth="100"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="คูปอง" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="1" Text="ลูกค้า" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="2" Text="จำนวน" FontWeight="SemiBold" TextAlignment="Right" Padding="5"/>
+                                <TextBlock Grid.Column="0" Text="วันที่" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="เลขที่ใบเสร็จ" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="คูปอง" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="ลูกค้า" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="4" Text="เบอร์โทร" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="5" Text="เซล" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="6" Text="วันหมดอายุ" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="7" Text="รวม" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+
+                                <!-- vertical separators -->
+                                <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="1" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="2" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="3" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                             </Grid>
                         </Border>
 
@@ -293,15 +357,35 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="local:SalesReportItem">
                                     <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,8">
-                                        <Grid MinWidth="900">
+                                        <Grid MinWidth="1200">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="3*" MinWidth="180"/>
-                                                <ColumnDefinition Width="1*" MinWidth="100"/>
-                                                <ColumnDefinition Width="1*" MinWidth="90"/>
+                                                <ColumnDefinition Width="*" MinWidth="100"/>
+                                                <ColumnDefinition Width="*" MinWidth="120"/>
+                                                <ColumnDefinition Width="*" MinWidth="180"/>
+                                                <ColumnDefinition Width="*" MinWidth="180"/>
+                                                <ColumnDefinition Width="*" MinWidth="120"/>
+                                                <ColumnDefinition Width="*" MinWidth="120"/>
+                                                <ColumnDefinition Width="*" MinWidth="100"/>
+                                                <ColumnDefinition Width="*" MinWidth="100"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{x:Bind CouponName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5"/>
-                                            <TextBlock Grid.Column="1" Text="{x:Bind CustomerName}" VerticalAlignment="Center" Padding="5"/>
-                                            <TextBlock Grid.Column="2" Text="{x:Bind Quantity}" VerticalAlignment="Center" TextAlignment="Right" Padding="5"/>
+
+                                            <TextBlock Grid.Column="0" Text="{x:Bind ReceiptDateDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ReceiptCode}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind CouponName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="3" Text="{x:Bind CustomerName}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="4" Text="{x:Bind CustomerPhone}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="5" Text="{x:Bind SalesPersonName}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="6" Text="{Binding ExpiresAt, Converter={StaticResource NullableDateToString}}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="7" Text="{x:Bind TotalPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+
+                                            <!-- vertical separators -->
+                                            <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="1" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="2" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="3" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -310,15 +394,25 @@
 
                         <!-- SummaryByCoupon table -->
                         <Border Grid.Row="0" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,8" Visibility="{Binding Path=ViewModel.ReportMode, ElementName=RootPage, Converter={StaticResource ReportModeToVisibility}, ConverterParameter=SummaryByCoupon}">
-                            <Grid MinWidth="700">
+                            <Grid MinWidth="1000">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="3*" MinWidth="180"/>
-                                    <ColumnDefinition Width="1*" MinWidth="100"/>
+                                    <ColumnDefinition Width="1*" MinWidth="120"/>
+                                    <ColumnDefinition Width="1*" MinWidth="120"/>
                                     <ColumnDefinition Width="1*" MinWidth="90"/>
+                                    <ColumnDefinition Width="1*" MinWidth="120"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="คูปอง" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="1" Text="ประเภท" FontWeight="SemiBold" Padding="5"/>
-                                <TextBlock Grid.Column="2" Text="จำนวนขายรวม" FontWeight="SemiBold" TextAlignment="Right" Padding="5"/>
+                                <TextBlock Grid.Column="0" Text="คูปอง" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="ประเภท" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="จำกัด/ไม่จำกัด" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="จำนวนขายรวม" FontWeight="SemiBold" TextAlignment="Center" Padding="5"/>
+                                <TextBlock Grid.Column="4" Text="ยอดรวม (บาท)" FontWeight="SemiBold" TextAlignment="Center" Padding="5"/>
+
+                                <!-- vertical separators -->
+                                <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="1" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="2" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="3" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                             </Grid>
                         </Border>
 
@@ -326,15 +420,26 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="local:SalesReportItem">
                                     <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,8">
-                                        <Grid MinWidth="700">
+                                        <Grid MinWidth="1000">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="3*" MinWidth="180"/>
-                                                <ColumnDefinition Width="1*" MinWidth="100"/>
+                                                <ColumnDefinition Width="1*" MinWidth="120"/>
+                                                <ColumnDefinition Width="1*" MinWidth="120"/>
                                                 <ColumnDefinition Width="1*" MinWidth="90"/>
+                                                <ColumnDefinition Width="1*" MinWidth="120"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{x:Bind CouponName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5"/>
-                                            <TextBlock Grid.Column="1" Text="{x:Bind CouponTypeName}" VerticalAlignment="Center" Padding="5"/>
-                                            <TextBlock Grid.Column="2" Text="{x:Bind Quantity}" VerticalAlignment="Center" TextAlignment="Right" Padding="5"/>
+
+                                            <TextBlock Grid.Column="0" Text="{x:Bind CouponName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind CouponTypeName}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind IsLimitedDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="3" Text="{x:Bind Quantity}" VerticalAlignment="Center" TextAlignment="Center" Padding="5"/>
+                                            <TextBlock Grid.Column="4" Text="{x:Bind TotalPriceDisplay}" VerticalAlignment="Center" TextAlignment="Center" Padding="5"/>
+
+                                            <!-- vertical separators -->
+                                            <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="1" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="2" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                            <Rectangle Grid.Column="3" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
