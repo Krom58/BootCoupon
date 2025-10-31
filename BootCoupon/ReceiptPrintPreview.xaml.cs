@@ -128,74 +128,75 @@ namespace BootCoupon
 
                 int displayIndex =0;
 
-                // สร้างข้อมูลสำหรับแสดงในตาราง
-                for (int i =0; i < items.Count; i++)
-                {
-                    var item = items[i];
+                // Group receipt items by CouponId and UnitPrice to aggregate into single display rows
+                var groups = items.GroupBy(it => new { it.CouponId, it.UnitPrice });
 
-                    // Find CouponDefinition instead of Coupon (project uses CouponDefinition.Id in ReceiptItems)
-                    var couponDef = await context.CouponDefinitions.FindAsync(item.CouponId);
+                foreach (var group in groups)
+                {
+                    var groupItems = group.ToList();
+                    var couponDef = await context.CouponDefinitions.FindAsync(group.Key.CouponId);
+                    int totalQuantity = groupItems.Sum(g => g.Quantity);
 
                     if (couponDef != null && couponDef.IsLimited)
                     {
                         try
                         {
+                            var receiptItemIds = groupItems.Select(g => g.ReceiptItemId).ToList();
+
                             var codes = await context.GeneratedCoupons
-                                .Where(g => g.ReceiptItemId == item.ReceiptItemId)
+                                .Where(g => g.ReceiptItemId != null && receiptItemIds.Contains(g.ReceiptItemId.Value))
                                 .OrderBy(g => g.Id)
                                 .Select(g => g.GeneratedCode)
                                 .ToListAsync();
 
                             if (codes != null && codes.Count >0)
                             {
-                                // If there are generated codes, create one display line per code
-                                foreach (var code in codes)
+                                displayIndex++;
+                                var codesJoined = string.Join(",", codes);
+                                var nameWithCodes = string.IsNullOrWhiteSpace(codesJoined) ? couponDef.Name : $"{couponDef.Name} ({codesJoined})";
+
+                                _displayItems.Add(new ReceiptItemDisplay
+                                {
+                                    Index = displayIndex,
+                                    Name = nameWithCodes,
+                                    Quantity = totalQuantity,
+                                    UnitPrice = group.Key.UnitPrice,
+                                    TotalPrice = group.Key.UnitPrice * totalQuantity
+                                });
+
+                                int remaining = totalQuantity - codes.Count;
+                                if (remaining >0)
                                 {
                                     displayIndex++;
                                     _displayItems.Add(new ReceiptItemDisplay
                                     {
                                         Index = displayIndex,
-                                        Name = string.IsNullOrWhiteSpace(code) ? couponDef.Name : $"{couponDef.Name} ({code})",
-                                        Quantity =1,
-                                        UnitPrice = item.UnitPrice,
-                                        TotalPrice = item.UnitPrice
+                                        Name = $"{couponDef.Name} (ยังไม่ระบุรหัสจำนวน {remaining} ใบ)",
+                                        Quantity = remaining,
+                                        UnitPrice = group.Key.UnitPrice,
+                                        TotalPrice = group.Key.UnitPrice * remaining
                                     });
                                 }
 
-                                // If quantity is greater than number of codes (unlikely), add placeholder entries
-                                int remaining = item.Quantity - codes.Count;
-                                for (int r =0; r < remaining; r++)
-                                {
-                                    displayIndex++;
-                                    _displayItems.Add(new ReceiptItemDisplay
-                                    {
-                                        Index = displayIndex,
-                                        Name = $"{couponDef.Name} (ไม่ระบุรหัส)",
-                                        Quantity =1,
-                                        UnitPrice = item.UnitPrice,
-                                        TotalPrice = item.UnitPrice
-                                    });
-                                }
-
-                                continue; // processed this item
+                                continue; // processed this group
                             }
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"Failed to load generated codes for ReceiptItem {item.ReceiptItemId}: {ex.Message}");
+                            Debug.WriteLine($"Failed to load generated codes for grouped ReceiptItems (CouponId {group.Key.CouponId}): {ex.Message}");
                             // fall through to add as single row below
                         }
                     }
 
-                    // Fallback: add as a single row (either not limited or no codes found)
+                    // Fallback: non-limited or no codes found -> single row per group
                     displayIndex++;
                     _displayItems.Add(new ReceiptItemDisplay
                     {
                         Index = displayIndex,
-                        Name = couponDef != null ? couponDef.Name : $"Coupon #{item.CouponId}",
-                        Quantity = item.Quantity,
-                        UnitPrice = item.UnitPrice,
-                        TotalPrice = item.TotalPrice
+                        Name = couponDef != null ? couponDef.Name : $"Coupon #{group.Key.CouponId}",
+                        Quantity = totalQuantity,
+                        UnitPrice = group.Key.UnitPrice,
+                        TotalPrice = group.Key.UnitPrice * totalQuantity
                     });
                 }
             }
@@ -930,7 +931,7 @@ namespace BootCoupon
 
                 // กำหนดข้อมูลและสไตล์สำหรับแต่ละช่อง
                 var cellData = new[]
-                {
+            {
                     // Row 0
                     new { Row = 0, Col = 0, Text = "ชื่อลูกค้า :", IsHeader = true },
                     new { Row = 0, Col = 1, Text = _receipt.CustomerName, IsHeader = false },
@@ -1071,7 +1072,7 @@ namespace BootCoupon
 
                 // Headers
                 var headers = new[]
-                {
+            {
             new { Thai = "ลำดับที่", Eng = "Item", Col = 0 },
             new { Thai = "รายการ", Eng = "Descriptions", Col = 1 },
             new { Thai = "จำนวน", Eng = "Quantity", Col = 2 },
@@ -1135,7 +1136,7 @@ namespace BootCoupon
                 var itemGrid = new Grid
                 {
                     Background = new SolidColorBrush(Microsoft.UI.Colors.White),
-                    Height = 35
+                    // remove fixed height to allow wrapping
                 };
 
                 // Column definitions
@@ -1146,28 +1147,28 @@ namespace BootCoupon
                 itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
 
                 // Index
-                var indexBorder = CreateItemCell(item.Index.ToString(), TextAlignment.Center, new Thickness(0, 0, 1, 1));
-                Grid.SetColumn(indexBorder, 0);
+                var indexBorder = CreateItemCell(item.Index.ToString(), TextAlignment.Center, new Thickness(0,0,1,1));
+                Grid.SetColumn(indexBorder,0);
                 itemGrid.Children.Add(indexBorder);
 
                 // Name
-                var nameBorder = CreateItemCell(item.Name, TextAlignment.Left, new Thickness(0, 0, 1, 1), new Thickness(5, 0, 0, 0));
-                Grid.SetColumn(nameBorder, 1);
+                var nameBorder = CreateItemCell(item.Name, TextAlignment.Left, new Thickness(0,0,1,1), new Thickness(5,2,0,2));
+                Grid.SetColumn(nameBorder,1);
                 itemGrid.Children.Add(nameBorder);
 
                 // Quantity
-                var quantityBorder = CreateItemCell(item.Quantity.ToString(), TextAlignment.Center, new Thickness(0, 0, 1, 1));
-                Grid.SetColumn(quantityBorder, 2);
+                var quantityBorder = CreateItemCell(item.Quantity.ToString(), TextAlignment.Center, new Thickness(0,0,1,1));
+                Grid.SetColumn(quantityBorder,2);
                 itemGrid.Children.Add(quantityBorder);
 
                 // Unit Price
-                var unitPriceBorder = CreateItemCell(item.UnitPriceFormatted, TextAlignment.Right, new Thickness(0, 0, 1, 1), new Thickness(0, 0, 5, 0));
-                Grid.SetColumn(unitPriceBorder, 3);
+                var unitPriceBorder = CreateItemCell(item.UnitPriceFormatted, TextAlignment.Right, new Thickness(0,0,1,1), new Thickness(0,0,5,0));
+                Grid.SetColumn(unitPriceBorder,3);
                 itemGrid.Children.Add(unitPriceBorder);
 
                 // Total Price
-                var totalPriceBorder = CreateItemCell(item.TotalPriceFormatted, TextAlignment.Right, new Thickness(0, 0, 0, 1), new Thickness(0, 0, 5, 0));
-                Grid.SetColumn(totalPriceBorder, 4);
+                var totalPriceBorder = CreateItemCell(item.TotalPriceFormatted, TextAlignment.Right, new Thickness(0,0,0,1), new Thickness(0,0,5,0));
+                Grid.SetColumn(totalPriceBorder,4);
                 itemGrid.Children.Add(totalPriceBorder);
 
                 return itemGrid;
@@ -1184,7 +1185,7 @@ namespace BootCoupon
         {
             var border = new Border
             {
-                BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 80, 80, 80)),
+                BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,80,80,80)),
                 BorderThickness = borderThickness
             };
 
@@ -1193,9 +1194,10 @@ namespace BootCoupon
                 Text = text,
                 TextAlignment = textAlignment,
                 Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
-                FontSize = 12,
+                FontSize =12,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = margin ?? new Thickness(0)
+                Margin = margin ?? new Thickness(0),
+                TextWrapping = TextWrapping.Wrap
             };
 
             border.Child = textBlock;

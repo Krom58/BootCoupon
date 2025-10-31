@@ -15,6 +15,25 @@ namespace BootCoupon.Services
         /// </summary>
         public static async Task<string> GenerateNextReceiptCodeAsync()
         {
+            // Quick connectivity check: ensure DB is reachable before attempting allocation.
+            try
+            {
+                using (var testCtx = new CouponContext())
+                {
+                    var canConnect = await testCtx.Database.CanConnectAsync();
+                    if (!canConnect)
+                    {
+                        throw new InvalidOperationException("Database is not available. Please check the server connection.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"DB connectivity check failed: {ex.Message}");
+                // Re-throw to let caller handle (no silent fallback here)
+                throw;
+            }
+
             const int maxRetries = 3;
             int retryCount = 0;
 
@@ -94,7 +113,7 @@ namespace BootCoupon.Services
                         throw new InvalidOperationException($"ไม่สามารถสร้างหมายเลขใบเสร็จได้หลังจากลองแล้ว {maxRetries} ครั้ง", ex);
                     }
 
-                    // รอสักครู่ก่อนลองใหม่
+                    // รอสักครู่ก่อนลองใหม่ (exponential backoff)
                     await Task.Delay(100 * retryCount);
                 }
             }

@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CouponManagement.Shared", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CouponManagement", "CouponManagement\CouponManagement.csproj", "{1A524037-5A23-4A58-9E30-24709C3B1851}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CouponManagement.Web", "CouponManagement.Web\CouponManagement.Web.csproj", "{39C49247-B594-4953-976A-30DC0F11248B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -85,6 +87,22 @@ Global
 		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|x86.ActiveCfg = Release|x86
 		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|x86.Build.0 = Release|x86
 		{1A524037-5A23-4A58-9E30-24709C3B1851}.Release|x86.Deploy.0 = Release|x86
+		{39C49247-B594-4953-976A-30DC0F11248B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Debug|x64.Build.0 = Debug|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Debug|x86.Build.0 = Debug|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Release|ARM64.Build.0 = Release|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Release|x64.ActiveCfg = Release|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Release|x64.Build.0 = Release|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Release|x86.ActiveCfg = Release|Any CPU
+		{39C49247-B594-4953-976A-30DC0F11248B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

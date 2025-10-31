@@ -422,7 +422,7 @@ namespace CouponManagement.Shared.Services
  }
 
  // สร้างคูปอง
- public async Task<GenerateCouponsResponse> GenerateCouponsAsync(GenerateCouponsRequest request)
+ public async Task<GenerateCouponsResponse> GenerateCouponsAsync(GenerateCouponsRequest request, int? startSequence = null, int? endSequence = null)
  {
  try
  {
@@ -459,29 +459,87 @@ namespace CouponManagement.Shared.Services
  using var transaction = await context.Database.BeginTransactionAsync();
  try
  {
- // สร้างคูปอง
- for (int i =1; i <= request.Quantity; i++)
- {
- var sequence = definition.CodeGenerator.CurrentSequence + i;
- var code = GenerateCode(definition.CodeGenerator, sequence);
+ // determine start/end sequences and actual quantity
+ int seqLen = Math.Max(1, definition.CodeGenerator.SequenceLength);
+ int startSeq;
+ int endSeq;
+ int actualQty;
 
+ if (startSequence.HasValue && endSequence.HasValue)
+ {
+ startSeq = startSequence.Value;
+ endSeq = endSequence.Value;
+ if (startSeq > endSeq) throw new InvalidOperationException("เลขเริ่มต้นต้องไม่มากกว่าเลขสิ้นสุด");
+ actualQty = endSeq - startSeq +1;
+ }
+ else if (startSequence.HasValue && !endSequence.HasValue)
+ {
+ startSeq = startSequence.Value;
+ actualQty = request.Quantity;
+ endSeq = startSeq + actualQty -1;
+ }
+ else if (!startSequence.HasValue && endSequence.HasValue)
+ {
+ endSeq = endSequence.Value;
+ actualQty = request.Quantity;
+ startSeq = endSeq - actualQty +1;
+ if (startSeq <1) startSeq =1;
+ }
+ else
+ {
+ // default: continue from current sequence
+ startSeq = definition.CodeGenerator.CurrentSequence +1;
+ actualQty = request.Quantity;
+ endSeq = startSeq + actualQty -1;
+ }
+
+ if (actualQty <=0) throw new InvalidOperationException("จำนวนที่จะสร้างต้องไม่น้อยกว่า1");
+ if (actualQty >10000) throw new InvalidOperationException("จำนวนการสร้างต่อครั้งต้องไม่เกิน10,000");
+
+ // Validate duplicates: parse existing sequences
+ var existingCodes = await context.GeneratedCoupons
+ .Where(gc => gc.CouponDefinitionId == request.CouponDefinitionId)
+ .Select(gc => gc.GeneratedCode)
+ .ToListAsync();
+
+ var existingSeqs = new HashSet<int>();
+ foreach (var code in existingCodes)
+ {
+ var parsed = TryParseSequence(code, definition.CodeGenerator.Prefix, definition.CodeGenerator.Suffix, seqLen);
+ if (parsed.HasValue) existingSeqs.Add(parsed.Value);
+ }
+
+ var duplicates = new List<int>();
+ for (int s = startSeq; s <= endSeq; s++)
+ {
+ if (existingSeqs.Contains(s)) duplicates.Add(s);
+ }
+
+ if (duplicates.Any())
+ {
+ var sample = string.Join(",", duplicates.Take(10));
+ throw new InvalidOperationException($"ช่วงที่ระบุมีรหัสซ้ำอยู่แล้ว (ตัวอย่าง): {sample}{(duplicates.Count>10?", ...":"")} ");
+ }
+
+ // create coupons
+ for (int seq = startSeq; seq <= endSeq; seq++)
+ {
+ var code = GenerateCode(definition.CodeGenerator, seq);
  var generatedCoupon = new GeneratedCoupon
  {
  CouponDefinitionId = request.CouponDefinitionId,
  GeneratedCode = code,
  BatchNumber = currentBatch,
  CreatedBy = request.CreatedBy,
- // copy definition expiration to generated coupon
  ExpiresAt = definition.ValidTo
  };
-
  context.GeneratedCoupons.Add(generatedCoupon);
  generatedCodes.Add(code);
  }
 
- // อัปเดต Code Generator
- definition.CodeGenerator.CurrentSequence += request.Quantity;
- definition.CodeGenerator.GeneratedCount += request.Quantity;
+ // Update Code Generator: advance CurrentSequence if endSeq is greater
+ definition.CodeGenerator.CurrentSequence = Math.Max(definition.CodeGenerator.CurrentSequence, endSeq);
+ definition.CodeGenerator.GeneratedCount += actualQty;
  definition.CodeGenerator.UpdatedBy = request.CreatedBy;
  definition.CodeGenerator.UpdatedAt = DateTime.Now;
 
@@ -491,7 +549,7 @@ namespace CouponManagement.Shared.Services
  return new GenerateCouponsResponse
  {
  CouponDefinitionId = request.CouponDefinitionId,
- GeneratedQuantity = request.Quantity,
+ GeneratedQuantity = actualQty,
  BatchNumber = currentBatch,
  Message = "สร้างคูปองเรียบร้อย",
  GeneratedCodes = generatedCodes
@@ -507,6 +565,21 @@ namespace CouponManagement.Shared.Services
  {
  throw new InvalidOperationException($"ไม่สามารถสร้างคูปองได้: {ex.Message}");
  }
+ }
+
+ // helper to parse sequence number from code
+ private int? TryParseSequence(string code, string prefix, string suffix, int seqLen)
+ {
+ try
+ {
+ if (string.IsNullOrEmpty(code)) return null;
+ var p = (prefix ?? string.Empty).Length;
+ if (code.Length < p + seqLen) return null;
+ var seqStr = code.Substring(p, seqLen);
+ if (int.TryParse(seqStr, out var n)) return n;
+ return null;
+ }
+ catch { return null; }
  }
 
  // Helper methods

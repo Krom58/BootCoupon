@@ -1,0 +1,222 @@
+﻿<!doctype html>
+<html>
+<head>
+ <meta charset="utf-8" />
+ <title>Redeem & Sold Coupons</title>
+ <style>
+ body { font-family: Arial, Helvetica, sans-serif; margin:24px; }
+ .panel { border:1px solid #ddd; padding:12px; margin-bottom:16px; border-radius:6px; }
+ label { display:block; margin:8px,0; }
+ input[type="text"], input[type="number"] { padding:6px; width:320px; }
+ button { padding:8px,12px; margin-right:6px; }
+ table { border-collapse: collapse; width:100%; margin-top:12px; }
+ th, td { border:1px solid #ddd; padding:8px; text-align: left; }
+ th { background: #f4f4f4; }
+ .controls { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+ .small { font-size:0.9em; color: #555; }
+ .right { margin-left:auto }
+ #modal { display:none; position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; }
+ #modal .box { background:#fff; padding:16px; border-radius:6px; max-width:420px; margin:60px auto; }
+ .failure-list { color:darkred; margin-top:8px; max-height:200px; overflow:auto; }
+ .success-list { color:green; margin-top:8px; }
+ </style>
+</head>
+<body>
+ <h1>ตัดคูปอง และ รายการคูปอง</h1>
+
+ <div class="panel">
+ <h2 style="display:flex;align-items:center">
+ <span>รายการคูปอง</span>
+ <button id="redeemSelected" class="right" disabled>ตัดคูปอง</button>
+ </h2>
+ <div class="controls">
+ <label>ค้นหาด้วยรหัสคูปอง: <input id="search" type="text" placeholder="ใส่รหัสคูปอง" /></label>
+ <label>รหัสคำนิยาม: <input id="defCode" type="text" placeholder="รหัสคำนิยาม" /></label>
+ <label>ชื่อคำนิยาม: <input id="defName" type="text" placeholder="ชื่อคำนิยาม" /></label>
+ <label class="small">แสดงต่อหน้า: <select id="pageSize"><option>10</option><option selected>25</option><option>50</option></select></label>
+ <button id="btnSearch">ค้นหา</button>
+ </div>
+
+ <div id="summary" class="small">-</div>
+ <table id="results">
+ <thead>
+ <tr>
+ <th><input type="checkbox" id="selectAll" /></th>
+ <th>รหัสคูปอง</th>
+ <th>คำนิยาม</th>
+ <th>สถานะ</th>
+ <th>การใช้งาน/ใบเสร็จ</th>
+ <th>ReceiptItemId</th>
+ <th>UsedBy</th>
+ <th>UsedDate</th>
+ <th>สร้างเมื่อ</th>
+ <th>วันหมดอายุ</th>
+ </tr>
+ </thead>
+ <tbody></tbody>
+ </table>
+
+ <div class="pager" style="margin-top:12px">
+ <button id="prev">ย้อนกลับ</button>
+ <span id="pageInfo"></span>
+ <button id="next">ถัดไป</button>
+ </div>
+
+ <div id="error" style="color:darkred;margin-top:10px"></div>
+ </div>
+
+ <!-- Redeem selected modal (simple prompt) -->
+ <div id="modal">
+ <div class="box">
+ <h3>ตัดคูปองที่เลือก</h3>
+ <div style="margin-bottom:8px">ระบุข้อมูลผู้ใช้</div>
+ <label>ผู้ใช้ (UsedBy): <input id="modalUsedBy" value="cashier1" /></label>
+ <label style="margin-top:8px">ReceiptItemId (optional): <input id="modalReceiptItemId" type="number" /></label>
+ <div style="margin-top:12px">
+ <button id="modalConfirm">บันทึก</button>
+ <button id="modalCancel">ยกเลิก</button>
+ <span id="modalMsg" style="margin-left:12px;color:darkgreen"></span>
+ </div>
+ <div id="modalFailures" class="failure-list" style="display:none"></div>
+ <div id="modalSuccess" class="success-list" style="display:none"></div>
+ </div>
+ </div>
+
+ <script>
+ // helper
+ function $(id){ return document.getElementById(id); }
+
+ // table & selection
+ const resultsBody = document.querySelector('#results tbody');
+ const summaryEl = $('summary');
+ const pageInfo = $('pageInfo');
+ const errorEl = $('error');
+ const selectAll = $('selectAll');
+ let selectedIds = new Set();
+ selectAll.addEventListener('change', ()=>{
+ const checked = selectAll.checked;
+ document.querySelectorAll('input.rowSelect').forEach(cb=> cb.checked = checked);
+ selectedIds.clear();
+ if(checked){ document.querySelectorAll('input.rowSelect').forEach(cb=> selectedIds.add(parseInt(cb.dataset.id,10))); }
+ updateRedeemSelectedButton();
+ });
+
+ let page=1, totalPages=1;
+
+ function formatDate(d){ if(!d) return ''; try{ const dt=new Date(d); if(isNaN(dt)) return d; return dt.toLocaleString(); }catch{ return d; } }
+
+ async function loadSold(){ errorEl.textContent=''; const search = $('search').value.trim(); const defCode = $('defCode').value.trim(); const defName = $('defName').value.trim(); const pageSize = parseInt($('pageSize').value,10)||25;
+ const params = new URLSearchParams(); params.append('page',page); params.append('pageSize',pageSize); if(search) params.append('searchCode',search); if(defCode) params.append('couponDefinitionCode',defCode); if(defName) params.append('couponDefinitionName',defName);
+ try{ const resp = await fetch('/api/CouponRedemption/sold?'+params.toString()); if(!resp.ok){ errorEl.textContent='HTTP '+resp.status+' - '+resp.statusText; resultsBody.innerHTML=''; summaryEl.textContent='-'; pageInfo.textContent=''; return; } const data=await resp.json(); renderSold(data); }catch(err){ errorEl.textContent='Network: '+err; } }
+
+ function renderSold(data){ resultsBody.innerHTML=''; selectedIds.clear(); selectAll.checked=false; if(!data || !Array.isArray(data.items)){ summaryEl.textContent='ไม่พบข้อมูล'; pageInfo.textContent=''; return; }
+ data.items.forEach(item=>{
+ const tr=document.createElement('tr');
+ const id=item.id;
+ tr.innerHTML=`<td><input class="rowSelect" type="checkbox" data-id="${id}" /></td>
+ <td>${escapeHtml(item.generatedCode)}</td>
+ <td>${escapeHtml(item.couponDefinitionName)}</td>
+ <td>${escapeHtml(item.statusText)}</td>
+ <td>${escapeHtml(item.usageText)}</td>
+ <td>${item.receiptItemId ?? ''}</td>
+ <td>${escapeHtml(item.usedBy ?? '')}</td>
+ <td>${escapeHtml(item.usedDate ? formatDate(item.usedDate) : '')}</td>
+ <td>${escapeHtml(item.createdAt ? formatDate(item.createdAt) : '')}</td>
+ <td>${escapeHtml(item.expiresAt ? (new Date(item.expiresAt)).toLocaleDateString() : '')}</td>`;
+ resultsBody.appendChild(tr);
+ });
+ // attach selection handlers after rows created
+ document.querySelectorAll('input.rowSelect').forEach(cb=>{
+ cb.addEventListener('change', (e)=>{ const id=parseInt(cb.dataset.id,10); if(cb.checked) selectedIds.add(id); else selectedIds.delete(id); updateRedeemSelectedButton(); });
+ });
+ const total = data.totalCount ??0;
+ summaryEl.textContent=`ผลลัพธ์ ${total} รายการ`;
+ page = data.page ||1; totalPages = data.totalPages ||1; pageInfo.textContent=`หน้า ${page} จาก ${totalPages}`;
+ $('prev').disabled = page <=1; $('next').disabled = page >= totalPages;
+ updateRedeemSelectedButton(); }
+
+ function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
+
+ $('btnSearch').addEventListener('click', ()=>{ page=1; loadSold(); });
+ $('pageSize').addEventListener('change', ()=>{ page=1; loadSold(); });
+ $('prev').addEventListener('click', ()=>{ if(page>1){ page--; loadSold(); } });
+ $('next').addEventListener('click', ()=>{ if(page<totalPages){ page++; loadSold(); } });
+
+ // Redeem selected
+ const redeemSelectedBtn = $('redeemSelected');
+ function updateRedeemSelectedButton(){ redeemSelectedBtn.disabled = selectedIds.size ===0; }
+ redeemSelectedBtn.addEventListener('click', ()=>{
+ if(selectedIds.size ===0) return; // nothing selected
+ // show modal
+ $('modal').style.display='flex';
+ $('modalMsg').textContent='';
+ $('modalFailures').style.display='none';
+ $('modalSuccess').style.display='none';
+ $('modalFailures').innerHTML='';
+ $('modalSuccess').innerHTML='';
+ });
+
+ // modal actions
+ $('modalCancel').addEventListener('click', ()=>{ $('modal').style.display='none'; });
+ $('modalConfirm').addEventListener('click', async ()=>{
+ const usedBy = $('modalUsedBy').value.trim() || 'system';
+ const receiptRaw = $('modalReceiptItemId').value.trim();
+ const receiptItemId = receiptRaw ? parseInt(receiptRaw,10) : null;
+ // perform redeem for each selected id sequentially
+ const ids = Array.from(selectedIds);
+ $('modalConfirm').disabled = true; $('modalMsg').textContent='กำลังบันทึก...';
+ const successes = [];
+ const failures = [];
+ try{
+ for(const id of ids){
+ // get coupon code by id from currently displayed rows
+ const checkbox = document.querySelector(`input.rowSelect[data-id="${id}"]`);
+ if(!checkbox) continue;
+ const row = checkbox.closest('tr');
+ const code = row.children[1].innerText.trim();
+ // call redeem endpoint
+ let resp;
+ try{
+ resp = await fetch('/api/CouponRedemption/redeem',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, redeemedBy: usedBy, receiptItemId })});
+ }catch(netErr){ failures.push({ code, message: 'Network error' }); console.warn('network error for', code, netErr); continue; }
+ const body = await resp.json().catch(()=>null);
+ if(resp.ok){ successes.push(code); }
+ else {
+ // server returned error - parse message
+ const msg = body?.message ?? body?.result ?? resp.statusText;
+ failures.push({ code, message: msg });
+ }
+ }
+ // prepare UI feedback
+ if(failures.length){
+ let html = '<strong>ไม่สามารถตัดคูปองบางรายการได้:</strong><ul>';
+ failures.forEach(f=> html += `<li>${escapeHtml(f.code)}: ${escapeHtml(f.message)}</li>`);
+ html += '</ul>';
+ $('modalFailures').innerHTML = html;
+ $('modalFailures').style.display = 'block';
+ }
+ if(successes.length){
+ $('modalSuccess').innerHTML = `<strong>ตัดคูปองสำเร็จ:</strong> ${escapeHtml(successes.join(', '))}`;
+ $('modalSuccess').style.display = 'block';
+ // refresh list and optionally full page refresh if needed
+ await loadSold();
+ // clear selection of successfully redeemed rows
+ successes.forEach(c=>{
+ // find row by code and uncheck
+ const row = Array.from(document.querySelectorAll('#results tbody tr')).find(r => r.children[1].innerText.trim() === c);
+ if(row){ const cb = row.querySelector('input.rowSelect'); if(cb) cb.checked = false; const idAttr = cb?.dataset.id; if(idAttr) selectedIds.delete(parseInt(idAttr,10)); }
+ });
+ updateRedeemSelectedButton();
+ }
+ $('modalMsg').textContent = successes.length ? 'บันทึกบางรายการแล้ว' : 'ไม่สามารถบันทึกได้';
+ // if at least one success, close modal shortly
+ if(successes.length){ setTimeout(()=>{ $('modal').style.display='none'; $('modalMsg').textContent=''; $('modalFailures').style.display='none'; $('modalSuccess').style.display='none'; },1000); }
+ $('modalConfirm').disabled = false;
+ }catch(err){ $('modalMsg').textContent='เกิดข้อผิดพลาด: '+err; $('modalConfirm').disabled=false; }
+ });
+
+ // initial load
+ loadSold();
+ </script>
+</body>
+</html>

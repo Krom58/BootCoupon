@@ -1,10 +1,20 @@
 using CouponManagement.Shared.Models;
 using Microsoft.EntityFrameworkCore;
+using System;
 
 namespace CouponManagement.Shared
 {
     public partial class CouponContext : DbContext
     {
+        public CouponContext()
+        {
+        }
+
+        // Constructor for DI
+        public CouponContext(DbContextOptions<CouponContext> options) : base(options)
+        {
+        }
+
         public DbSet<CouponType> CouponTypes { get; set; } = null!;
         public DbSet<Coupon> Coupons { get; set; } = null!;
         public DbSet<ReceiptModel> Receipts { get; set; } = null!;
@@ -21,10 +31,17 @@ namespace CouponManagement.Shared
         public DbSet<CanceledReceiptNumber> CanceledReceiptNumbers { get; set; } = null!;
         public DbSet<PaymentMethod> PaymentMethods { get; set; } = null!;
         public DbSet<BootCoupon.Models.ReservedCoupon> ReservedCoupons { get; set; } = null!;
+        public DbSet<CouponManagement.Shared.Models.ApplicationUser> ApplicationUsers { get; set; } = null!;
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlServer("Server=KROM\\SQLEXPRESS;Database=CouponDbV2;Integrated Security=True;TrustServerCertificate=True;");
+            // If not configured via DI, use fallback connection from environment or local default.
+            if (!optionsBuilder.IsConfigured)
+            {
+                var conn = Environment.GetEnvironmentVariable("COUPONDB_CONNECTION")
+                           ?? "Server=KROM\\SQLEXPRESS;Database=CouponDbV2;Integrated Security=True;TrustServerCertificate=True;";
+                optionsBuilder.UseSqlServer(conn);
+            }
         }
         //"Server=KROM\\SQLEXPRESS;Database=CouponDbV2;Integrated Security=True;TrustServerCertificate=True;"
         //"Server=10.10.0.42\\SQLSET;User Id=sa;Password=Wutt@1976;Trusted_Connection=False;"
@@ -51,6 +68,7 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Code).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.CouponTypeId).IsRequired();
+                entity.Property(e => e.Price).HasPrecision(18,2);
 
                 // Foreign key relationship
                 entity.HasOne(c => c.CouponType)
@@ -74,6 +92,8 @@ namespace CouponManagement.Shared
                 // Indexes to speed up reporting
                 entity.HasIndex(e => e.CouponId).HasDatabaseName("IX_ReceiptItems_CouponId");
                 entity.HasIndex(e => e.ReceiptId).HasDatabaseName("IX_ReceiptItems_ReceiptId");
+                entity.Property(e => e.TotalPrice).HasPrecision(18,2);
+                entity.Property(e => e.UnitPrice).HasPrecision(18,2);
             });
 
             modelBuilder.Entity<ReceiptModel>(entity =>
@@ -83,6 +103,7 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.CustomerName).IsRequired();
                 entity.Property(e => e.CustomerPhoneNumber).IsRequired();
                 entity.Property(e => e.Status).HasDefaultValue("Active");
+                entity.Property(e => e.TotalAmount).HasPrecision(18,2);
                 entity.HasMany(r => r.Items)
                       .WithOne()
                       .HasForeignKey(ri => ri.ReceiptId);
@@ -106,6 +127,8 @@ namespace CouponManagement.Shared
 
                 entity.Property(e => e.CouponTypeId)
                       .IsRequired();
+
+                entity.Property(e => e.Price).HasPrecision(18,2);
 
                 entity.HasOne(d => d.CouponType)
                       .WithMany()
@@ -259,6 +282,19 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            });
+
+            // ApplicationUser mapping
+            modelBuilder.Entity<CouponManagement.Shared.Models.ApplicationUser>(entity =>
+            {
+                entity.ToTable("ApplicationUsers");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Password).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.DisplayName).HasMaxLength(200);
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+                entity.HasIndex(e => e.Username).IsUnique();
             });
         }
     }

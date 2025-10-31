@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -22,6 +23,8 @@ using Windows.Storage.Pickers;
 using System.Text;
 using CouponManagement.Shared;
 using CouponManagement.Shared.Models;
+using Microsoft.Data.SqlClient; // added for direct DB access
+using System.Data;
 
 namespace BootCoupon
 {
@@ -60,10 +63,30 @@ namespace BootCoupon
                     await context.Database.EnsureCreatedAsync();
                     
                     var numberManager = await context.ReceiptNumberManagers.FirstOrDefaultAsync();
-                    var canceledNumbers = await context.CanceledReceiptNumbers
-                        .OrderBy(c => c.CanceledDate)
-                        .Select(c => c.ReceiptCode)
-                        .ToListAsync();
+
+                    // Load canceled numbers robustly (DB schema may differ)
+                    List<string> canceledNumbers = new List<string>();
+                    try
+                    {
+                        canceledNumbers = await GetCanceledReceiptCodesAsync(context);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to load canceled numbers via fallback reader: {ex.Message}");
+                        // final fallback to EF (may still throw) - swallow and continue with empty list
+                        try
+                        {
+                            canceledNumbers = await context.CanceledReceiptNumbers
+                                .OrderBy(c => c.CanceledDate)
+                                .Select(c => c.ReceiptCode)
+                                .ToListAsync();
+                        }
+                        catch (Exception efEx)
+                        {
+                            Debug.WriteLine($"EF load also failed: {efEx.Message}");
+                            canceledNumbers = new List<string>();
+                        }
+                    }
 
                     if (numberManager == null)
                     {
@@ -243,6 +266,73 @@ namespace BootCoupon
             }
         }
         
+        // Helper to read canceled receipt codes from DB handling different schema versions
+        private async Task<List<string>> GetCanceledReceiptCodesAsync(CouponContext context)
+        {
+            var codes = new List<string>();
+            var conn = context.Database.GetDbConnection();
+            try
+            {
+                if (conn.State != ConnectionState.Open) await conn.OpenAsync();
+
+                // determine columns present
+                var columns = new List<string>();
+                using (var colCmd = conn.CreateCommand())
+                {
+                    colCmd.CommandText = @"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'CanceledReceiptNumbers'";
+                    using var reader = await colCmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        columns.Add(reader.GetString(0));
+                    }
+                }
+
+                bool hasReceiptCode = columns.Contains("ReceiptCode", StringComparer.OrdinalIgnoreCase);
+                bool hasCanceledDate = columns.Contains("CanceledDate", StringComparer.OrdinalIgnoreCase);
+                bool hasNumber = columns.Contains("Number", StringComparer.OrdinalIgnoreCase);
+                bool hasCreatedAt = columns.Contains("CreatedAt", StringComparer.OrdinalIgnoreCase) || columns.Contains("CreatedAtUtc", StringComparer.OrdinalIgnoreCase) || columns.Contains("CreatedAtUtc", StringComparer.OrdinalIgnoreCase);
+
+                string selectSql = null!;
+                if (hasReceiptCode && hasCanceledDate)
+                {
+                    selectSql = "SELECT ReceiptCode AS Code FROM dbo.CanceledReceiptNumbers ORDER BY CanceledDate";
+                }
+                else if (hasNumber && hasCreatedAt)
+                {
+                    selectSql = "SELECT Number AS Code FROM dbo.CanceledReceiptNumbers ORDER BY CreatedAt";
+                }
+                else if (hasReceiptCode)
+                {
+                    selectSql = "SELECT ReceiptCode AS Code FROM dbo.CanceledReceiptNumbers ORDER BY Id";
+                }
+                else if (hasNumber)
+                {
+                    selectSql = "SELECT Number AS Code FROM dbo.CanceledReceiptNumbers ORDER BY Id";
+                }
+                else
+                {
+                    // no recognizable columns
+                    return codes;
+                }
+
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = selectSql;
+                    using var reader = await cmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        if (!reader.IsDBNull(0)) codes.Add(reader.GetString(0));
+                    }
+                }
+
+                return codes;
+            }
+            finally
+            {
+                try { if (conn.State == ConnectionState.Open) conn.Close(); } catch { }
+            }
+        }
+
         // Use System.Threading.Tasks.Task explicitly to avoid any ambiguity
         private async System.Threading.Tasks.Task ShowMessageDialog(string message, string title)
         {

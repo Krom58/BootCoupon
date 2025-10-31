@@ -107,7 +107,24 @@
                                Value="10"
                                SpinButtonPlacementMode="Inline"
                                ValueChanged="QuantityNumberBox_ValueChanged"/>
-                    <TextBlock Text="สร้างได้สูงสุด 10,000 คูปองต่อครั้ง" Style="{StaticResource InfoTextStyle}"/>
+                    <TextBlock Text="สร้างได้สูงสุด10,000 คูปองต่อครั้ง" Style="{StaticResource InfoTextStyle}"/>
+                </StackPanel>
+
+                <!-- New: toggle between entering quantity vs entering sequence range -->
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <CheckBox x:Name="UseSequenceCheckBox" Content="กรอกช่วงตัวเลขเอง (Start/End)" Checked="UseSequenceCheckBox_Checked" Unchecked="UseSequenceCheckBox_Unchecked"/>
+                </StackPanel>
+
+                <!-- Start/End sequence optional -->
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <StackPanel Width="200">
+                        <TextBlock Text="เลขเริ่มต้น" Style="{StaticResource FieldLabelStyle}"/>
+                        <NumberBox x:Name="StartSequenceNumberBox" Minimum="0" PlaceholderText="เว้นว่าง" IsEnabled="False"/>
+                    </StackPanel>
+                    <StackPanel Width="200">
+                        <TextBlock Text="เลขสิ้นสุด" Style="{StaticResource FieldLabelStyle}"/>
+                        <NumberBox x:Name="EndSequenceNumberBox" Minimum="0" PlaceholderText="เว้นว่าง" IsEnabled="False"/>
+                    </StackPanel>
                 </StackPanel>
                 
                 <StackPanel>
@@ -115,6 +132,7 @@
                     <TextBlock x:Name="CodePreviewTextBlock" 
                                Style="{StaticResource InfoTextStyle}"
                                Text="CF0001END ถึง CF0010END"/>
+                    <TextBlock x:Name="CodeSamplesTextBlock" Style="{StaticResource InfoTextStyle}" Text="ตัวอย่าง: -"/>
                 </StackPanel>
             </StackPanel>
             

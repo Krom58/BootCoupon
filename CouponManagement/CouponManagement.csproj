@@ -1,16 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
-    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
-    <RootNamespace>CouponManagement</RootNamespace>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Platforms>x86;x64;ARM64</Platforms>
-    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
-    <UseWinUI>true</UseWinUI>
-    <EnableMsixTooling>true</EnableMsixTooling>
-    <Nullable>enable</Nullable>
+	  <OutputType>WinExe</OutputType>
+	  <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+	  <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+	  <RootNamespace>CouponManagement</RootNamespace>
+	  <ApplicationManifest>app.manifest</ApplicationManifest>
+	  <Platforms>x86;x64;ARM64;AnyCPU</Platforms>
+	  <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+	  <UseWinUI>true</UseWinUI>
+	  <EnableMsixTooling>true</EnableMsixTooling>
+	  <WindowsPackageType>MSIX</WindowsPackageType>
+	  <SelfContained>true</SelfContained>
+	  <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+	  <PublishSingleFile>false</PublishSingleFile>
+	  <PublishReadyToRun>false</PublishReadyToRun>
+	  <PublishTrimmed>false</PublishTrimmed>
+	  <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="CouponDefinitionPage.xaml" />
@@ -37,7 +42,10 @@
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
-
+	<PropertyGroup>
+		<!-- explicit processor architecture to match x64 references -->
+		<PlatformTarget>x64</PlatformTarget>
+	</PropertyGroup>
   <!--
     Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
     Tools extension to be activated for this project even if the Windows App SDK Nuget

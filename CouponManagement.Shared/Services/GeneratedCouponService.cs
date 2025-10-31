@@ -22,6 +22,69 @@ namespace CouponManagement.Shared.Services
         }
 
         /// <summary>
+        /// Try to redeem a coupon by code. Atomic: uses a single SQL UPDATE to avoid race conditions.
+        /// This version allows marking a coupon as used even if it is already linked to a ReceiptItem (sold),
+        /// as long as it has not been marked used (IsUsed == false).
+        /// If caller provides a non-null receiptItemId, it will be stored; otherwise existing ReceiptItemId is preserved.
+        /// </summary>
+        public async Task<RedeemResult> RedeemCouponAsync(string code, string redeemedBy, int? receiptItemId = null, DateTime? redeemedAtUtc = null)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+                return new RedeemResult(RedeemResultType.InvalidRequest, "Coupon code is required.");
+
+            redeemedAtUtc ??= DateTime.UtcNow;
+
+            // Load coupon metadata first
+            var coupon = await _context.GeneratedCoupons
+                .AsNoTracking()
+                .FirstOrDefaultAsync(gc => gc.GeneratedCode == code);
+
+            if (coupon == null)
+                return new RedeemResult(RedeemResultType.NotFound, "Coupon not found.");
+
+            if (coupon.ExpiresAt.HasValue && coupon.ExpiresAt.Value < redeemedAtUtc.Value)
+                return new RedeemResult(RedeemResultType.Expired, "Coupon has expired.");
+
+            // If already marked used, cannot redeem
+            if (coupon.IsUsed)
+            {
+                return new RedeemResult(RedeemResultType.AlreadyUsed, "Coupon already used.");
+            }
+
+            // Atomic update:
+            // - set IsUsed =1, UsedDate, UsedBy
+            // - set ReceiptItemId only if caller provided a non-null receiptItemId (do not clear existing)
+            // WHERE clause only checks IsUsed =0 so sold coupons (ReceiptItemId != null) can be marked used too.
+            var rows = await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                UPDATE GeneratedCoupons
+                SET IsUsed =1,
+                    UsedDate = {redeemedAtUtc.Value},
+                    UsedBy = {redeemedBy},
+                    ReceiptItemId = CASE WHEN {receiptItemId} IS NOT NULL THEN {receiptItemId} ELSE ReceiptItemId END
+                WHERE Id = {coupon.Id} AND IsUsed =0
+            ");
+
+            if (rows ==0)
+            {
+                // Concurrent update or already used
+                return new RedeemResult(RedeemResultType.ConcurrentUpdate, "Coupon could not be redeemed (already used or updated).");
+            }
+
+            var updated = await _context.GeneratedCoupons
+                .AsNoTracking()
+                .FirstOrDefaultAsync(gc => gc.Id == coupon.Id);
+
+            return new RedeemResult(RedeemResultType.Success, "Coupon redeemed successfully")
+            {
+                CouponId = updated?.Id,
+                GeneratedCode = updated?.GeneratedCode,
+                UsedBy = updated?.UsedBy,
+                UsedDate = updated?.UsedDate,
+                ReceiptItemId = updated?.ReceiptItemId
+            };
+        }
+
+        /// <summary>
         /// ดึงรายการคูปองที่ถูกสร้างทั้งหมดพร้อมการกรองและการแบ่งหน้า
         /// </summary>
         public async Task<PagedResult<GeneratedCouponDisplayModel>> GetGeneratedCouponsAsync(
@@ -47,7 +110,18 @@ namespace CouponManagement.Shared.Services
                 query = query.Where(gc => gc.GeneratedCode.Contains(searchCode));
 
             if (isUsed.HasValue)
-                query = query.Where(gc => gc.IsUsed == isUsed.Value);
+            {
+                // Treat a coupon as 'used' if it has been redeemed (IsUsed == true)
+                // or if it has been allocated/sold (ReceiptItemId != null).
+                if (isUsed.Value)
+                {
+                    query = query.Where(gc => gc.IsUsed || gc.ReceiptItemId != null);
+                }
+                else
+                {
+                    query = query.Where(gc => !gc.IsUsed && gc.ReceiptItemId == null);
+                }
+            }
 
             if (createdFrom.HasValue)
                 query = query.Where(gc => gc.CreatedAt >= createdFrom.Value);
@@ -190,6 +264,94 @@ namespace CouponManagement.Shared.Services
         }
 
         /// <summary>
+        /// ดึงเฉพาะคูปองที่ขายแล้ว (ReceiptItemId != null) พร้อมกรองและแบ่งหน้า
+        /// </summary>
+        public async Task<PagedResult<GeneratedCouponDisplayModel>> GetSoldCouponsAsync(
+            int page = 1,
+            int pageSize = 50,
+            int? couponDefinitionId = null,
+            string? searchCode = null,
+            int? receiptItemId = null,
+            int? receiptId = null,
+            string? soldBy = null,
+            string? couponDefinitionCode = null,
+            string? couponDefinitionName = null,
+            DateTime? createdFrom = null,
+            DateTime? createdTo = null)
+        {
+            var query = _context.GeneratedCoupons
+                .Include(gc => gc.CouponDefinition)
+                .Include(gc => gc.ReceiptItem)
+                .AsQueryable();
+
+            // Only sold (linked to a receipt item)
+            query = query.Where(gc => gc.ReceiptItemId != null);
+
+            if (couponDefinitionId.HasValue)
+                query = query.Where(gc => gc.CouponDefinitionId == couponDefinitionId.Value);
+
+            if (!string.IsNullOrWhiteSpace(searchCode))
+                query = query.Where(gc => gc.GeneratedCode.Contains(searchCode));
+
+            if (receiptItemId.HasValue)
+                query = query.Where(gc => gc.ReceiptItemId == receiptItemId.Value);
+
+            if (receiptId.HasValue)
+                query = query.Where(gc => gc.ReceiptItem != null && gc.ReceiptItem.ReceiptId == receiptId.Value);
+
+            if (!string.IsNullOrWhiteSpace(soldBy))
+                query = query.Where(gc => gc.UsedBy != null && gc.UsedBy.Contains(soldBy));
+
+            if (!string.IsNullOrWhiteSpace(couponDefinitionCode))
+                query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.Code.Contains(couponDefinitionCode));
+
+            if (!string.IsNullOrWhiteSpace(couponDefinitionName))
+                query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.Name.Contains(couponDefinitionName));
+
+            if (createdFrom.HasValue)
+                query = query.Where(gc => gc.CreatedAt >= createdFrom.Value);
+
+            if (createdTo.HasValue)
+                query = query.Where(gc => gc.CreatedAt <= createdTo.Value);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(gc => gc.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(gc => new GeneratedCouponDisplayModel
+                {
+                    Id = gc.Id,
+                    GeneratedCode = gc.GeneratedCode,
+                    CouponDefinitionId = gc.CouponDefinitionId,
+                    CouponDefinitionCode = gc.CouponDefinition != null ? gc.CouponDefinition.Code : "",
+                    CouponDefinitionName = gc.CouponDefinition != null ? gc.CouponDefinition.Name : "",
+                    BatchNumber = gc.BatchNumber,
+                    IsUsed = gc.IsUsed,
+                    UsedDate = gc.UsedDate,
+                    UsedBy = gc.UsedBy,
+                    CreatedAt = gc.CreatedAt,
+                    CreatedBy = gc.CreatedBy,
+                    ExpiresAt = gc.ExpiresAt,
+                    IsSold = gc.ReceiptItemId != null,
+                    ReceiptItemId = gc.ReceiptItemId,
+                    StatusText = "ขายแล้ว",
+                    UsageText = gc.ReceiptItem != null ? $"ขายในใบเสร็จ #{gc.ReceiptItem.ReceiptId}" : "ขายแล้ว"
+                })
+                .ToListAsync();
+
+            return new PagedResult<GeneratedCouponDisplayModel>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+            };
+        }
+
+        /// <summary>
         /// ส่งออกข้อมูลคูปองเป็น CSV
         /// </summary>
         public async Task<byte[]> ExportToCsvAsync(
@@ -218,6 +380,38 @@ namespace CouponManagement.Shared.Services
         }
     }
 
+    // Redeem result helper types
+    public enum RedeemResultType
+    {
+        Success,
+        NotFound,
+        Expired,
+        AlreadyUsed,
+        ConcurrentUpdate,
+        InvalidRequest,
+        Error
+    }
+
+    public class RedeemResult
+    {
+        public RedeemResultType Result { get; set; }
+        public string Message { get; set; } = string.Empty;
+
+        public int? CouponId { get; set; }
+        public string? GeneratedCode { get; set; }
+        public string? UsedBy { get; set; }
+        public DateTime? UsedDate { get; set; }
+        public int? ReceiptItemId { get; set; }
+
+        public RedeemResult() { }
+
+        public RedeemResult(RedeemResultType result, string message)
+        {
+            Result = result;
+            Message = message;
+        }
+    }
+
     // Supporting models
     public class PagedResult<T>
     {
@@ -242,13 +436,9 @@ namespace CouponManagement.Shared.Services
         public DateTime? UsedDate { get; set; }
         public string? UsedBy { get; set; }
         public DateTime CreatedAt { get; set; }
-        // New: include CreatedBy for display in UI
         public string? CreatedBy { get; set; }
-        // New: indicate sold (allocated to a receipt)
         public bool IsSold { get; set; }
-        // ExpiresAt for generated coupon
         public DateTime? ExpiresAt { get; set; }
-        // ReceiptItemId and resolved ReceiptCode for sold coupons
         public int? ReceiptItemId { get; set; }
         public string StatusText { get; set; } = string.Empty;
         public string UsageText { get; set; } = string.Empty;
