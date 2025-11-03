@@ -244,6 +244,7 @@ namespace CouponManagement.Shared.Models
         [Required]
         public int CouponTypeId { get; set; } 
 
+        [Required]
         [Range(0, double.MaxValue)]
         public decimal Price { get; set; }
         

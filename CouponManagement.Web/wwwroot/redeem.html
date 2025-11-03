@@ -19,6 +19,7 @@
  #modal .box { background:#fff; padding:16px; border-radius:6px; max-width:420px; margin:60px auto; }
  .failure-list { color:darkred; margin-top:8px; max-height:200px; overflow:auto; }
  .success-list { color:green; margin-top:8px; }
+ .top-actions { display:flex; align-items:center; gap:8px; }
  </style>
 </head>
 <body>
@@ -27,8 +28,11 @@
  <div class="panel">
  <h2 style="display:flex;align-items:center">
  <span>รายการคูปอง</span>
- <button id="redeemSelected" class="right" disabled>ตัดคูปอง</button>
  </h2>
+ <div class="top-actions right">
+ <button id="logoutBtn">Logout</button>
+ <button id="redeemSelected" disabled>ตัดคูปอง</button>
+ </div>
  <div class="controls">
  <label>ค้นหาด้วยรหัสคูปอง: <input id="search" type="text" placeholder="ใส่รหัสคูปอง" /></label>
  <label>รหัสคำนิยาม: <input id="defCode" type="text" placeholder="รหัสคำนิยาม" /></label>
@@ -65,13 +69,11 @@
  <div id="error" style="color:darkred;margin-top:10px"></div>
  </div>
 
- <!-- Redeem selected modal (simple prompt) -->
+ <!-- Redeem selected modal (confirmation prompt) -->
  <div id="modal">
  <div class="box">
  <h3>ตัดคูปองที่เลือก</h3>
- <div style="margin-bottom:8px">ระบุข้อมูลผู้ใช้</div>
- <label>ผู้ใช้ (UsedBy): <input id="modalUsedBy" value="cashier1" /></label>
- <label style="margin-top:8px">ReceiptItemId (optional): <input id="modalReceiptItemId" type="number" /></label>
+ <div id="modalPrompt" style="margin-bottom:8px">ยืนยันการตัดคูปอง</div>
  <div style="margin-top:12px">
  <button id="modalConfirm">บันทึก</button>
  <button id="modalCancel">ยกเลิก</button>
@@ -85,6 +87,19 @@
  <script>
  // helper
  function $(id){ return document.getElementById(id); }
+
+ // read current user from sessionStorage (set at login)
+ const currentUser = (function(){ try{ return sessionStorage.getItem('currentUser') || ''; }catch(e){ return ''; } })();
+ // if not logged in, redirect to login page and do not continue
+ if(!currentUser){
+ try{ window.location.href = '/login.html'; }catch(e){ /* noop */ }
+ }
+
+ // Logout button
+ $('logoutBtn').addEventListener('click', ()=>{
+ try{ sessionStorage.removeItem('currentUser'); }catch(e){}
+ window.location.href = '/login.html';
+ });
 
  // table & selection
  const resultsBody = document.querySelector('#results tbody');
@@ -154,14 +169,21 @@
  $('modalSuccess').style.display='none';
  $('modalFailures').innerHTML='';
  $('modalSuccess').innerHTML='';
+ // compute selected codes
+ const codes = Array.from(selectedIds).map(id => {
+ const cb = document.querySelector(`input.rowSelect[data-id="${id}"]`);
+ const row = cb?.closest('tr');
+ return row ? row.children[1].innerText.trim() : '';
+ }).filter(Boolean);
+ // set confirmation prompt without mentioning user
+ if(codes.length ===1){ $('modalPrompt').textContent = `ยืนยันจะตัดบัตรใบ ${codes[0]} นี้ใช่ไหม`; }
+ else { $('modalPrompt').textContent = `ยืนยันจะตัดบัตร ${codes.length} ใบ ใช่ไหม`; }
  });
 
  // modal actions
  $('modalCancel').addEventListener('click', ()=>{ $('modal').style.display='none'; });
  $('modalConfirm').addEventListener('click', async ()=>{
- const usedBy = $('modalUsedBy').value.trim() || 'system';
- const receiptRaw = $('modalReceiptItemId').value.trim();
- const receiptItemId = receiptRaw ? parseInt(receiptRaw,10) : null;
+ const usedBy = currentUser || 'system';
  // perform redeem for each selected id sequentially
  const ids = Array.from(selectedIds);
  $('modalConfirm').disabled = true; $('modalMsg').textContent='กำลังบันทึก...';
@@ -177,7 +199,7 @@
  // call redeem endpoint
  let resp;
  try{
- resp = await fetch('/api/CouponRedemption/redeem',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, redeemedBy: usedBy, receiptItemId })});
+ resp = await fetch('/api/CouponRedemption/redeem',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, redeemedBy: usedBy })});
  }catch(netErr){ failures.push({ code, message: 'Network error' }); console.warn('network error for', code, netErr); continue; }
  const body = await resp.json().catch(()=>null);
  if(resp.ok){ successes.push(code); }
@@ -188,26 +210,15 @@
  }
  }
  // prepare UI feedback
- if(failures.length){
- let html = '<strong>ไม่สามารถตัดคูปองบางรายการได้:</strong><ul>';
- failures.forEach(f=> html += `<li>${escapeHtml(f.code)}: ${escapeHtml(f.message)}</li>`);
- html += '</ul>';
- $('modalFailures').innerHTML = html;
- $('modalFailures').style.display = 'block';
- }
- if(successes.length){
- $('modalSuccess').innerHTML = `<strong>ตัดคูปองสำเร็จ:</strong> ${escapeHtml(successes.join(', '))}`;
- $('modalSuccess').style.display = 'block';
- // refresh list and optionally full page refresh if needed
- await loadSold();
- // clear selection of successfully redeemed rows
+ if(failures.length){ let html = '<strong>ไม่สามารถตัดคูปองบางรายการได้:</strong><ul>'; failures.forEach(f=> html += `<li>${escapeHtml(f.code)}: ${escapeHtml(f.message)}</li>`); html += '</ul>'; $('modalFailures').innerHTML = html; $('modalFailures').style.display = 'block'; }
+ if(successes.length){ $('modalSuccess').innerHTML = `<strong>ตัดคูปองสำเร็จ:</strong> ${escapeHtml(successes.join(', '))}`; $('modalSuccess').style.display = 'block'; // refresh list and optionally full page refresh if needed
+ await loadSold(); // clear selection of successfully redeemed rows
  successes.forEach(c=>{
  // find row by code and uncheck
  const row = Array.from(document.querySelectorAll('#results tbody tr')).find(r => r.children[1].innerText.trim() === c);
  if(row){ const cb = row.querySelector('input.rowSelect'); if(cb) cb.checked = false; const idAttr = cb?.dataset.id; if(idAttr) selectedIds.delete(parseInt(idAttr,10)); }
  });
- updateRedeemSelectedButton();
- }
+ updateRedeemSelectedButton(); }
  $('modalMsg').textContent = successes.length ? 'บันทึกบางรายการแล้ว' : 'ไม่สามารถบันทึกได้';
  // if at least one success, close modal shortly
  if(successes.length){ setTimeout(()=>{ $('modal').style.display='none'; $('modalMsg').textContent=''; $('modalFailures').style.display='none'; $('modalSuccess').style.display='none'; },1000); }

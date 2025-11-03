@@ -17,5 +17,8 @@ namespace CouponManagement.Shared.Models
         public string ReceiptCode { get; set; } = string.Empty;
         public DateTime CanceledDate { get; set; } = DateTime.Now;
         public string? Reason { get; set; }
+
+        // Owner machine/session id so only that machine can reclaim the canceled number
+        public string? OwnerMachineId { get; set; }
     }
 }

@@ -184,7 +184,7 @@
 
                                     </Grid>
 
-                                    <StackPanel Orientation="Horizontal">
+                                    <StackPanel Orientation="Horizontal" Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <TextBlock Text="รหัสถัดไป: " FontWeight="SemiBold"/>
                                         <TextBlock Text="{x:Bind CodeGenerator.NextCode}"/>
                                         <TextBlock Text=" | สร้างแล้ว: " Margin="15,0,0,0"/>

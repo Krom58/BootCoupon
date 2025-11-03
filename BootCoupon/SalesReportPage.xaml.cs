@@ -48,6 +48,7 @@ namespace BootCoupon
                 else if (tag == "LimitedCoupons") ViewModel.ReportMode = SalesReportViewModel.ReportModes.LimitedCoupons;
                 else if (tag == "UnlimitedGrouped") ViewModel.ReportMode = SalesReportViewModel.ReportModes.UnlimitedGrouped;
                 else if (tag == "SummaryByCoupon") ViewModel.ReportMode = SalesReportViewModel.ReportModes.SummaryByCoupon;
+                else if (tag == "RemainingCoupons") ViewModel.ReportMode = SalesReportViewModel.ReportModes.RemainingCoupons;
 
                 await ViewModel.SearchDataAsync();
 
@@ -99,6 +100,7 @@ namespace BootCoupon
                 ApplyNormal(LimitedCouponsButton);
                 ApplyNormal(UnlimitedGroupedButton);
                 ApplyNormal(SummaryByCouponButton);
+                ApplyNormal(RemainingCouponsButton);
 
                 switch (ViewModel.ReportMode)
                 {
@@ -113,6 +115,9 @@ namespace BootCoupon
                         break;
                     case SalesReportViewModel.ReportModes.SummaryByCoupon:
                         ApplyActive(SummaryByCouponButton);
+                        break;
+                    case SalesReportViewModel.ReportModes.RemainingCoupons:
+                        ApplyActive(RemainingCouponsButton);
                         break;
                 }
             }
@@ -317,7 +322,7 @@ namespace BootCoupon
     // ViewModel for the Sales Report Page
     public class SalesReportViewModel : INotifyPropertyChanged
     {
-        public enum ReportModes { ByReceipt, LimitedCoupons, UnlimitedGrouped, SummaryByCoupon }
+        public enum ReportModes { ByReceipt, LimitedCoupons, UnlimitedGrouped, SummaryByCoupon, RemainingCoupons }
         private ReportModes _reportMode = ReportModes.ByReceipt;
         public ReportModes ReportMode
         {
@@ -792,17 +797,71 @@ namespace BootCoupon
                      }).OrderBy(x => x.ReceiptDate).ThenBy(x => x.CouponName).ToList();
                  }
 
-                ReportData.Clear();
-                foreach (var it in results)
-                    ReportData.Add(it);
+                 if (ReportMode == ReportModes.RemainingCoupons)
+     {
+            // รายงานจำนวนคูปองจำกัดจำนวนที่เหลือ
+            var limitedCoupons = await (from cd in context.CouponDefinitions
+    join ct in context.CouponTypes on cd.CouponTypeId equals ct.Id into ctj
+     from ct in ctj.DefaultIfEmpty()
+         where cd.IsLimited == true
+   select new
+    {
+       CouponId = cd.Id,
+CouponCode = cd.Code,
+ CouponName = cd.Name,
+       CouponTypeName = ct != null ? ct.Name : string.Empty,
+    CouponTypeId = ct != null ? ct.Id : 0,
+           UnitPrice = cd.Price
+ }).ToListAsync();
 
-                UpdateSummary();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error searching data: {ex.Message}");
-            }
-        }
+ // Apply filters
+     if (SelectedCouponType != null && SelectedCouponType.Id != 0)
+   limitedCoupons = limitedCoupons.Where(x => x.CouponTypeId == SelectedCouponType.Id).ToList();
+  
+      if (SelectedCoupon != null && SelectedCoupon.Id != 0)
+     limitedCoupons = limitedCoupons.Where(x => x.CouponId == SelectedCoupon.Id).ToList();
+
+  // For each coupon, count total and sold quantities
+  foreach (var coupon in limitedCoupons)
+ {
+       // นับจำนวนรวมที่สร้างทั้งหมด
+   var totalCount = await context.GeneratedCoupons
+  .Where(gc => gc.CouponDefinitionId == coupon.CouponId)
+.CountAsync();
+
+      // นับจำนวนที่ขายแล้ว (GeneratedCoupons ที่มี ReceiptItemId != null)
+       var soldCount = await context.GeneratedCoupons
+    .Where(gc => gc.CouponDefinitionId == coupon.CouponId && gc.ReceiptItemId != null)
+.CountAsync();
+
+    var remaining = totalCount - soldCount;
+
+    results.Add(new SalesReportItem
+      {
+         CouponCode = coupon.CouponCode,
+       CouponName = coupon.CouponName,
+       CouponTypeName = coupon.CouponTypeName,
+    UnitPrice = coupon.UnitPrice,
+      TotalQuantity = totalCount,
+    SoldQuantity = soldCount,
+   RemainingQuantity = remaining
+   });
+ }
+
+ results = results.OrderBy(x => x.CouponCode).ToList();
+   }
+
+     ReportData.Clear();
+     foreach (var it in results)
+      ReportData.Add(it);
+
+        UpdateSummary();
+    }
+       catch (Exception ex)
+ {
+    System.Diagnostics.Debug.WriteLine($"Error searching data: {ex.Message}");
+  }
+}
 
         public void ClearFilters()
         {
@@ -947,14 +1006,20 @@ namespace BootCoupon
         public string CustomerName { get; set; } = "";
         public string CustomerPhone { get; set; } = "";
         public string SalesPersonName { get; set; } = "";
+     public string CouponCode { get; set; } = ""; // เพิ่มรหัสคูปอง
         public string CouponName { get; set; } = "";
         public string CouponTypeName { get; set; } = "";
         public string PaymentMethodName { get; set; } = "";
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal TotalPrice { get; set; }
-        public DateTime? ExpiresAt { get; set; }
+  public DateTime? ExpiresAt { get; set; }
         public bool IsLimited { get; set; }
+
+        // สำหรับรายงาน RemainingCoupons
+        public int TotalQuantity { get; set; } // จำนวนรวมที่ผลิต
+  public int SoldQuantity { get; set; } // จำนวนที่ขายแล้ว
+        public int RemainingQuantity { get; set; } // จำนวนคงเหลือ
 
         public string IsLimitedDisplay => IsLimited ? "จำกัด" : "ไม่จำกัด";
 
@@ -963,5 +1028,23 @@ namespace BootCoupon
         public string TotalPriceDisplay => TotalPrice.ToString("N2");
         public string ExpiresAtDisplay => ExpiresAt.HasValue ? ExpiresAt.Value.ToString("dd/MM/yyyy") : string.Empty;
         public string GeneratedCode { get; set; } = ""; // สำหรับเก็บรหัสคูปองที่สร้าง
-    }
+        
+        // สีสำหรับแสดงจำนวนคงเหลือ
+    public Microsoft.UI.Xaml.Media.Brush RemainingQuantityColor
+{
+  get
+        {
+       if (TotalQuantity == 0) return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray);
+       
+              var percentage = (double)RemainingQuantity / TotalQuantity * 100;
+     
+     if (percentage <= 10) // เหลือน้อยกว่าหรือเท่ากับ 10%
+             return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Red);
+         else if (percentage <= 30) // เหลือน้อยกว่าหรือเท่ากับ 30%
+      return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Orange);
+                else
+           return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Green);
+     }
+   }
+  }
 }

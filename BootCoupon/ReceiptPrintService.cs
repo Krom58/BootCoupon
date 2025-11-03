@@ -5,7 +5,6 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -33,7 +32,7 @@ namespace BootCoupon
         private static string selectedPaymentMethod = string.Empty; // เพิ่มในส่วนตัวแปร
 
         // Dialog management
-        private static readonly SemaphoreSlim dialogSemaphore = new(1, 1);
+        private static readonly SemaphoreSlim dialogSemaphore = new(1,1);
         private static bool isPrintingInProgress = false;
 
         /// <summary>
@@ -309,7 +308,7 @@ namespace BootCoupon
                 printDocument.GetPreviewPage += PrintDocument_GetPreviewPage;
                 printDocument.AddPages += PrintDocument_AddPages;
 
-                // วิธีใหม่สำหรับ WinUI 3 - ใช้ MainWindow instance
+                // วิธีใหม่สำหรับ WinUI3 - ใช้ MainWindow instance
                 if (App.MainWindowInstance != null)
                 {
                     var windowHandle = WindowNative.GetWindowHandle(App.MainWindowInstance);
@@ -599,7 +598,7 @@ namespace BootCoupon
             }
         }
 
-        // Helper methods (คัดลอกมาจาก ReceiptPrintPreview และปรับปรุง)
+        // Helper methods (คัด ลอกมาจาก ReceiptPrintPreview และปรับปรุง)
         private static Grid? CreateHeaderSection()
         {
             try
@@ -1002,17 +1001,17 @@ namespace BootCoupon
                 itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
 
                 // Index
-                var indexBorder = CreateItemCell(item.Index.ToString(), TextAlignment.Center, new Thickness(0,0,1,1));
-                Grid.SetColumn(indexBorder,0);
+                var indexBorder = CreateItemCell(item.Index.ToString(), TextAlignment.Center, new Thickness(0, 0, 1, 1));
+                Grid.SetColumn(indexBorder, 0);
                 itemGrid.Children.Add(indexBorder);
 
                 // Name
                 // Create name cell with two lines: name (normal) and codes (smaller)
                 var nameBorder = new Border
                 {
-                    BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,80,80,80)),
-                    BorderThickness = new Thickness(0,0,1,1),
-                    Padding = new Thickness(5,2,0,2)
+                    BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 80, 80, 80)),
+                    BorderThickness = new Thickness(0, 0, 1, 1),
+                    Padding = new Thickness(5, 2, 0, 2)
                 };
 
                 var nameStack = new StackPanel { Orientation = Orientation.Vertical };
@@ -1023,7 +1022,7 @@ namespace BootCoupon
 
                 // split on first '('
                 int p = fullText.IndexOf('(');
-                if (p >0 && fullText.EndsWith(")"))
+                if (p > 0 && fullText.EndsWith(")"))
                 {
                     mainName = fullText.Substring(0, p).Trim();
                     codesPart = fullText.Substring(p).Trim(); // includes parentheses
@@ -1032,7 +1031,7 @@ namespace BootCoupon
                 var mainTextBlock = new TextBlock
                 {
                     Text = mainName,
-                    FontSize =12,
+                    FontSize = 12,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                     Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
                     TextWrapping = TextWrapping.Wrap
@@ -1045,7 +1044,7 @@ namespace BootCoupon
                     var codesTextBlock = new TextBlock
                     {
                         Text = codesPart,
-                        FontSize =6,
+                        FontSize = 6,
                         Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
                         TextWrapping = TextWrapping.Wrap
                     };
@@ -1053,22 +1052,22 @@ namespace BootCoupon
                 }
 
                 nameBorder.Child = nameStack;
-                Grid.SetColumn(nameBorder,1);
+                Grid.SetColumn(nameBorder, 1);
                 itemGrid.Children.Add(nameBorder);
 
                 // Quantity
-                var quantityBorder = CreateItemCell(item.Quantity.ToString(), TextAlignment.Center, new Thickness(0,0,1,1));
-                Grid.SetColumn(quantityBorder,2);
+                var quantityBorder = CreateItemCell(item.Quantity.ToString(), TextAlignment.Center, new Thickness(0, 0, 1, 1));
+                Grid.SetColumn(quantityBorder, 2);
                 itemGrid.Children.Add(quantityBorder);
 
                 // Unit Price
-                var unitPriceBorder = CreateItemCell(item.UnitPriceFormatted, TextAlignment.Right, new Thickness(0,0,1,1), new Thickness(0,0,5,0));
-                Grid.SetColumn(unitPriceBorder,3);
+                var unitPriceBorder = CreateItemCell(item.UnitPriceFormatted, TextAlignment.Right, new Thickness(0, 0, 1, 1), new Thickness(0, 0, 5, 0));
+                Grid.SetColumn(unitPriceBorder, 3);
                 itemGrid.Children.Add(unitPriceBorder);
 
                 // Total Price
-                var totalPriceBorder = CreateItemCell(item.TotalPriceFormatted, TextAlignment.Right, new Thickness(0,0,0,1), new Thickness(0,0,5,0));
-                Grid.SetColumn(totalPriceBorder,4);
+                var totalPriceBorder = CreateItemCell(item.TotalPriceFormatted, TextAlignment.Right, new Thickness(0, 0, 0, 1), new Thickness(0, 0, 5, 0));
+                Grid.SetColumn(totalPriceBorder, 4);
                 itemGrid.Children.Add(totalPriceBorder);
 
                 return itemGrid;
@@ -1085,7 +1084,7 @@ namespace BootCoupon
         {
             var border = new Border
             {
-                BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,80,80,80)),
+                BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 80, 80, 80)),
                 BorderThickness = borderThickness
             };
 
@@ -1094,7 +1093,7 @@ namespace BootCoupon
                 Text = text,
                 TextAlignment = textAlignment,
                 Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
-                FontSize =12,
+                FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = margin ?? new Thickness(0),
                 TextWrapping = TextWrapping.Wrap
@@ -1111,77 +1110,182 @@ namespace BootCoupon
             {
                 if (currentReceipt == null) return null;
 
-                var totalGrid = new Grid();
-                // เปลี่ยนเป็น 3 columns ตาม XAML
-                totalGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Thai text
-                totalGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) }); // ราคาสุทธิ label
-                totalGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) }); // Total amount
+                // Create a local non-null reference to quiet nullable analysis
+                var receipt = currentReceipt!;
 
-                // Left side - Thai text
+                var totalGrid = new Grid();
+                //2 columns: left (labels and thai text), right (values)
+                totalGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                totalGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) }); // เปลี่ยนจาก 120 เป็น 90 ให้ตรงกับคอลัมน์ "จำนวนเงิน"
+
+                // Three rows for labels/values
+                totalGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                totalGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                totalGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                // Row0 - "รวมทั้งหมด (ก่อนส่วนลด)"
+                var beforeBorder = new Border
+                {
+                    Padding = new Thickness(6),
+                    BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,80,80,80)),
+                    BorderThickness = new Thickness(0,0,0,1)
+                };
+                var beforeText = new TextBlock
+                {
+                    Text = "รวมทั้งหมด (ก่อนส่วนลด)",
+                    FontSize =12,
+                    TextAlignment = TextAlignment.Right,
+                    TextWrapping = TextWrapping.Wrap,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black)
+                };
+                beforeBorder.Child = beforeText;
+                Grid.SetColumn(beforeBorder,0);
+                Grid.SetRow(beforeBorder,0);
+                totalGrid.Children.Add(beforeBorder);
+
+                // Row1 - "ส่วนลด"
+                var discountBorder = new Border
+                {
+                    Padding = new Thickness(6),
+                    BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,80,80,80)),
+                    BorderThickness = new Thickness(0,0,0,1)
+                };
+                var discountText = new TextBlock
+                {
+                    Text = "ส่วนลด",
+                    FontSize =12,
+                    TextAlignment = TextAlignment.Right,
+                    TextWrapping = TextWrapping.Wrap,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black)
+                };
+                discountBorder.Child = discountText;
+                Grid.SetColumn(discountBorder,0);
+                Grid.SetRow(discountBorder,1);
+                totalGrid.Children.Add(discountBorder);
+
+                // Row2 - bottom: left side contains Thai text (number in words) and the net label on the same row
+                var bottomGrid = new Grid();
+                bottomGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                bottomGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                // Thai text on left (may be long)
                 var thaiTextBorder = new Border
                 {
-                    BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
-                    BorderThickness = new Thickness(0, 0, 0, 0),
-                    Padding = new Thickness(6)
+                    Padding = new Thickness(6),
+                    BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,80,80,80)),
+                    BorderThickness = new Thickness(0,0,0,0)
                 };
-
                 var thaiTextBlock = new TextBlock
                 {
-                    Text = ConvertNumberToThaiText(currentReceipt.TotalAmount),
-                    FontSize = 12,
-                    VerticalAlignment = VerticalAlignment.Center,
+                    Text = ConvertNumberToThaiText(receipt.TotalAmount), // เปลี่ยนจาก receipt.TotalAmount + receipt.Discount เป็น receipt.TotalAmount
+                    FontSize =12,
+                    TextWrapping = TextWrapping.Wrap,
                     Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
-                    TextWrapping = TextWrapping.Wrap
+                    VerticalAlignment = VerticalAlignment.Center
                 };
-
                 thaiTextBorder.Child = thaiTextBlock;
-                Grid.SetColumn(thaiTextBorder, 0);
-                totalGrid.Children.Add(thaiTextBorder);
+                Grid.SetColumn(thaiTextBorder,0);
+                bottomGrid.Children.Add(thaiTextBorder);
 
-                // Middle - ราคาสุทธิ label
-                var middleBorder = new Border
+                // Net label on right side of bottomGrid
+                var netLabelBorder = new Border
                 {
-                    BorderBrush = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 80, 80, 80)),
-                    BorderThickness = new Thickness(0, 0, 1, 0),
-                    Padding = new Thickness(6)
+                    Padding = new Thickness(6),
+                    BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+                    BorderThickness = new Thickness(0,0,0,0),
+                    VerticalAlignment = VerticalAlignment.Center
                 };
-
-                var middleTextBlock = new TextBlock
+                var netLabelText = new TextBlock
                 {
-                    Text = "ราคาสุทธิ(รวมภาษีมูลค่าเพิ่ม)",
-                    FontSize = 12,
+                    Text = "ราคาสุทธิ (รวมภาษีมูลค่าเพิ่ม)",
+                    FontSize =12,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
-                    TextAlignment = TextAlignment.Center
-                };
-
-                middleBorder.Child = middleTextBlock;
-                Grid.SetColumn(middleBorder, 1);
-                totalGrid.Children.Add(middleBorder);
-
-                // Right side - Total amount
-                var totalAmountBorder = new Border
-                {
-                    BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Red),
-                    BorderThickness = new Thickness(2),
-                    Background = new SolidColorBrush(Microsoft.UI.Colors.White)
-                };
-
-                var totalAmountTextBlock = new TextBlock
-                {
-                    Text = currentReceipt.TotalAmount.ToString("N2"),
                     TextAlignment = TextAlignment.Right,
-                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    TextWrapping = TextWrapping.Wrap,
                     Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
-                    FontSize = 14,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(6)
+                    VerticalAlignment = VerticalAlignment.Center
                 };
+                netLabelBorder.Child = netLabelText;
+                Grid.SetColumn(netLabelBorder,1);
+                bottomGrid.Children.Add(netLabelBorder);
 
-                totalAmountBorder.Child = totalAmountTextBlock;
-                Grid.SetColumn(totalAmountBorder, 2);
-                totalGrid.Children.Add(totalAmountBorder);
+                Grid.SetColumn(bottomGrid,0);
+                Grid.SetRow(bottomGrid,2);
+                totalGrid.Children.Add(bottomGrid);
+
+                // Right column - numeric values aligned with the three rows
+                decimal netTotal = receipt.TotalAmount; // already net in model
+                decimal discount = receipt.Discount;
+                decimal beforeTotal = netTotal + discount;
+
+                // ช่อง "รวมทั้งหมด (ก่อนส่วนลด)"
+                var rightBorder1 = new Border 
+                { 
+                    BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black), 
+                    BorderThickness = new Thickness(0.5),
+                    Padding = new Thickness(0, 0, 5, 0) // เพิ่ม padding ขวา
+                };
+                var txtBefore = new TextBlock 
+                { 
+                    Text = beforeTotal.ToString("N2"), 
+                    FontSize = 12, 
+                    TextAlignment = TextAlignment.Right, 
+                    Margin = new Thickness(6), 
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black) // เพิ่มสีดำชัดเจน
+                };
+                rightBorder1.Child = txtBefore;
+                Grid.SetColumn(rightBorder1,1); 
+                Grid.SetRow(rightBorder1,0); 
+                totalGrid.Children.Add(rightBorder1);
+
+                // ช่อง "ส่วนลด"
+                var rightBorder2 = new Border 
+                { 
+                    BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black), 
+                    BorderThickness = new Thickness(0.5),
+                    Padding = new Thickness(0, 0, 5, 0) // เพิ่ม padding ขวา
+                };
+                var txtDiscount = new TextBlock 
+                { 
+                    Text = discount.ToString("N2"), 
+                    FontSize = 12, 
+                    TextAlignment = TextAlignment.Right, 
+                    Margin = new Thickness(6), 
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black) // เพิ่มสีดำชัดเจน
+                };
+                rightBorder2.Child = txtDiscount;
+                Grid.SetColumn(rightBorder2,1); 
+                Grid.SetRow(rightBorder2,1); 
+                totalGrid.Children.Add(rightBorder2);
+
+                // ช่อง "ราคาสุทธิ" - กรอบสีแดง
+                var rightBorder3 = new Border 
+                { 
+                    BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Red), 
+                    BorderThickness = new Thickness(2), 
+                    Background = new SolidColorBrush(Microsoft.UI.Colors.White),
+                    Padding = new Thickness(0, 0, 5, 0) // เพิ่ม padding ขวา
+                };
+                var txtNet = new TextBlock 
+                { 
+                    Text = netTotal.ToString("N2"), 
+                    TextAlignment = TextAlignment.Right, 
+                    FontWeight = Microsoft.UI.Text.FontWeights.Bold, 
+                    FontSize = 14, 
+                    Margin = new Thickness(6), 
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black) // เพิ่มสีดำชัดเจน
+                };
+                rightBorder3.Child = txtNet;
+                Grid.SetColumn(rightBorder3,1); 
+                Grid.SetRow(rightBorder3,2); 
+                totalGrid.Children.Add(rightBorder3);
+
+                Debug.WriteLine($"สร้าง Total Section: ก่อนส่วนลด={beforeTotal:N2}, ส่วนลด={discount:N2}, สุทธิ={netTotal:N2}");
 
                 return totalGrid;
             }

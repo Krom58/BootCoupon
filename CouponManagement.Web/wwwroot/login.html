@@ -44,6 +44,8 @@
  const fd = new FormData(); fd.append('username', u); fd.append('password', p);
  const res = await fetch('/api/auth/login',{method:'POST', body: fd});
  if(res.ok){
+ // store current user for redeem page in sessionStorage so it is cleared when browser is closed
+ try{ sessionStorage.setItem('currentUser', u); }catch(e){ /* ignore storage errors */ }
  window.location.href = '/redeem.html';
  return;
  }

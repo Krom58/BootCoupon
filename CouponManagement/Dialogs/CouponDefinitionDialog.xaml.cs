@@ -545,17 +545,18 @@ namespace CouponManagement.Dialogs
         {
             if (string.IsNullOrEmpty(request.Code)) return (false, "กรุณาระบุรหัสคูปอง");
             if (string.IsNullOrEmpty(request.Name)) return (false, "กรุณาระบุชื่อคูปอง");
-            if (request.Price <= 0) return (false, "ราคาคูปองต้องมากกว่า 0");
+            // Allow zero price, only disallow negative prices
+            if (request.Price <0) return (false, "ราคาคูปองต้องไม่เป็นค่าติดลบ");
             if (request.ValidFrom >= request.ValidTo) return (false, "วันที่เริ่มต้องน้อยกว่าวันที่สิ้นสุด");
 
             // Only require code generator settings when limited
             if (request.IsLimited)
             {
                 if (string.IsNullOrEmpty(request.Prefix) && string.IsNullOrEmpty(request.Suffix)) return (false, "กรุณาระบุรหัสหน้าหรือรหัสหลัง");
-                if (request.SequenceLength < 1 || request.SequenceLength > 10) return (false, "ความยาวตัวเลขต้องอยู่ระหว่าง 1-10");
+                if (request.SequenceLength <1 || request.SequenceLength >10) return (false, "ความยาวตัวเลขต้องอยู่ระหว่าง1-10");
             }
 
-            if (request.CouponTypeId <= 0) return (false, "กรุณาเลือกประเภทคูปอง");
+            if (request.CouponTypeId <=0) return (false, "กรุณาเลือกประเภทคูปอง");
 
             try
             {

@@ -136,6 +136,7 @@ namespace BootCoupon
         // Expose whether this item is for a limited coupon (has generated codes)
         public bool IsLimited => CouponDefinition?.IsLimited ?? false;
 
+        // TotalPrice does not include receipt-level discount
         public decimal TotalPrice => CouponDefinition.Price * Quantity;
 
         public string SelectedCodesPreview { get; set; } = string.Empty;
@@ -245,6 +246,9 @@ namespace BootCoupon
 
     public sealed partial class Receipt : Page
     {
+        // add a field to hold receipt-level discount when creating a receipt
+        private decimal _receiptDiscount =0m;
+
         private readonly CouponContext _context = new CouponContext();
         private readonly ObservableCollection<CouponDefinitionDisplay> _couponDefinitionDisplays = new();
         private readonly ObservableCollection<ReceiptItem> _selectedItems = new();
@@ -709,24 +713,24 @@ namespace BootCoupon
                 // Non-limited flow (existing behavior)
                 var quantityBox = new NumberBox
                 {
-                    Value = 1,
-                    Minimum = 1,
+                    Value =1,
+                    Minimum =1,
                     Maximum = selectedDefinition.IsLimited ? selectedDisplay.AvailableCount : int.MaxValue, // สำหรับคูปองไม่จำกัด ให้อนุญาตจำนวนมาก
                     SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
-                    Margin = new Thickness(0, 10, 0, 0)
+                    Margin = new Thickness(0,10,0,0)
                 };
 
                 var priceTextBlock = new TextBlock
                 {
                     Text = $"ราคา: {selectedDefinition.Price} บาท/ใบ",
-                    Margin = new Thickness(0, 10, 0, 10)
+                    Margin = new Thickness(0,10,0,10)
                 };
 
                 var availableTextBlock = new TextBlock
                 {
                     Text = selectedDefinition.IsLimited ? $"คงเหลือ: {selectedDisplay.AvailableCount:N0} ใบ" : string.Empty,
-                    Margin = new Thickness(0, 5, 0, 10),
-                    Foreground = selectedDefinition.IsLimited && selectedDisplay.AvailableCount > 10 ? 
+                    Margin = new Thickness(0,5,0,10),
+                    Foreground = selectedDefinition.IsLimited && selectedDisplay.AvailableCount >10 ? 
                         new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Green) : 
                         new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Orange),
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
@@ -736,16 +740,17 @@ namespace BootCoupon
                 {
                     Text = $"รวมเป็นเงิน: {selectedDefinition.Price} บาท",
                     FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                    Margin = new Thickness(0, 0, 0, 10)
+                    Margin = new Thickness(0,0,0,10)
                 };
 
-                quantityBox.ValueChanged += (s, args) =>
+                void RecalcTotal()
                 {
-                    if (quantityBox.Value > 0)
-                    {
-                        totalPriceTextBlock.Text = $"รวมเป็นเงิน: {selectedDefinition.Price * (decimal)quantityBox.Value} บาท";
-                    }
-                };
+                    var q = quantityBox.Value >0 ? (int)quantityBox.Value :0;
+                    var total = selectedDefinition.Price * (decimal)q;
+                    totalPriceTextBlock.Text = $"รวมเป็นเงิน: {total} บาท";
+                }
+
+                quantityBox.ValueChanged += (s, args) => RecalcTotal();
 
                 var contentPanel = new StackPanel();
                 contentPanel.Children.Add(new TextBlock { Text = $"คูปอง: {selectedDefinition.Name}" });
@@ -769,7 +774,7 @@ namespace BootCoupon
                 if (result2 == ContentDialogResult.Primary)
                 {
                     // Validate quantity input
-                    if (double.IsNaN(quantityBox.Value) || quantityBox.Value <= 0)
+                    if (double.IsNaN(quantityBox.Value) || quantityBox.Value <=0)
                     {
                         await ShowErrorDialog("กรุณาระบุจำนวนคูปองที่ถูกต้อง");
                         return;
@@ -796,7 +801,7 @@ namespace BootCoupon
                     }
                     
                      // ถ้ามีรายการเดียวกันอยู่แล้ว ให้เพิ่มจำนวนแทนการสร้างรายการใหม่
-                     var existingItem2 = _selectedItems.FirstOrDefault(it => it.CouponDefinition.Id == selectedDefinition.Id);
+                     var existingItem2 = _selectedItems.FirstOrDefault(it => it.CouponDefinition.Id == selectedDefinition.Id && (it.SelectedGeneratedIds==null || !it.SelectedGeneratedIds.Any()));
                      if (existingItem2 != null)
                      {
                         existingItem2.Quantity += quantity;
@@ -1046,6 +1051,11 @@ namespace BootCoupon
             var phoneNumberBox = new TextBox { PlaceholderText = "กรุณาระบุเบอร์โทรศัพท์" };
             customerPanel.Children.Add(phoneNumberBox);
 
+            // Add receipt-level discount input
+            customerPanel.Children.Add(new TextBlock { Text = "ส่วนลด (ยอดรวม) - ถ้าไม่มีให้เว้นว่าง" });
+            var discountBox = new NumberBox { Value =0, Minimum =0, Maximum = double.MaxValue, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
+            customerPanel.Children.Add(discountBox);
+
             var dialog = new ContentDialog
             {
                 Title = "ข้อมูลลูกค้า",
@@ -1065,15 +1075,53 @@ namespace BootCoupon
                 // Validate input
                 if (string.IsNullOrEmpty(customerName) || string.IsNullOrEmpty(phoneNumber))
                 {
-                    await ShowErrorDialog("กรุณากรอกข้อมูลลูกค้าให้ครบถ้วน"); // แก้ไขข้อความที่ซ้ำ
+                    await ShowErrorDialog("กรุณากรอกข้อมูลลูกค้าให้ครบถ้วน");
                     return;
                 }
+
+                // Read receipt-level discount
+                var discountVal = double.IsNaN(discountBox.Value) ?0.0 : discountBox.Value;
+                if (discountVal <0)
+                {
+                    await ShowErrorDialog("ส่วนลดต้องเป็นค่าบวกหรือเท่ากับศูนย์");
+                    return;
+                }
+
+                _receiptDiscount = (decimal)discountVal;
 
                 using var tx = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                    // ใช้ Service ใหม่แทน AppSettings
-                    string receiptCode = await ReceiptNumberService.GenerateNextReceiptCodeAsync();
+                    // Verify DB connectivity before generating receipt code to provide clearer error message
+                    try
+                    {
+                        using var testCtx = new CouponContext();
+                        var canConnect = await testCtx.Database.CanConnectAsync();
+                        if (!canConnect)
+                        {
+                            await ShowErrorDialog("ไม่สามารถเชื่อมต่อฐานข้อมูล: กรุณาตรวจสอบการตั้งค่าการเชื่อมต่อฐานข้อมูล");
+                            return;
+                        }
+                    }
+                    catch (Exception connEx)
+                    {
+                        await ShowErrorDialog($"ไม่สามารถตรวจสอบการเชื่อมต่อฐานข้อมูล: {connEx.Message}");
+                        return;
+                    }
+                    
+                    string receiptCode;
+                    try
+                    {
+                        // Generate next receipt code (may throw if DB sequence/unavailable)
+                        receiptCode = await ReceiptNumberService.GenerateNextReceiptCodeAsync();
+                    }
+                    catch (Exception genEx)
+                    {
+                        // Provide more context about failure to generate receipt number
+                        var detail = genEx.InnerException != null ? genEx.InnerException.Message : genEx.Message;
+                        await ShowErrorDialog($"เกิดข้อผิดพลาด: ไม่สามารถสร้างหมายเลขใบเสร็จได้\n\nรายละเอียด: {detail}");
+                        return;
+                    }
 
                     // Create and save receipt with customer information, receipt code and payment method
                     var receipt = new ReceiptModel
@@ -1082,9 +1130,10 @@ namespace BootCoupon
                         ReceiptDate = DateTime.Now,
                         CustomerName = customerName,
                         CustomerPhoneNumber = phoneNumber,
-                        TotalAmount = _selectedItems.Sum(item => item.TotalPrice),
-                        SalesPersonId = selectedSalesPerson.ID,
-                        PaymentMethodId = selectedPaymentMethod.Id // เพิ่มวิธีการชำระเงิน
+                        Discount = _receiptDiscount,
+                        TotalAmount = _selectedItems.Sum(item => item.TotalPrice) - _receiptDiscount,
+                        SalesPersonId = (SalesPersonComboBox.SelectedItem as SalesPerson)?.ID,
+                        PaymentMethodId = GetSelectedPaymentMethod()?.Id
                     };
 
                     _context.Receipts.Add(receipt);
@@ -1115,7 +1164,7 @@ namespace BootCoupon
                         var receiptItem = new DatabaseReceiptItem
                         {
                             ReceiptId = receipt.ReceiptID,
-                            CouponId = item.CouponDefinition.Id, // ใช้ CouponDefinition.Id แทน Coupon.Id
+                            CouponId = item.CouponDefinition.Id,
                             Quantity = item.Quantity,
                             UnitPrice = item.CouponDefinition.Price,
                             TotalPrice = item.TotalPrice
@@ -1264,33 +1313,88 @@ namespace BootCoupon
         // เพิ่ม method สำหรับแสดง popup ยืนยันการพิมพ์ใหม่
         private async Task ShowPrintConfirmationDialog(int receiptId, string receiptCode, string paymentMethodName)
         {
-            // สร้าง popup ที่มีปุ่มพิมพ์และยกเลิก
-            var confirmDialog = new ContentDialog
+            // Outer loop so we can return to the confirmation dialog when user cancels the reason dialog
+            while (true)
             {
-                Title = "บันทึกใบเสร็จสำเร็จ",
-                Content = $"ใบเสร็จเลขที่ {receiptCode} ถูกบันทึกเรียบร้อยแล้ว\nวิธีการชำระเงิน: {paymentMethodName}\n\nต้องการพิมพ์ใบเสร็จหรือไม่?",
-                PrimaryButtonText = "พิมพ์",
-                CloseButtonText = "ยกเลิก",
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-
-            var result = await confirmDialog.ShowAsync();
-
-            if (result == ContentDialogResult.Primary)
-            {
-                // กดปุ่มพิมพ์ - ใช้ Service พิมพ์โดยไม่เปิดหน้า Preview
-                bool printSuccess = await ReceiptPrintService.PrintReceiptAsync(receiptId, this.XamlRoot);
-
-                if (printSuccess)
+                // สร้าง popup ที่มีปุ่มพิมพ์และยกเลิก
+                var confirmDialog = new ContentDialog
                 {
-                    Debug.WriteLine("เรียกใช้งานการพิมพ์สำเร็จ");
+                    Title = "บันทึกใบเสร็จสำเร็จ",
+                    Content = $"ใบเสร็จเลขที่ {receiptCode} ถูกบันทึกเรียบร้อยแล้ว\nวิธีการชำระเงิน: {paymentMethodName}\n\nต้องการพิมพ์ใบเสร็จหรือไม่?",
+                    PrimaryButtonText = "พิมพ์",
+                    CloseButtonText = "ยกเลิก",
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = this.XamlRoot
+                };
+
+                var result = await confirmDialog.ShowAsync();
+
+                if (result == ContentDialogResult.Primary)
+                {
+                    // กดปุ่มพิมพ์ - ใช้ Service พิมพ์โดยไม่เปิดหน้า Preview
+                    bool printSuccess = await ReceiptPrintService.PrintReceiptAsync(receiptId, this.XamlRoot);
+                    if (printSuccess)
+                    {
+                        Debug.WriteLine("เรียกใช้งานการพิมพ์สำเร็จ");
+                    }
+
+                    return; // printed -> exit
                 }
-            }
-            else
-            {
-                // กดปุ่มยกเลิก - ใช้ Service จัดการการยกเลิก (เหมือนปุ่มปิดใน ReceiptPrintPreview)
-                await ReceiptPrintService.HandleReceiptCancellationAsync(receiptId, this.XamlRoot);
+
+                // กดปุ่มยกเลิก - ขอเหตุผลการยกเลิกก่อน และเก็บหมายเลขใบเสร็จเพื่อรีไซเคิลเฉพาะเครื่องนี้
+                while (true)
+                {
+                    var reasonPanel = new StackPanel { Spacing =8 };
+                    reasonPanel.Children.Add(new TextBlock { Text = "สาเหตุการยกเลิกการพิมพ์ (จำเป็น):" });
+                    var reasonBox = new TextBox { PlaceholderText = "ระบุสาเหตุ เช่น ผิดรายการ/ลืมเพิ่มสินค้า", AcceptsReturn = false };
+                    reasonPanel.Children.Add(reasonBox);
+
+                    var reasonDialog = new ContentDialog
+                    {
+                        Title = "ระบุสาเหตุการยกเลิก",
+                        Content = reasonPanel,
+                        PrimaryButtonText = "ยืนยัน",
+                        CloseButtonText = "ยกเลิก",
+                        DefaultButton = ContentDialogButton.Primary,
+                        XamlRoot = this.XamlRoot
+                    };
+
+                    var r = await reasonDialog.ShowAsync();
+
+                    if (r == ContentDialogResult.Primary)
+                    {
+                        var reason = reasonBox.Text?.Trim() ?? string.Empty;
+                        if (string.IsNullOrEmpty(reason))
+                        {
+                            // แจ้งเตือนและวนกลับมาให้กรอกใหม่
+                            await ShowErrorDialog("กรุณาระบุสาเหตุการยกเลิกก่อนยืนยัน");
+                            continue; // เปิด reason dialog ใหม่
+                        }
+
+                        try
+                        {
+                            // เก็บหมายเลขที่ยกเลิกพร้อมเหตุผลและเจ้าของเครื่อง (ReceiptNumberService จะบันทึก OwnerMachineId)
+                            await ReceiptNumberService.RecycleReceiptCodeAsync(receiptCode, reason);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Failed to recycle receipt code: {ex.Message}");
+                            await ShowErrorDialog($"เกิดข้อผิดพลาดในการเก็บหมายเลขใบเสร็จ: {ex.Message}");
+                            return; // error -> abort
+                        }
+
+                        // เรียก handler สำหรับการยกเลิกใบเสร็จ (เหมือนปุ่มยกเลิกปกติ)
+                        await ReceiptPrintService.HandleReceiptCancellationAsync(receiptId, this.XamlRoot);
+                        return; // recycled -> exit
+                    }
+                    else
+                    {
+                        // user cancelled the reason dialog: กลับไปหน้าบอกว่าจะพิมโดยใช้หมายเลขอะไร
+                        // break inner reason loop and continue outer loop to show confirmation again
+                        break;
+                    }
+                }
+                // continue outer while loop -> show confirm dialog again
             }
         }
 
@@ -1329,7 +1433,7 @@ namespace BootCoupon
                     return;
                 }
 
-                // For unlimited coupons, edit should allow changing quantity only
+                // For unlimited coupons, edit should allow changing quantity only (and discount)
                 var quantityBox = new NumberBox
                 {
                     Value = selectedItem.Quantity >0 ? selectedItem.Quantity :1,
@@ -1346,13 +1450,15 @@ namespace BootCoupon
                     Margin = new Thickness(0,8,0,10)
                 };
 
-                quantityBox.ValueChanged += (s, args) =>
+                void Recalc()
                 {
-                    if (quantityBox.Value >0)
-                    {
-                        totalPriceTextBlock.Text = $"รวมเป็นเงิน: {selectedItem.CouponDefinition.Price * (decimal)quantityBox.Value} บาท";
-                    }
-                };
+                    var q = quantityBox.Value >0 ? (int)quantityBox.Value :0;
+                    var total = selectedItem.CouponDefinition.Price * (decimal)q;
+                    if (total <0) total =0;
+                    totalPriceTextBlock.Text = $"รวมเป็นเงิน: {total} บาท";
+                }
+
+                quantityBox.ValueChanged += (s, args) => Recalc();
 
                 var contentPanel = new StackPanel();
                 contentPanel.Children.Add(new TextBlock { Text = $"คูปอง: {selectedItem.CouponDefinition.Name}" });
@@ -1389,7 +1495,7 @@ namespace BootCoupon
                     if (display != null)
                     {
                         display.TotalUsed += (newQuantity - oldQuantity);
-                        if (display.TotalUsed <0) display.TotalUsed =0;
+                        if (display.TotalUsed <0) display.TotalUsed = 0;
                     }
 
                     int index = _selectedItems.IndexOf(selectedItem);

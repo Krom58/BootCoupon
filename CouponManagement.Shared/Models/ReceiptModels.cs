@@ -17,7 +17,11 @@ namespace CouponManagement.Shared.Models
         public string CustomerName { get; set; } = null!;
         public string CustomerPhoneNumber { get; set; } = null!;
 
+        // Receipt-level discount (total discount applied to the receipt)
+        public decimal Discount { get; set; } =0m;
+
         public decimal TotalAmount { get; set; }
+
         public List<DatabaseReceiptItem> Items { get; set; } = new();
 
         public int? SalesPersonId { get; set; }
@@ -38,6 +42,8 @@ namespace CouponManagement.Shared.Models
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal TotalPrice { get; set; }
+
+        // Note: per-line Discount removed; use ReceiptModel.Discount for overall receipt discount
     }
 
     // เพิ่ม class สำหรับแสดงข้อมูลใน DataGrid

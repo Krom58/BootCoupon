@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CouponManagement.Shared;
 using CouponManagement.Shared.Models;
+using System.Data.Common;
 
 namespace BootCoupon.Services
 {
@@ -12,6 +13,9 @@ namespace BootCoupon.Services
     {
         /// <summary>
         /// สร้างหมายเลขใบเสร็จใหม่แบบ Thread-Safe
+        /// เก็บ logic ในฐานข้อมูลโดยเรียก stored procedure dbo.usp_GetNextReceiptCode
+        /// Stored proc จะพยายาม pop หมายเลขจาก CanceledReceiptNumbers แบบ atomic
+        /// หรือเรียก NEXT VALUE FOR dbo.ReceiptNumbers ถ้าไม่มีเลขรีไซเคิล
         /// </summary>
         public static async Task<string> GenerateNextReceiptCodeAsync()
         {
@@ -34,91 +38,71 @@ namespace BootCoupon.Services
                 throw;
             }
 
-            const int maxRetries = 3;
-            int retryCount = 0;
-
-            while (retryCount < maxRetries)
+            // Try calling stored procedure in DB that returns the next receipt code atomically
+            try
             {
-                try
-                {
-                    using (var context = new CouponContext()) // ใช้ CouponContext จาก Shared
-                    {
-                        // ใช้ Transaction เพื่อป้องกัน Concurrent Access
-                        using (var transaction = await context.Database.BeginTransactionAsync())
-                        {
-                            try
-                            {
-                                // ตรวจสอบว่ามีหมายเลขที่ถูกยกเลิกหรือไม่
-                                var canceledNumber = await context.CanceledReceiptNumbers
-                                    .OrderBy(c => c.CanceledDate)
-                                    .FirstOrDefaultAsync();
+                using var context = new CouponContext();
+                var conn = context.Database.GetDbConnection();
+                if (conn.State != System.Data.ConnectionState.Open)
+                    await conn.OpenAsync();
 
-                                if (canceledNumber != null)
-                                {
-                                    // ใช้หมายเลขที่ถูกยกเลิก
-                                    string recycledCode = canceledNumber.ReceiptCode;
-                                    context.CanceledReceiptNumbers.Remove(canceledNumber);
-                                    await context.SaveChangesAsync();
-                                    await transaction.CommitAsync();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "dbo.usp_GetNextReceiptCode"; // proc name
+                cmd.CommandType = System.Data.CommandType.StoredProcedure;
 
-                                    Debug.WriteLine($"ใช้หมายเลขรีไซเคิล: {recycledCode}");
-                                    return recycledCode;
-                                }
+                // Pass MachineId so proc can return machine-owned canceled numbers first
+                var p = cmd.CreateParameter();
+                p.ParameterName = "@MachineId";
+                p.Value = Environment.MachineName ?? "";
+                p.DbType = System.Data.DbType.String;
+                cmd.Parameters.Add(p);
 
-                                // ดึงหมายเลขถัดไป
-                                var numberManager = await context.ReceiptNumberManagers
-                                    .FirstOrDefaultAsync();
+                var obj = await cmd.ExecuteScalarAsync();
+                if (obj == null) throw new InvalidOperationException("Stored procedure dbo.usp_GetNextReceiptCode returned no value.");
 
-                                if (numberManager == null)
-                                {
-                                    // สร้างข้อมูลเริ่มต้น
-                                    numberManager = new ReceiptNumberManager
-                                    {
-                                        Prefix = "INV",
-                                        CurrentNumber = 5001,
-                                        UpdatedBy = Environment.MachineName
-                                    };
-                                    context.ReceiptNumberManagers.Add(numberManager);
-                                    await context.SaveChangesAsync();
-                                }
+                var code = obj.ToString();
+                if (string.IsNullOrEmpty(code)) throw new InvalidOperationException("Stored procedure returned empty receipt code.");
 
-                                string nextCode = $"{numberManager.Prefix}{numberManager.CurrentNumber}";
-
-                                // อัปเดตหมายเลขถัดไป
-                                numberManager.CurrentNumber++;
-                                numberManager.LastUpdated = DateTime.Now;
-                                numberManager.UpdatedBy = Environment.MachineName;
-
-                                await context.SaveChangesAsync();
-                                await transaction.CommitAsync();
-
-                                Debug.WriteLine($"สร้างหมายเลขใหม่: {nextCode}");
-                                return nextCode;
-                            }
-                            catch
-                            {
-                                await transaction.RollbackAsync();
-                                throw;
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    retryCount++;
-                    Debug.WriteLine($"ข้อผิดพลาดในการสร้างหมายเลขใบเสร็จ (ครั้งที่ {retryCount}): {ex.Message}");
-
-                    if (retryCount >= maxRetries)
-                    {
-                        throw new InvalidOperationException($"ไม่สามารถสร้างหมายเลขใบเสร็จได้หลังจากลองแล้ว {maxRetries} ครั้ง", ex);
-                    }
-
-                    // รอสักครู่ก่อนลองใหม่ (exponential backoff)
-                    await Task.Delay(100 * retryCount);
-                }
+                Debug.WriteLine($"Created receipt code (proc): {code}");
+                return code!;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Stored proc call failed: {ex.Message}");
+                // Fallback: use table-based ReceiptNumberManager as last resort (not ideal for concurrency)
             }
 
-            throw new InvalidOperationException("ไม่สามารถสร้างหมายเลขใบเสร็จได้");
+            // Fallback path (best-effort) - keep original table-based increment
+            try
+            {
+                using var context = new CouponContext();
+                var numberManager = await context.ReceiptNumberManagers.FirstOrDefaultAsync();
+                if (numberManager == null)
+                {
+                    numberManager = new ReceiptNumberManager
+                    {
+                        Prefix = "INV",
+                        CurrentNumber = 5001,
+                        UpdatedBy = Environment.MachineName
+                    };
+                    context.ReceiptNumberManagers.Add(numberManager);
+                    await context.SaveChangesAsync();
+                }
+
+                string nextCode = $"{numberManager.Prefix}{numberManager.CurrentNumber}";
+                numberManager.CurrentNumber++;
+                numberManager.LastUpdated = DateTime.Now;
+                numberManager.UpdatedBy = Environment.MachineName;
+                await context.SaveChangesAsync();
+
+                Debug.WriteLine($"Created receipt code (fallback): {nextCode}");
+                return nextCode;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Fallback generator failed: {ex.Message}");
+                throw new InvalidOperationException("ไม่สามารถสร้างหมายเลขใบเสร็จได้", ex);
+            }
         }
 
         /// <summary>
@@ -140,13 +124,14 @@ namespace BootCoupon.Services
                         {
                             ReceiptCode = receiptCode,
                             Reason = reason,
-                            CanceledDate = DateTime.Now
+                            CanceledDate = DateTime.Now,
+                            OwnerMachineId = Environment.MachineName
                         };
 
                         context.CanceledReceiptNumbers.Add(canceledNumber);
                         await context.SaveChangesAsync();
 
-                        Debug.WriteLine($"เก็บหมายเลข {receiptCode} เพื่อนำมาใช้ใหม่");
+                        Debug.WriteLine($"เก็บหมายเลข {receiptCode} เพื่อนำมาใช้ใหม่ (Owner: {Environment.MachineName})");
                     }
                 }
             }
