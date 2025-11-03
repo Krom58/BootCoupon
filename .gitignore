@@ -140,6 +140,7 @@ _TeamCity*
 
 # AxoCover is a Code Coverage Tool
 .axoCover/*
+!.axoCover/settings.json
 
 # Coverlet is a free, cross platform Code Coverage Tool
 coverage*.json
@@ -360,11 +361,3 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-
-# Ignore appsettings that may contain secrets for the web project
-/CouponManagement.Web/appsettings.json
-/CouponManagement.Web/appsettings.*.Local.json
-/CouponManagement.Web/appsettings.*.Secret.json
-
-# dotnet user secrets (global per-user file)
-secrets.json
