@@ -85,9 +85,27 @@ namespace BootCoupon
                         .OrderBy(r => r.ReceiptID) // เรียงจากรหัสใบเสร็จน้อยไปมาก
                         .ToListAsync();
 
+                    // โหลด PaymentMethods ทั้งหมดมาเก็บไว้ในหน่วยความจำ
+                    var paymentMethods = await context.PaymentMethods.ToDictionaryAsync(pm => pm.Id, pm => pm.Name);
+              
+                    // โหลด SalesPersons ทั้งหมดมาเก็บไว้ในหน่วยความจำ
+                    var salesPersons = await context.SalesPerson.ToDictionaryAsync(sp => sp.ID, sp => sp.Name);
+
                     _receipts.Clear();
                     foreach (var receipt in receipts)
                     {
+                        string paymentMethodName = "";
+                        if (receipt.PaymentMethodId.HasValue && paymentMethods.ContainsKey(receipt.PaymentMethodId.Value))
+                        {
+                            paymentMethodName = paymentMethods[receipt.PaymentMethodId.Value];
+                        }
+
+                        string salesPersonName = "";
+                        if (receipt.SalesPersonId.HasValue && salesPersons.ContainsKey(receipt.SalesPersonId.Value))
+                        {
+                            salesPersonName = salesPersons[receipt.SalesPersonId.Value];
+                        }
+
                         _receipts.Add(new ReceiptDisplayModel
                         {
                             ReceiptID = receipt.ReceiptID,
@@ -97,7 +115,10 @@ namespace BootCoupon
                             CustomerPhoneNumber = receipt.CustomerPhoneNumber ?? "",
                             ReceiptCode = receipt.ReceiptCode ?? "",
                             SalesPersonId = receipt.SalesPersonId,
-                            Status = receipt.Status ?? "Active"
+                            SalesPersonName = salesPersonName,
+                            Status = receipt.Status ?? "Active",
+                            PaymentMethodId = receipt.PaymentMethodId,
+                            PaymentMethodName = paymentMethodName
                         });
                     }
 
@@ -191,7 +212,9 @@ namespace BootCoupon
             var selectedReceipt = ReceiptsDataGrid.SelectedItem as ReceiptDisplayModel;
             
             ReprintButton.IsEnabled = hasSelection && selectedReceipt?.Status == "Active";
-            CancelReceiptButton.IsEnabled = hasSelection && selectedReceipt?.Status == "Active";
+            EditReceiptButton.IsEnabled = hasSelection && selectedReceipt?.Status == "Active";
+            // ปิดปุ่มยกเลิกใบเสร็จ - ไม่อนุญาตให้ใช้งาน
+            CancelReceiptButton.IsEnabled = false;
         }
 
         private async void ReprintButton_Click(object sender, RoutedEventArgs e)
@@ -262,6 +285,142 @@ namespace BootCoupon
                     Debug.WriteLine($"Error cancelling receipt: {ex.Message}");
                     await ShowErrorDialog($"เกิดข้อผิดพลาดในการยกเลิกใบเสร็จ: {ex.Message}");
                 }
+            }
+        }
+
+        private async void EditReceiptButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (ReceiptsDataGrid.SelectedItem is not ReceiptDisplayModel selectedReceipt)
+            {
+                await ShowErrorDialog("กรุณาเลือกใบเสร็จที่ต้องการแก้ไข");
+                return;
+            }
+
+            if (selectedReceipt.Status != "Active")
+            {
+                await ShowErrorDialog("ไม่สามารถแก้ไขใบเสร็จที่ถูกยกเลิกแล้ว");
+                return;
+            }
+
+            try
+            {
+                using (var context = new CouponContext())
+                {
+                    // โหลดข้อมูลใบเสร็จจากฐานข้อมูล
+                    var receipt = await context.Receipts
+                        .FirstOrDefaultAsync(r => r.ReceiptID == selectedReceipt.ReceiptID);
+
+                    if (receipt == null)
+                    {
+                        await ShowErrorDialog("ไม่พบข้อมูลใบเสร็จ");
+                        return;
+                    }
+
+                    // โหลดรายการ SalesPerson
+                    var salesPersons = await context.SalesPerson.ToListAsync();
+    
+                    // โหลดรายการ PaymentMethods
+                    var paymentMethods = await context.PaymentMethods.Where(pm => pm.IsActive).ToListAsync();
+
+                    // สร้าง Dialog สำหรับแก้ไขข้อมูล
+                    var editPanel = new StackPanel { Spacing = 10 };
+
+                    // ชื่อลูกค้า
+                    editPanel.Children.Add(new TextBlock { Text = "ชื่อลูกค้า:", FontWeight = Microsoft.UI.Text.FontWeights.Medium });
+                    var customerNameBox = new TextBox 
+                    { 
+                        Text = receipt.CustomerName,
+                        PlaceholderText = "กรุณาระบุชื่อลูกค้า"
+                    };
+                    editPanel.Children.Add(customerNameBox);
+
+                    // เบอร์โทรศัพท์
+                    editPanel.Children.Add(new TextBlock { Text = "เบอร์โทรศัพท์:", FontWeight = Microsoft.UI.Text.FontWeights.Medium, Margin = new Thickness(0, 10, 0, 0) });
+                    var phoneNumberBox = new TextBox 
+                    { 
+                        Text = receipt.CustomerPhoneNumber,
+                        PlaceholderText = "กรุณาระบุเบอร์โทรศัพท์"
+                    };
+                    editPanel.Children.Add(phoneNumberBox);
+
+                    // เซลล์
+                    editPanel.Children.Add(new TextBlock { Text = "เซลล์:", FontWeight = Microsoft.UI.Text.FontWeights.Medium, Margin = new Thickness(0, 10, 0, 0) });
+                    var salesPersonComboBox = new ComboBox 
+                    { 
+                        ItemsSource = salesPersons,
+                        DisplayMemberPath = "Name",
+                        SelectedValuePath = "ID",
+                        SelectedValue = receipt.SalesPersonId,
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                        PlaceholderText = "เลือกเซลล์"
+                    };
+                    editPanel.Children.Add(salesPersonComboBox);
+
+                    // ประเภทการจ่าย
+                    editPanel.Children.Add(new TextBlock { Text = "ประเภทการจ่าย:", FontWeight = Microsoft.UI.Text.FontWeights.Medium, Margin = new Thickness(0, 10, 0, 0) });
+                    var paymentMethodComboBox = new ComboBox 
+                    { 
+                        ItemsSource = paymentMethods,
+                        DisplayMemberPath = "Name",
+                        SelectedValuePath = "Id",
+                        SelectedValue = receipt.PaymentMethodId,
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                        PlaceholderText = "เลือกประเภทการจ่าย"
+                    };
+                    editPanel.Children.Add(paymentMethodComboBox);
+
+                    var editDialog = new ContentDialog
+                    {
+                        Title = $"แก้ไขข้อมูลใบเสร็จ {receipt.ReceiptCode}",
+                        Content = editPanel,
+                        PrimaryButtonText = "บันทึก",
+                        CloseButtonText = "ยกเลิก",
+                        DefaultButton = ContentDialogButton.Primary,
+                        XamlRoot = this.XamlRoot
+                    };
+
+                    var result = await editDialog.ShowAsync();
+                    if (result == ContentDialogResult.Primary)
+                    {
+                        // ตรวจสอบข้อมูล
+                        string newCustomerName = customerNameBox.Text.Trim();
+                        string newPhoneNumber = phoneNumberBox.Text.Trim();
+
+                        if (string.IsNullOrEmpty(newCustomerName) || string.IsNullOrEmpty(newPhoneNumber))
+                        {
+                            await ShowErrorDialog("กรุณากรอกข้อมูลชื่อลูกค้าและเบอร์โทรศัพท์ให้ครบถ้วน");
+                            return;
+                        }
+
+                        if (salesPersonComboBox.SelectedValue == null)
+                        {
+                            await ShowErrorDialog("กรุณาเลือกเซลล์");
+                            return;
+                        }
+
+                        if (paymentMethodComboBox.SelectedValue == null)
+                        {
+                            await ShowErrorDialog("กรุณาเลือกประเภทการจ่าย");
+                            return;
+                        }
+
+                        // อัปเดตข้อมูล
+                        receipt.CustomerName = newCustomerName;
+                        receipt.CustomerPhoneNumber = newPhoneNumber;
+                        receipt.SalesPersonId = (int)salesPersonComboBox.SelectedValue;
+                        receipt.PaymentMethodId = (int)paymentMethodComboBox.SelectedValue;
+
+                        await context.SaveChangesAsync();
+
+                        await ShowSuccessDialog("แก้ไขข้อมูลใบเสร็จเรียบร้อยแล้ว");
+                        await LoadReceiptsAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error editing receipt: {ex.Message}");
+                await ShowErrorDialog($"เกิดข้อผิดพลาดในการแก้ไขใบเสร็จ: {ex.Message}");
             }
         }
 

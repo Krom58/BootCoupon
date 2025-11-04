@@ -103,7 +103,7 @@
                                 Style="{ThemeResource AccentButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE72C;" FontSize="14"/>
-                                <TextBlock Text="รีเฟรช"/>
+                                <TextBlock Text="รีเฟรsh"/>
                             </StackPanel>
                         </Button>
                     </Grid>
@@ -134,33 +134,45 @@
                     <Border Grid.Row="0" 
                             Background="{ThemeResource LayerFillColorDefaultBrush}" 
                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" 
-                            BorderThickness="0,0,0,1"
+                            BorderThickness="0,0,0,2"
                             CornerRadius="8,8,0,0"
                             MinHeight="48">
-                        <Grid Padding="20,0">
+                        <Grid Padding="0">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="120"/>
-                                <ColumnDefinition Width="20"/>
-                                <ColumnDefinition Width="*" MinWidth="200"/>
-                                <ColumnDefinition Width="20"/>
-                                <ColumnDefinition Width="140"/>
-                                <ColumnDefinition Width="20"/>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="20"/>
-                                <ColumnDefinition Width="160"/>
-                                <ColumnDefinition Width="20"/>
-                                <ColumnDefinition Width="100"/>
-                                <ColumnDefinition Width="20"/>
-                                <ColumnDefinition Width="90"/>
-                            </Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="1"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="1"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="1"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="1"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="1"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="1"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="1"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
-                            <TextBlock Grid.Column="0" Text="รหัสใบเสร็จ" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
-                            <TextBlock Grid.Column="2" Text="ชื่อลูกค้า" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
-                            <TextBlock Grid.Column="4" Text="เบอร์โทรศัพท์" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
-                            <TextBlock Grid.Column="6" Text="เลขที่ใบเสร็จ" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
-                            <TextBlock Grid.Column="8" Text="วันที่-เวลา" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
-                            <TextBlock Grid.Column="10" Text="Sales ID" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
-                            <TextBlock Grid.Column="12" Text="สถานะ" FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"/>
+                            <!-- เส้นแบ่งแนวตั้งระหว่างคอลัมน์ใน Header -->
+                            <Border Grid.Column="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                            <Border Grid.Column="3" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                            <Border Grid.Column="5" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                            <Border Grid.Column="7" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                            <Border Grid.Column="9" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                            <Border Grid.Column="11" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                            <Border Grid.Column="13" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+
+                            <TextBlock Grid.Column="0" Text="รหัสใบเสร็จ" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" Margin="8,0" TextWrapping="Wrap" TextAlignment="Center"/>
+      <TextBlock Grid.Column="2" Text="ชื่อลูกค้า" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" Margin="8,0" TextWrapping="Wrap" TextAlignment="Center"/>
+      <TextBlock Grid.Column="4" Text="เบอร์โทรศัพท์" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" Margin="8,0" TextWrapping="Wrap" TextAlignment="Center"/>
+          <TextBlock Grid.Column="6" Text="เลขที่ใบเสร็จ" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" Margin="8,0" TextWrapping="Wrap" TextAlignment="Center"/>
+                  <TextBlock Grid.Column="8" Text="วันที่-เวลา" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" Margin="8,0" TextWrapping="Wrap" TextAlignment="Center"/>
+       <TextBlock Grid.Column="10" Text="ชื่อ Sales" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" Margin="8,0" TextWrapping="Wrap" TextAlignment="Center"/>
+       <TextBlock Grid.Column="12" Text="ประเภทการจ่าย" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" Margin="8,0" TextWrapping="Wrap" TextAlignment="Center"/>
+      <TextBlock Grid.Column="14" Text="สถานะ" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="14" Margin="8,0" TextWrapping="Wrap" TextAlignment="Center"/>
                         </Grid>
                     </Border>
 
@@ -173,73 +185,133 @@
                                   SelectionMode="Single"
                                   IsItemClickEnabled="False"
                                   ShowsScrollingPlaceholders="True">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0"/>
+                                    <Setter Property="MinHeight" Value="0"/>
+                                </Style>
+                            </ListView.ItemContainerStyle>
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="models:ReceiptDisplayModel">
-                                    <Grid MinHeight="56" 
-                                          Padding="20,8"
-                                          Background="Transparent">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="120"/>
-                                            <ColumnDefinition Width="20"/>
-                                            <ColumnDefinition Width="*" MinWidth="200"/>
-                                            <ColumnDefinition Width="20"/>
-                                            <ColumnDefinition Width="140"/>
-                                            <ColumnDefinition Width="20"/>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="20"/>
-                                            <ColumnDefinition Width="160"/>
-                                            <ColumnDefinition Width="20"/>
-                                            <ColumnDefinition Width="100"/>
-                                            <ColumnDefinition Width="20"/>
-                                            <ColumnDefinition Width="90"/>
-                                        </Grid.ColumnDefinitions>
+                                    <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" 
+                                           BorderThickness="0,0,0,1"
+                                           Background="Transparent">
+                                        <Grid MinHeight="56" 
+                                              Padding="0"
+                                              Background="Transparent">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="1"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="1"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="1"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="1"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="1"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="1"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="1"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
 
-                                        <TextBlock Grid.Column="0" 
-                                                   Text="{x:Bind ReceiptID}" 
-                                                   VerticalAlignment="Center" 
-                                                   FontSize="13"
-                                                   FontWeight="Medium"
-                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        
-                                        <TextBlock Grid.Column="2" 
-                                                   Text="{x:Bind CustomerName}" 
-                                                   VerticalAlignment="Center" 
-                                                   FontSize="13"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                        
-                                        <TextBlock Grid.Column="4" 
-                                                   Text="{x:Bind CustomerPhoneNumber}" 
-                                                   VerticalAlignment="Center" 
-                                                   FontSize="13"/>
-                                        
-                                        <TextBlock Grid.Column="6" 
-                                                   Text="{x:Bind ReceiptCode}" 
-                                                   VerticalAlignment="Center" 
-                                                   FontSize="13"
-                                                   FontWeight="Medium"/>
-                                        
-                                        <TextBlock Grid.Column="8" 
-                                                   Text="{x:Bind ReceiptDateFormatted}" 
-                                                   VerticalAlignment="Center" 
-                                                   FontSize="13"/>
-                                        
-                                        <TextBlock Grid.Column="10" 
-                                                   Text="{x:Bind SalesPersonId}" 
-                                                   VerticalAlignment="Center" 
-                                                   FontSize="13"/>
-                                        
-                                        <Border Grid.Column="12" 
-                                                VerticalAlignment="Center"
-                                                CornerRadius="12"
-                                                Padding="8,4"
-                                                Background="{x:Bind Status, Converter={StaticResource StatusToBrushConverter}}">
-                                            <TextBlock Text="{x:Bind StatusText}" 
-                                                       FontSize="12" 
+                                            <!-- เส้นแบ่งแนวตั้งระหว่างคอลัมน์ -->
+                                            <Border Grid.Column="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                                            <Border Grid.Column="3" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                                            <Border Grid.Column="5" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                                            <Border Grid.Column="7" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                                            <Border Grid.Column="9" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                                            <Border Grid.Column="11" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                                            <Border Grid.Column="13" Background="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+
+                                            <TextBlock Grid.Column="0" 
+                                                       Text="{x:Bind ReceiptID}" 
+                                                       VerticalAlignment="Center" 
+                                                       HorizontalAlignment="Center"
+                                                       FontSize="13"
                                                        FontWeight="Medium"
-                                                       Foreground="White"
-                                                       HorizontalAlignment="Center"/>
-                                        </Border>
-                                    </Grid>
+                                                       Margin="8,0"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"
+                                                       Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                            
+                                            <TextBlock Grid.Column="2" 
+                                                       Text="{x:Bind CustomerName}" 
+                                                       VerticalAlignment="Center" 
+                                                       HorizontalAlignment="Center"
+                                                       FontSize="13"
+                                                       Margin="8,0"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        
+                                            <TextBlock Grid.Column="4" 
+                                                       Text="{x:Bind CustomerPhoneNumber}" 
+                                                       VerticalAlignment="Center" 
+                                                       HorizontalAlignment="Center"
+                                                       Margin="8,0"
+                                                       FontSize="13"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"/>
+                                        
+                                            <TextBlock Grid.Column="6" 
+                                                       Text="{x:Bind ReceiptCode}" 
+                                                       VerticalAlignment="Center" 
+                                                       HorizontalAlignment="Center"
+                                                       Margin="8,0"
+                                                       FontSize="13"
+                                                       FontWeight="Medium"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"/>
+                                        
+                                            <TextBlock Grid.Column="8" 
+                                                       Text="{x:Bind ReceiptDateFormatted}" 
+                                                       VerticalAlignment="Center" 
+                                                       HorizontalAlignment="Center"
+                                                       Margin="8,0"
+                                                       FontSize="13"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"/>
+                                        
+                                            <TextBlock Grid.Column="10" 
+                                                       Text="{x:Bind SalesPersonName}" 
+                                                       VerticalAlignment="Center" 
+                                                       HorizontalAlignment="Center"
+                                                       Margin="8,0"
+                                                       FontSize="13"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        
+                                            <TextBlock Grid.Column="12" 
+                                                       Text="{x:Bind PaymentMethodName}" 
+                                                       VerticalAlignment="Center" 
+                                                       HorizontalAlignment="Center"
+                                                       Margin="8,0"
+                                                       FontSize="13"
+                                                       TextWrapping="Wrap"
+                                                       TextAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                                
+                                            <Border Grid.Column="14" 
+                                                    VerticalAlignment="Center"
+                                                    HorizontalAlignment="Center"
+                                                    CornerRadius="12"
+                                                    Padding="12,6"
+                                                    Margin="8,0"
+                                                    Background="{x:Bind Status, Converter={StaticResource StatusToBrushConverter}}">
+                                                <TextBlock Text="{x:Bind StatusText}" 
+                                                           FontSize="12" 
+                                                           FontWeight="Medium"
+                                                           Foreground="White"
+                                                           HorizontalAlignment="Center"/>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
 
@@ -298,6 +370,24 @@
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE8AD;" FontSize="16"/>
                         <TextBlock Text="พิมพ์ใหม่" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="EditReceiptButton" 
+                        Click="EditReceiptButton_Click"
+                        IsEnabled="False"
+                        MinWidth="140"
+                        Height="40"
+                        CornerRadius="8">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                            <Setter Property="Background" Value="#FF0078D4"/>
+                            <Setter Property="Foreground" Value="White"/>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE70F;" FontSize="16"/>
+                        <TextBlock Text="แก้ไขข้อมูล" FontWeight="Medium"/>
                     </StackPanel>
                 </Button>
 

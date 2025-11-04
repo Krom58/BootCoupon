@@ -147,6 +147,8 @@ namespace CouponManagement.Shared.Services
                     CouponDefinitionId = gc.CouponDefinitionId,
                     CouponDefinitionCode = gc.CouponDefinition != null ? gc.CouponDefinition.Code : "",
                     CouponDefinitionName = gc.CouponDefinition != null ? gc.CouponDefinition.Name : "",
+                    CouponDefinitionParams = gc.CouponDefinition != null && gc.CouponDefinition.Params != null ? gc.CouponDefinition.Params : "",
+                    CouponDefinitionPrice = gc.CouponDefinition != null ? gc.CouponDefinition.Price : 0,
                     BatchNumber = gc.BatchNumber,
                     IsUsed = gc.IsUsed,
                     UsedDate = gc.UsedDate,
@@ -239,6 +241,8 @@ namespace CouponManagement.Shared.Services
                     CouponDefinitionId = gc.CouponDefinitionId,
                     CouponDefinitionCode = gc.CouponDefinition != null ? gc.CouponDefinition.Code : "",
                     CouponDefinitionName = gc.CouponDefinition != null ? gc.CouponDefinition.Name : "",
+                    CouponDefinitionParams = gc.CouponDefinition != null && gc.CouponDefinition.Params != null ? gc.CouponDefinition.Params : "",
+                    CouponDefinitionPrice = gc.CouponDefinition != null ? gc.CouponDefinition.Price : 0,
                     BatchNumber = gc.BatchNumber,
                     IsUsed = gc.IsUsed,
                     UsedDate = gc.UsedDate,
@@ -327,6 +331,8 @@ namespace CouponManagement.Shared.Services
                     CouponDefinitionId = gc.CouponDefinitionId,
                     CouponDefinitionCode = gc.CouponDefinition != null ? gc.CouponDefinition.Code : "",
                     CouponDefinitionName = gc.CouponDefinition != null ? gc.CouponDefinition.Name : "",
+                    CouponDefinitionParams = gc.CouponDefinition != null ? gc.CouponDefinition.Params : "", // เพิ่ม Params
+                    CouponDefinitionPrice = gc.CouponDefinition != null ? gc.CouponDefinition.Price : 0m, // เพิ่ม Price
                     BatchNumber = gc.BatchNumber,
                     IsUsed = gc.IsUsed,
                     UsedDate = gc.UsedDate,
@@ -431,6 +437,8 @@ namespace CouponManagement.Shared.Services
         public int CouponDefinitionId { get; set; }
         public string CouponDefinitionCode { get; set; } = string.Empty;
         public string CouponDefinitionName { get; set; } = string.Empty;
+        public string CouponDefinitionParams { get; set; } = string.Empty; // เพิ่ม Params
+        public decimal CouponDefinitionPrice { get; set; } // เพิ่ม Price
         public int BatchNumber { get; set; }
         public bool IsUsed { get; set; }
         public DateTime? UsedDate { get; set; }

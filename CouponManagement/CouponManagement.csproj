@@ -16,7 +16,11 @@
 	  <PublishReadyToRun>false</PublishReadyToRun>
 	  <PublishTrimmed>false</PublishTrimmed>
 	  <Nullable>enable</Nullable>
+	  <ApplicationIcon>Assets\CouponManageIcon.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Remove="Assets\CouponManageIcon.ico" />
+  </ItemGroup>
   <ItemGroup>
     <None Remove="CouponDefinitionPage.xaml" />
     <None Remove="Dialogs\CouponDefinitionDialog.xaml" />
@@ -30,13 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Assets\SplashScreen.scale-200.png" />
-    <Content Include="Assets\LockScreenLogo.scale-200.png" />
-    <Content Include="Assets\Square150x150Logo.scale-200.png" />
-    <Content Include="Assets\Square44x44Logo.scale-200.png" />
-    <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
-    <Content Include="Assets\StoreLogo.png" />
-    <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+	<Content Include="Assets\CouponManageIcon.ico" />
   </ItemGroup>
 
   <ItemGroup>

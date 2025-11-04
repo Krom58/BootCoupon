@@ -848,7 +848,7 @@ namespace BootCoupon
             // Include currently selected ids even if marked IsUsed, so user can manage them
             var availableCodes = await _context.GeneratedCoupons
                 .Where(g => g.CouponDefinitionId == selectedDefinition.Id && ((g.ReceiptItemId == null && !g.IsUsed) || initialSelectedIds.Contains(g.Id)))
-                .OrderBy(g => g.Id)
+                .OrderBy(g => g.GeneratedCode) // เรียงตามรหัสคูปองจากน้อยไปมาก
                 .Take(2000)
                 .ToListAsync();
 

@@ -56,9 +56,11 @@ namespace CouponManagement.Shared.Models
         public string CustomerPhoneNumber { get; set; } = string.Empty;
         public string ReceiptCode { get; set; } = string.Empty;
         public int? SalesPersonId { get; set; }
+        public string SalesPersonName { get; set; } = string.Empty; // เพิ่ม property สำหรับชื่อ Sales
         public string Status { get; set; } = "Active";
         public int? PaymentMethodId { get; set; }
-        
+        public string PaymentMethodName { get; set; } = string.Empty; // เพิ่ม property สำหรับชื่อประเภทการจ่าย
+     
         // Properties สำหรับแสดงผล
         public string TotalAmountFormatted => TotalAmount.ToString("N2");
         public string ReceiptDateFormatted => ReceiptDate.ToString("dd/MM/yyyy HH:mm:ss");

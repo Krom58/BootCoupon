@@ -104,6 +104,7 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.CustomerPhoneNumber).IsRequired();
                 entity.Property(e => e.Status).HasDefaultValue("Active");
                 entity.Property(e => e.TotalAmount).HasPrecision(18,2);
+                entity.Property(e => e.Discount).HasPrecision(18,2); // ????? precision ?????? Discount
                 entity.HasMany(r => r.Items)
                       .WithOne()
                       .HasForeignKey(ri => ri.ReceiptId);
