@@ -39,7 +39,7 @@ namespace CouponManagement.Shared
             if (!optionsBuilder.IsConfigured)
             {
                 var conn = Environment.GetEnvironmentVariable("COUPONDB_CONNECTION")
-                           ?? "Server=10.10.0.42\\SQLSET;Database=CouponDbV2;User Id=sa;Password=Wutt@1976;TrustServerCertificate=True;Trusted_Connection=False;";
+                           ?? "Server=KROM\\SQLEXPRESS;Database=CouponDbV2;Integrated Security=True;TrustServerCertificate=True;";
                 optionsBuilder.UseSqlServer(conn);
             }
         }

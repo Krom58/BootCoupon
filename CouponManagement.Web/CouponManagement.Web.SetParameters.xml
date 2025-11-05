@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<parameters>
+  <setParameter name="IIS Web Application Name" value="CouponWeb" />
+  <setParameter name="CouponManagement.Shared.CouponContext" value="Server=10.10.0.42\SQLSET;Database=CouponDbV2;User Id=sa;Password=Wutt@1976;TrustServerCertificate=True;Trusted_Connection=False;" />
+</parameters>

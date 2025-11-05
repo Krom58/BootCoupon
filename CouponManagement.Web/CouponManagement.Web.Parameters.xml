@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<parameters>
+  <parameter name="IIS Web Application Name" description="" value="CouponWeb" tags="IisApp">
+    <parameterEntry kind="ProviderPath" scope="IisApp" match="^C:\\Users\\chaok\\source\\repos\\BootCoupon\\CouponManagement\.Web\\obj\\Release\\net8\.0-windows10\.0\.19041\\win-x86\\PubTmp\\Out\\$" />
+  </parameter>
+  <parameter name="CouponManagement.Shared.CouponContext" description="" value="Server=10.10.0.42\SQLSET;Database=CouponDbV2;User Id=sa;Password=Wutt@1976;TrustServerCertificate=True;Trusted_Connection=False;" tags="dbfullsql">
+    <parameterEntry kind="ProviderPath" scope="dbfullsql" match="^C:\\Users\\chaok\\source\\repos\\BootCoupon\\CouponManagement\.Web\\obj\\Release\\net8\.0-windows10\.0\.19041\\win-x86\\PubTmp\\EFSQLScripts\\CouponManagement\.Shared\.CouponContext\.sql$" />
+  </parameter>
+</parameters>

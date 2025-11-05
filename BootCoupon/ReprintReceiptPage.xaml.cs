@@ -208,14 +208,14 @@ namespace BootCoupon
 
         private void ReceiptsDataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            var hasSelection = ReceiptsDataGrid.SelectedItem != null;
+      var hasSelection = ReceiptsDataGrid.SelectedItem != null;
             var selectedReceipt = ReceiptsDataGrid.SelectedItem as ReceiptDisplayModel;
             
-            ReprintButton.IsEnabled = hasSelection && selectedReceipt?.Status == "Active";
+    ReprintButton.IsEnabled = hasSelection && selectedReceipt?.Status == "Active";
             EditReceiptButton.IsEnabled = hasSelection && selectedReceipt?.Status == "Active";
-            // ปิดปุ่มยกเลิกใบเสร็จ - ไม่อนุญาตให้ใช้งาน
-            CancelReceiptButton.IsEnabled = false;
-        }
+            // เปิดปุ่มยกเลิกใบเสร็จสำหรับใบเสร็จที่ Active เท่านั้น
+            CancelReceiptButton.IsEnabled = hasSelection && selectedReceipt?.Status == "Active";
+ }
 
         private async void ReprintButton_Click(object sender, RoutedEventArgs e)
         {
@@ -247,45 +247,127 @@ namespace BootCoupon
             }
         }
 
-        private async void CancelReceiptButton_Click(object sender, RoutedEventArgs e)
-        {
+  private async void CancelReceiptButton_Click(object sender, RoutedEventArgs e)
+     {
             if (ReceiptsDataGrid.SelectedItem is not ReceiptDisplayModel selectedReceipt)
             {
-                await ShowErrorDialog("กรุณาเลือกใบเสร็จที่ต้องการยกเลิก");
+     await ShowErrorDialog("กรุณาเลือกใบเสร็จที่ต้องการยกเลิก");
                 return;
-            }
+          }
 
             if (selectedReceipt.Status != "Active")
             {
-                await ShowErrorDialog("ใบเสร็จนี้ถูกยกเลิกแล้ว");
-                return;
+         await ShowErrorDialog("ใบเสร็จนี้ถูกยกเลิกแล้ว");
+              return;
             }
 
-            var confirmDialog = new ContentDialog
-            {
-                Title = "ยืนยันการยกเลิกใบเสร็จ",
-                Content = $"คุณต้องการยกเลิกใบเสร็จ {selectedReceipt.ReceiptCode} ใช่หรือไม่?\n\nใบเสร็จที่ยกเลิกแล้วจะไม่สามารถใช้งานได้",
-                PrimaryButtonText = "ยกเลิกใบเสร็จ",
-                SecondaryButtonText = "ไม่ยกเลิก",
-                DefaultButton = ContentDialogButton.Secondary,
-                XamlRoot = this.XamlRoot
+       // แสดง confirmation dialog
+       var confirmDialog = new ContentDialog
+     {
+          Title = "⚠️ ยืนยันการยกเลิกใบเสร็จ",
+       Content = $"คุณแน่ใจหรือไม่ว่าต้องการยกเลิกใบเสร็จ?\n\n" +
+        $"รหัสใบเสร็จ: {selectedReceipt.ReceiptCode}\n" +
+      $"ชื่อลูกค้า: {selectedReceipt.CustomerName}\n" +
+        $"ยอดเงิน: {selectedReceipt.TotalAmountFormatted} บาท\n\n" +
+ $"⚠️ เมื่อยกเลิกแล้ว:\n" +
+            $"• ใบเสร็จจะถูกทำเครื่องหมายว่า \"ยกเลิก\"\n" +
+         $"• คูปองที่ผูกกับใบเสร็จนี้จะถูกคืนสถานะกลับเป็นยังไม่ได้ใช้\n" +
+     $"• คูปองที่มีรหัสจะสามารถนำไปใช้ใหม่ได้",
+        PrimaryButtonText = "ยืนยันการยกเลิก",
+  SecondaryButtonText = "ไม่ยกเลิก",
+    DefaultButton = ContentDialogButton.Secondary,
+         XamlRoot = this.XamlRoot
             };
 
-            var result = await confirmDialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
-            {
-                try
-                {
-                    await UpdateReceiptStatusAsync(selectedReceipt.ReceiptID, "Cancelled");
-                    await LoadReceiptsAsync();
-                    await ShowSuccessDialog($"ยกเลิกใบเสร็จ {selectedReceipt.ReceiptCode} เรียบร้อยแล้ว");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error cancelling receipt: {ex.Message}");
-                    await ShowErrorDialog($"เกิดข้อผิดพลาดในการยกเลิกใบเสร็จ: {ex.Message}");
-                }
-            }
+ var result = await confirmDialog.ShowAsync();
+    if (result == ContentDialogResult.Primary)
+     {
+     try
+         {
+              using (var context = new CouponContext())
+ {
+   // โหลดใบเสร็จพร้อม items
+        var receipt = await context.Receipts
+                 .Include(r => r.Items)
+          .FirstOrDefaultAsync(r => r.ReceiptID == selectedReceipt.ReceiptID);
+
+   if (receipt == null)
+           {
+      await ShowErrorDialog("ไม่พบข้อมูลใบเสร็จ");
+    return;
+              }
+
+      // เก็บข้อมูลสำหรับแสดงผลลัพธ์
+     int releasedCouponsCount = 0;
+        var releasedCouponCodes = new List<string>();
+
+        // คืนสถานะคูปองที่ผูกกับ receipt items
+   if (receipt.Items != null && receipt.Items.Any())
+        {
+  var receiptItemIds = receipt.Items.Select(ri => ri.ReceiptItemId).ToList();
+
+   // หา GeneratedCoupons ที่ผูกกับ receipt items เหล่านี้
+var linkedCoupons = await context.GeneratedCoupons
+        .Where(gc => gc.ReceiptItemId != null && receiptItemIds.Contains(gc.ReceiptItemId.Value))
+      .ToListAsync();
+
+       if (linkedCoupons.Any())
+  {
+Debug.WriteLine($"พบคูปองที่ผูกกับใบเสร็จ {linkedCoupons.Count} รายการ");
+
+    foreach (var coupon in linkedCoupons)
+             {
+          // คืนสถานะ
+ coupon.IsUsed = false;
+         coupon.UsedDate = null;
+          coupon.UsedBy = null;
+              coupon.ReceiptItemId = null;
+           
+   context.GeneratedCoupons.Update(coupon);
+      releasedCouponsCount++;
+             releasedCouponCodes.Add(coupon.GeneratedCode);
+             }
+
+         await context.SaveChangesAsync();
+              Debug.WriteLine($"คืนสถานะคูปอง {releasedCouponsCount} รายการเรียบร้อย");
+                 }
+          }
+
+          // อัปเดตสถานะใบเสร็จเป็น Cancelled
+               receipt.Status = "Cancelled";
+               await context.SaveChangesAsync();
+
+        // แสดงผลลัพธ์
+      string message = $"✅ ยกเลิกใบเสร็จ {selectedReceipt.ReceiptCode} เรียบร้อยแล้ว";
+      
+      if (releasedCouponsCount > 0)
+        {
+         message += $"\n\n📋 คูปองที่ถูกคืนสถานะ: {releasedCouponsCount} รายการ";
+ 
+           if (releasedCouponCodes.Count <= 5)
+          {
+            message += $"\n\nรหัสคูปอง:\n{string.Join("\n", releasedCouponCodes)}";
+       }
+        else
+     {
+     message += $"\n\nรหัสคูปอง (แสดง 5 รายการแรก):\n{string.Join("\n", releasedCouponCodes.Take(5))}";
+    message += $"\n...และอีก {releasedCouponCodes.Count - 5} รายการ";
+       }
+        }
+
+          await ShowSuccessDialog(message);
+      
+        // รีเฟรชรายการ
+                await LoadReceiptsAsync();
+         }
+      }
+         catch (Exception ex)
+       {
+        Debug.WriteLine($"Error cancelling receipt: {ex.Message}");
+        Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+          await ShowErrorDialog($"เกิดข้อผิดพลาดในการยกเลิกใบเสร็จ:\n{ex.Message}");
+        }
+        }
         }
 
         private async void EditReceiptButton_Click(object sender, RoutedEventArgs e)
@@ -321,6 +403,9 @@ namespace BootCoupon
     
                     // โหลดรายการ PaymentMethods
                     var paymentMethods = await context.PaymentMethods.Where(pm => pm.IsActive).ToListAsync();
+
+                    // คำนวณยอดรวมก่อนส่วนลด
+                    decimal totalBeforeDiscount = receipt.TotalAmount + receipt.Discount;
 
                     // สร้าง Dialog สำหรับแก้ไขข้อมูล
                     var editPanel = new StackPanel { Spacing = 10 };
@@ -369,6 +454,48 @@ namespace BootCoupon
                     };
                     editPanel.Children.Add(paymentMethodComboBox);
 
+                    // ส่วนลด
+                    editPanel.Children.Add(new TextBlock { Text = "ส่วนลด (บาท):", FontWeight = Microsoft.UI.Text.FontWeights.Medium, Margin = new Thickness(0, 10, 0, 0) });
+                    var discountBox = new NumberBox 
+                    { 
+                        Value = (double)receipt.Discount,
+                        Minimum = 0,
+                        Maximum = (double)totalBeforeDiscount,
+                        SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
+                        PlaceholderText = "ระบุส่วนลด",
+                        HorizontalAlignment = HorizontalAlignment.Stretch
+                    };
+                    editPanel.Children.Add(discountBox);
+
+                    // แสดงยอดรวมก่อนส่วนลด
+                    var totalBeforeText = new TextBlock 
+                    { 
+                        Text = $"ยอดรวมก่อนส่วนลด: {totalBeforeDiscount:N2} บาท",
+                        FontSize = 12,
+                        Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
+                        Margin = new Thickness(0, 5, 0, 0)
+                    };
+                    editPanel.Children.Add(totalBeforeText);
+
+                    // แสดงยอดสุทธิที่คำนวณใหม่
+                    var netTotalText = new TextBlock 
+                    { 
+                        Text = $"ยอดสุทธิ: {(totalBeforeDiscount - receipt.Discount):N2} บาท",
+                        FontSize = 14,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green),
+                        Margin = new Thickness(0, 5, 0, 0)
+                    };
+                    editPanel.Children.Add(netTotalText);
+
+                    // อัปเดตยอดสุทธิเมื่อส่วนลดเปลี่ยน
+                    discountBox.ValueChanged += (s, args) =>
+                    {
+                        var discount = double.IsNaN(discountBox.Value) ? 0 : discountBox.Value;
+                        var netTotal = totalBeforeDiscount - (decimal)discount;
+                        netTotalText.Text = $"ยอดสุทธิ: {netTotal:N2} บาท";
+                    };
+
                     var editDialog = new ContentDialog
                     {
                         Title = $"แก้ไขข้อมูลใบเสร็จ {receipt.ReceiptCode}",
@@ -404,11 +531,21 @@ namespace BootCoupon
                             return;
                         }
 
+                        // ตรวจสอบส่วนลด
+                        var newDiscount = double.IsNaN(discountBox.Value) ? 0 : discountBox.Value;
+                        if (newDiscount < 0 || newDiscount > (double)totalBeforeDiscount)
+                        {
+                            await ShowErrorDialog($"ส่วนลดต้องอยู่ระหว่าง 0 ถึง {totalBeforeDiscount:N2} บาท");
+                            return;
+                        }
+
                         // อัปเดตข้อมูล
                         receipt.CustomerName = newCustomerName;
                         receipt.CustomerPhoneNumber = newPhoneNumber;
                         receipt.SalesPersonId = (int)salesPersonComboBox.SelectedValue;
                         receipt.PaymentMethodId = (int)paymentMethodComboBox.SelectedValue;
+                        receipt.Discount = (decimal)newDiscount;
+                        receipt.TotalAmount = totalBeforeDiscount - (decimal)newDiscount;
 
                         await context.SaveChangesAsync();
 

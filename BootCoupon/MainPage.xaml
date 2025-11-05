@@ -87,30 +87,31 @@
         
         <!-- Footer with settings button -->
         <Grid Grid.Row="2" Margin="0,30,0,0">
-            <!-- Settings button - larger and more prominent -->
+            <!-- Settings button - disabled -->
             <Button x:Name="SettingsButton" 
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Width="280"
-                    Height="80"
-                    FontSize="24"
-                    Padding="20,10"
-                    CornerRadius="8"
-                    Click="SettingsButton_Click">
-                <StackPanel Orientation="Horizontal" Spacing="15">
-                    <FontIcon FontFamily="Segoe MDL2 Assets" 
-                              Glyph="&#xE713;" 
-                              FontSize="32"/>
-                    <TextBlock Text="ตั้งค่ารหัสใบเสร็จ" 
-                               VerticalAlignment="Center"/>
-                </StackPanel>
-                <Button.Background>
-                    <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
-                        <GradientStop Color="#FFCA5010"/>
-                        <GradientStop Color="#FFAE4000" Offset="1"/>
-                    </LinearGradientBrush>
-                </Button.Background>
-            </Button>
-        </Grid>
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+   Width="280"
+ Height="80"
+             FontSize="24"
+          Padding="20,10"
+        CornerRadius="8"
+        Click="SettingsButton_Click"
+ IsEnabled="False">
+      <StackPanel Orientation="Horizontal" Spacing="15">
+ <FontIcon FontFamily="Segoe MDL2 Assets" 
+   Glyph="&#xE713;" 
+         FontSize="32"/>
+        <TextBlock Text="ตั้งค่ารหัสใบเสร็จ" 
+       VerticalAlignment="Center"/>
+             </StackPanel>
+<Button.Background>
+         <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+   <GradientStop Color="#FFCA5010"/>
+            <GradientStop Color="#FFAE4000" Offset="1"/>
+          </LinearGradientBrush>
+      </Button.Background>
+   </Button>
+   </Grid>
     </Grid>
 </Page>

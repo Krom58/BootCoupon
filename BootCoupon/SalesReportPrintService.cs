@@ -303,50 +303,50 @@ namespace BootCoupon
         private static FrameworkElement CreatePrintPage(int pageNumber)
         {
          if (currentViewModel == null)
-       return new Grid();
+    return new Grid();
 
-            var page = new Grid
-            {
+   var page = new Grid
+         {
    Width =794, // A4 width
-          Height =1123, // A4 height
+    Height =1123, // A4 height
     Background = new SolidColorBrush(Microsoft.UI.Colors.White)
-            };
+     };
 
     var stackPanel = new StackPanel
-            {
+          {
       Margin = new Thickness(20),
       HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            
-            // Header
+       
+        // Header
    var headerText = new TextBlock
    {
          Text = "รายงานการขาย",
        FontSize =18,
-       FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
      HorizontalAlignment = HorizontalAlignment.Center,
-             Margin = new Thickness(0,0,0,10),
-                Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black)
+    Margin = new Thickness(0,0,0,10),
+       Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black)
             };
-          stackPanel.Children.Add(headerText);
+       stackPanel.Children.Add(headerText);
 
        // Report info
   var infoPanel = new StackPanel { Margin = new Thickness(0,0,0,10) };
    
-            var infoText = $"วันที่พิมพ์: {DateTime.Now:dd/MM/yyyy HH:mm} | " +
-             $"ช่วงวันที่: {currentViewModel.StartDate?.ToString("dd/MM/yyyy")} - {currentViewModel.EndDate?.ToString("dd/MM/yyyy")}";
-            
+     var infoText = $"วันที่พิมพ์: {DateTime.Now:dd/MM/yyyy HH:mm} | " +
+  $"ช่วงวันที่: {currentViewModel.StartDate?.ToString("dd/MM/yyyy")} - {currentViewModel.EndDate?.ToString("dd/MM/yyyy")}";
+
          var filterParts = new List<string>();
-    if (currentViewModel.SelectedSalesPerson != null && currentViewModel.SelectedSalesPerson.ID !=0)
+ if (currentViewModel.SelectedSalesPerson != null && currentViewModel.SelectedSalesPerson.ID !=0)
       filterParts.Add($"เซล: {currentViewModel.SelectedSalesPerson.Name}");
    if (currentViewModel.SelectedCouponType != null && currentViewModel.SelectedCouponType.Id !=0)
                 filterParts.Add($"ประเภท: {currentViewModel.SelectedCouponType.Name}");
             if (currentViewModel.SelectedCoupon != null && currentViewModel.SelectedCoupon.Id !=0)
-           filterParts.Add($"คูปอง: {currentViewModel.SelectedCoupon.Name}");
+       filterParts.Add($"คูปอง: {currentViewModel.SelectedCoupon.Name}");
           if (currentViewModel.SelectedPaymentMethod != null && currentViewModel.SelectedPaymentMethod.Id !=0)
      filterParts.Add($"การชำระ: {currentViewModel.SelectedPaymentMethod.Name}");
    
-       if (filterParts.Any())
+     if (filterParts.Any())
     infoText += " | " + string.Join(" | ", filterParts);
             
   // เพิ่มชื่อรายงาน
@@ -355,25 +355,27 @@ namespace BootCoupon
    SalesReportViewModel.ReportModes.ByReceipt => "จัดตามใบเสร็จ",
          SalesReportViewModel.ReportModes.LimitedCoupons => "คูปองจำกัดจำนวนพร้อมชื่อลูกค้า",
  SalesReportViewModel.ReportModes.UnlimitedGrouped => "คูปองไม่จำกัด (รวมตามลูกค้า)",
-          SalesReportViewModel.ReportModes.SummaryByCoupon => "สรุปตามคูปอง",
+    SalesReportViewModel.ReportModes.SummaryByCoupon => "สรุปตามคูปอง",
      SalesReportViewModel.ReportModes.RemainingCoupons => "จำนวนคูปองที่เหลือ",
+           SalesReportViewModel.ReportModes.CancelledReceipts => "ใบเสร็จที่ถูกยกเลิก",
+ SalesReportViewModel.ReportModes.CancelledCoupons => "คูปองที่ถูกยกเลิก",
            _ => ""
-            };
+    };
             
-  infoText += $" | รูปแบบ: {reportModeName} | หน้า {pageNumber}";
+infoText += $" | รูปแบบ: {reportModeName} | หน้า {pageNumber}";
 
  infoPanel.Children.Add(new TextBlock 
   { 
-            Text = infoText,
+   Text = infoText,
        FontSize =10,
       Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
-           TextWrapping = TextWrapping.Wrap
-            });
+         TextWrapping = TextWrapping.Wrap
+     });
 
           stackPanel.Children.Add(infoPanel);
 
         // สร้างตารางตามโหมดรายงาน
-            Grid table;
+       Grid table;
     if (currentViewModel.ReportMode == SalesReportViewModel.ReportModes.SummaryByCoupon)
             {
           table = CreateSummaryByCouponTable(pageNumber);
@@ -382,30 +384,46 @@ namespace BootCoupon
             {
     table = CreateRemainingCouponsTable(pageNumber);
    }
+          else if (currentViewModel.ReportMode == SalesReportViewModel.ReportModes.CancelledReceipts)
+            {
+           table = CreateCancelledReceiptsTable(pageNumber);
+            }
+   else if (currentViewModel.ReportMode == SalesReportViewModel.ReportModes.CancelledCoupons)
+  {
+   table = CreateCancelledCouponsTable(pageNumber);
+        }
+       else if (currentViewModel.ReportMode == SalesReportViewModel.ReportModes.LimitedCoupons)
+      {
+        table = CreateLimitedCouponsTable(pageNumber);
+        }
+            else if (currentViewModel.ReportMode == SalesReportViewModel.ReportModes.UnlimitedGrouped)
+            {
+     table = CreateUnlimitedGroupedTable(pageNumber);
+            }
             else
             {
-  table = CreateByReceiptTable(pageNumber); // ใช้โค้ดเดิม
+  table = CreateByReceiptTable(pageNumber);
    }
 
          stackPanel.Children.Add(table);
 
             // Summary (only on last page)
             var itemsPerPage = 45;
-            var totalPages = Math.Max(1, (int)Math.Ceiling((double)currentViewModel.ReportData.Count / itemsPerPage));
+     var totalPages = Math.Max(1, (int)Math.Ceiling((double)currentViewModel.ReportData.Count / itemsPerPage));
 if (pageNumber == totalPages)
             {
-            var summaryPanel = new StackPanel { Margin = new Thickness(0,10,0,0) };
-                
+      var summaryPanel = new StackPanel { Margin = new Thickness(0,10,0,0) };
+      
        var summaryText = $"จำนวนรายการทั้งหมด: {currentViewModel.ReportData.Count:N0} รายการ | " +
     $"ยอดรวมทั้งหมด: {currentViewModel.ReportData.Sum(x => x.TotalPrice):N2} บาท";
           
-           summaryPanel.Children.Add(new TextBlock 
-       { 
+      summaryPanel.Children.Add(new TextBlock 
+    { 
           Text = summaryText,
-              FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+           FontWeight = Microsoft.UI.Text.FontWeights.Bold,
   FontSize =10,
-           Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black)
-            });
+    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black)
+ });
     stackPanel.Children.Add(summaryPanel);
       }
 
@@ -608,114 +626,528 @@ var endIndex = Math.Min(startIndex + itemsPerPage, currentViewModel.ReportData.C
 
    // Method สำหรับรายงาน RemainingCoupons
       private static Grid CreateRemainingCouponsTable(int pageNumber)
-        {
+ {
             if (currentViewModel == null) return new Grid();
          
         var table = new Grid
-            {
+   {
     HorizontalAlignment = HorizontalAlignment.Stretch,
-       Width = double.NaN
+     Width = double.NaN
  };
 
    // 7 columns: รหัส, ชื่อคูปอง, ประเภท, จำนวนรวม, ขายแล้ว, คงเหลือ, ราคา/ใบ
             var columnWidths = new[] { 1.0, 2.5, 1.5, 1.0, 1.0, 1.0, 1.0 }; // relative widths
  foreach (var width in columnWidths)
-         {
+   {
 table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width, GridUnitType.Star) });
      }
 
-            // Header row
+        // Header row
   var headers = new[] { "รหัส", "ชื่อคูปอง", "ประเภท", "จำนวนรวม", "ขายแล้ว", "คงเหลือ", "ราคา/ใบ" };
             table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            
-            for (int i =0; i < headers.Length; i++)
+  
+    for (int i =0; i < headers.Length; i++)
    {
-                var headerCell = new Border
+          var headerCell = new Border
        {
-            Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,220,220,220)),
-              BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
-          BorderThickness = new Thickness(0.6),
+      Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,220,220,220)),
+    BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+      BorderThickness = new Thickness(0.6),
   Child = new TextBlock
-                 {
+  {
       Text = headers[i],
        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
     FontSize =9,
-             Margin = new Thickness(2,2,2,2),
-        TextAlignment = TextAlignment.Center,
+          Margin = new Thickness(2,2,2,2),
+      TextAlignment = TextAlignment.Center,
       Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
        TextWrapping = TextWrapping.Wrap
         }
-              };
-           Grid.SetColumn(headerCell, i);
+     };
+       Grid.SetColumn(headerCell, i);
     Grid.SetRow(headerCell,0);
-       table.Children.Add(headerCell);
+     table.Children.Add(headerCell);
      }
 
-            // Data rows
+ // Data rows
     var itemsPerPage =45;
-            var startIndex = (pageNumber -1) * itemsPerPage;
-      var endIndex = Math.Min(startIndex + itemsPerPage, currentViewModel.ReportData.Count);
+   var startIndex = (pageNumber -1) * itemsPerPage;
+   var endIndex = Math.Min(startIndex + itemsPerPage, currentViewModel.ReportData.Count);
 
-      for (int i = startIndex; i < endIndex; i++)
+    for (int i = startIndex; i < endIndex; i++)
             {
-              var item = currentViewModel.ReportData[i];
+     var item = currentViewModel.ReportData[i];
         var rowIndex = i - startIndex +1;
-         table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(20) });
+   table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(20) });
 
-             var rowData = new[]
+           var rowData = new[]
    {
-        item.CouponCode ?? "",
-                    item.CouponName ?? "",
-       item.CouponTypeName ?? "",
-       item.TotalQuantity.ToString(),
-       item.SoldQuantity.ToString(),
+   item.CouponCode ?? "",
+         item.CouponName ?? "",
+    item.CouponTypeName ?? "",
+   item.TotalQuantity.ToString(),
+     item.SoldQuantity.ToString(),
  item.RemainingQuantity.ToString(),
  item.UnitPrice.ToString("N2")
     };
 
-              for (int j =0; j < rowData.Length; j++)
-       {
+  for (int j =0; j < rowData.Length; j++)
+  {
    // กำหนดสีสำหรับคอลัมน์ "คงเหลือ"
-           var foregroundColor = Microsoft.UI.Colors.Black;
+     var foregroundColor = Microsoft.UI.Colors.Black;
    if (j == 5 && item.TotalQuantity > 0) // คอลัมน์ "คงเหลือ"
  {
-       var percentage = (double)item.RemainingQuantity / item.TotalQuantity * 100;
+ var percentage = (double)item.RemainingQuantity / item.TotalQuantity * 100;
    if (percentage <= 10)
        foregroundColor = Microsoft.UI.Colors.Red;
               else if (percentage <= 30)
     foregroundColor = Microsoft.UI.Colors.Orange;
-              else
+   else
     foregroundColor = Microsoft.UI.Colors.Green;
-              }
+  }
 
       var cell = new Border
      {
-             BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+       BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
        BorderThickness = new Thickness(0.5),
        Background = new SolidColorBrush(Microsoft.UI.Colors.White),
-       Child = new TextBlock
-       {
+     Child = new TextBlock
+  {
    Text = rowData[j],
   FontSize =8,
     Margin = new Thickness(4,2,4,2),
-        TextAlignment = (j >=3) ? TextAlignment.Right : TextAlignment.Left,
-          Foreground = new SolidColorBrush(foregroundColor),
+   TextAlignment = (j >=3) ? TextAlignment.Right : TextAlignment.Left,
+      Foreground = new SolidColorBrush(foregroundColor),
   FontWeight = (j == 5) ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
  VerticalAlignment = VerticalAlignment.Center,
     TextWrapping = TextWrapping.Wrap,
-          TextTrimming = TextTrimming.None
+     TextTrimming = TextTrimming.None
           }
-           };
+    };
         Grid.SetColumn(cell, j);
           Grid.SetRow(cell, rowIndex);
         table.Children.Add(cell);
+    }
         }
-          }
 
-            var availableWidth = 794 - 40;
+ var availableWidth = 794 - 40;
  table.Width = availableWidth;
 
     return table;
+      }
+
+        // Method สำหรับรายงาน CancelledReceipts (เหมือน ByReceipt แต่เพิ่มคอลัมน์สถานะ)
+        private static Grid CreateCancelledReceiptsTable(int pageNumber)
+        {
+   if (currentViewModel == null) return new Grid();
+            
+   var table = new Grid
+            {
+       HorizontalAlignment = HorizontalAlignment.Stretch,
+        Width = double.NaN
+     };
+
+         // 9 columns: วันที่, ใบเสร็จ, สถานะ, ลูกค้า, เบอร์โทร, เซล, การชำระ, จำนวน, รวม
+   for (int c =0; c <9; c++)
+  {
+       table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+          }
+
+   // Header row
+   var headers = new[] { "วันที่", "ใบเสร็จ", "สถานะ", "ลูกค้า", "เบอร์โทร", "เซล", "การชำระ", "จำนวน", "รวม" };
+   table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        
+       for (int i =0; i < headers.Length; i++)
+ {
+       var headerCell = new Border
+       {
+          Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,220,220,220)),
+   BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+    BorderThickness = new Thickness(0.6),
+   Child = new TextBlock
+         {
+               Text = headers[i],
+FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+    FontSize =9,
+  Margin = new Thickness(2,2,2,2),
+        TextAlignment = TextAlignment.Center,
+          Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
+  TextWrapping = TextWrapping.Wrap
+                    }
+   };
+          Grid.SetColumn(headerCell, i);
+Grid.SetRow(headerCell,0);
+           table.Children.Add(headerCell);
+    }
+
+            // Data rows
+     var itemsPerPage =45;
+            var startIndex = (pageNumber -1) * itemsPerPage;
+ var endIndex = Math.Min(startIndex + itemsPerPage, currentViewModel.ReportData.Count);
+
+   for (int i = startIndex; i < endIndex; i++)
+            {
+      var item = currentViewModel.ReportData[i];
+      var rowIndex = i - startIndex +1;
+      table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(20) });
+
+      var rowData = new[]
+        {
+         item.ReceiptDate.ToString("dd/MM/yy"),
+         item.ReceiptCode,
+item.ReceiptStatusDisplay, // คอลัมน์สถานะ
+        item.CustomerName ?? "",
+item.CustomerPhone ?? "",
+  item.SalesPersonName ?? "",
+   item.PaymentMethodName ?? "",
+   item.Quantity.ToString(),
+   item.TotalPrice.ToString("N2")
+              };
+
+                for (int j =0; j < rowData.Length; j++)
+       {
+       // กำหนดสีสำหรับคอลัมน์สถานะ
+    var foregroundColor = Microsoft.UI.Colors.Black;
+       if (j == 2) // คอลัมน์สถานะ
+   {
+            foregroundColor = item.ReceiptStatus == "Cancelled" ? Microsoft.UI.Colors.Red : Microsoft.UI.Colors.Green;
+    }
+
+      var cell = new Border
+        {
+           BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+               BorderThickness = new Thickness(0.5),
+    Background = new SolidColorBrush(Microsoft.UI.Colors.White),
+      Child = new TextBlock
+            {
+        Text = rowData[j],
+        FontSize =8,
+       Margin = new Thickness(4,2,4,2),
+     TextAlignment = (j >=7) ? TextAlignment.Right : TextAlignment.Left,
+             Foreground = new SolidColorBrush(foregroundColor),
+         FontWeight = (j == 2) ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
+      VerticalAlignment = VerticalAlignment.Center,
+         TextWrapping = TextWrapping.Wrap,
+   TextTrimming = TextTrimming.None
+      }
+         };
+         Grid.SetColumn(cell, j);
+          Grid.SetRow(cell, rowIndex);
+ table.Children.Add(cell);
+     }
+            }
+
+        var availableWidth = 794 - 40;
+    table.Width = availableWidth;
+
+   return table;
+}
+
+     // Method สำหรับรายงาน CancelledCoupons (เหมือน LimitedCoupons แต่เพิ่มคอลัมน์สถานะ และลบรหัสคูปองออก)
+     private static Grid CreateCancelledCouponsTable(int pageNumber)
+        {
+     if (currentViewModel == null) return new Grid();
+     
+            var table = new Grid
+          {
+    HorizontalAlignment = HorizontalAlignment.Stretch,
+            Width = double.NaN
+            };
+
+            // 9 columns: วันที่, ใบเสร็จ, สถานะ, คูปอง, ลูกค้า, เบอร์โทร, เซล, วันหมดอายุ, ราคา (ลบรหัสคูปองออก)
+     var columnWidths = new[] { 0.8, 1.0, 0.7, 1.8, 1.2, 1.0, 1.0, 1.0, 0.8 }; // relative widths
+            foreach (var width in columnWidths)
+       {
+table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width, GridUnitType.Star) });
+        }
+
+     // Header row
+        var headers = new[] { "วันที่", "ใบเสร็จ", "สถานะ", "คูปอง", "ลูกค้า", "เบอร์โทร", "เซล", "หมดอายุ", "ราคา" };
+  table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+   
+    for (int i =0; i < headers.Length; i++)
+ {
+   var headerCell = new Border
+      {
+        Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,220,220,220)),
+   BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+             BorderThickness = new Thickness(0.6),
+ Child = new TextBlock
+       {
+  Text = headers[i],
+       FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+ FontSize =9,
+    Margin = new Thickness(2,2,2,2),
+  TextAlignment = TextAlignment.Center,
+      Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
+        TextWrapping = TextWrapping.Wrap
+      }
+        };
+     Grid.SetColumn(headerCell, i);
+  Grid.SetRow(headerCell,0);
+        table.Children.Add(headerCell);
+            }
+
+  // Data rows
+        var itemsPerPage =45;
+     var startIndex = (pageNumber -1) * itemsPerPage;
+            var endIndex = Math.Min(startIndex + itemsPerPage, currentViewModel.ReportData.Count);
+
+for (int i = startIndex; i < endIndex; i++)
+    {
+    var item = currentViewModel.ReportData[i];
+    var rowIndex = i - startIndex +1;
+ table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(20) });
+
+     var rowData = new[]
+    {
+    item.ReceiptDate.ToString("dd/MM/yy"),
+       item.ReceiptCode,
+        item.ReceiptStatusDisplay, // คอลัมน์สถานะ
+  OptimizedTruncateString(item.CouponName ?? "", 30),
+        OptimizedTruncateString(item.CustomerName ?? "", 20),
+           item.CustomerPhone ?? "",
+         OptimizedTruncateString(item.SalesPersonName ?? "", 15),
+        item.ExpiresAtDisplay,
+   item.TotalPrice.ToString("N2")
+      };
+
+   for (int j =0; j < rowData.Length; j++)
+     {
+// กำหนดสีสำหรับคอลัมน์สถานะ
+    var foregroundColor = Microsoft.UI.Colors.Black;
+     if (j == 2) // คอลัมน์สถานะ
+     {
+foregroundColor = item.ReceiptStatus == "Cancelled" ? Microsoft.UI.Colors.Red : Microsoft.UI.Colors.Green;
+         }
+
+    var cell = new Border
+{
+   BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+       BorderThickness = new Thickness(0.5),
+      Background = new SolidColorBrush(Microsoft.UI.Colors.White),
+         Child = new TextBlock
+      {
+  Text = rowData[j],
+       FontSize =8,
+  Margin = new Thickness(4,2,4,2),
+    TextAlignment = (j >=8) ? TextAlignment.Right : TextAlignment.Left,
+       Foreground = new SolidColorBrush(foregroundColor),
+    FontWeight = (j == 2) ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
+            VerticalAlignment = VerticalAlignment.Center,
+         TextWrapping = TextWrapping.Wrap,
+              TextTrimming = TextTrimming.None
+        }
+  };
+           Grid.SetColumn(cell, j);
+      Grid.SetRow(cell, rowIndex);
+ table.Children.Add(cell);
+  }
+    }
+
+  var availableWidth = 794 - 40;
+   table.Width = availableWidth;
+
+        return table;
+        }
+
+        // Method สำหรับรายงาน LimitedCoupons
+        private static Grid CreateLimitedCouponsTable(int pageNumber)
+        {
+ if (currentViewModel == null) return new Grid();
+    
+            var table = new Grid
+     {
+      HorizontalAlignment = HorizontalAlignment.Stretch,
+   Width = double.NaN
+  };
+
+     // 9 columns: วันที่, ใบเสร็จ, รหัสคูปอง, คูปอง, ลูกค้า, เบอร์โทร, เซล, วันหมดอายุ, ราคา
+            var columnWidths = new[] { 0.8, 1.0, 1.0, 1.5, 1.2, 1.0, 1.0, 1.0, 0.8 }; // relative widths
+    foreach (var width in columnWidths)
+   {
+        table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width, GridUnitType.Star) });
+      }
+
+  // Header row
+            var headers = new[] { "วันที่", "ใบเสร็จ", "รหัสคูปอง", "คูปอง", "ลูกค้า", "เบอร์โทร", "เซล", "หมดอายุ", "ราคา" };
+   table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            
+      for (int i =0; i < headers.Length; i++)
+     {
+      var headerCell = new Border
+          {
+Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,220,220,220)),
+     BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+          BorderThickness = new Thickness(0.6),
+     Child = new TextBlock
+        {
+    Text = headers[i],
+           FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+      FontSize =9,
+            Margin = new Thickness(2,2,2,2),
+   TextAlignment = TextAlignment.Center,
+       Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
+            TextWrapping = TextWrapping.Wrap
+       }
+           };
+     Grid.SetColumn(headerCell, i);
+            Grid.SetRow(headerCell,0);
+    table.Children.Add(headerCell);
+        }
+
+            // Data rows
+      var itemsPerPage =45;
+   var startIndex = (pageNumber -1) * itemsPerPage;
+     var endIndex = Math.Min(startIndex + itemsPerPage, currentViewModel.ReportData.Count);
+
+    for (int i = startIndex; i < endIndex; i++)
+            {
+                var item = currentViewModel.ReportData[i];
+    var rowIndex = i - startIndex +1;
+         table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(20) });
+
+    var rowData = new[]
+     {
+             item.ReceiptDate.ToString("dd/MM/yy"),
+            item.ReceiptCode,
+        item.GeneratedCode ?? "",
+         OptimizedTruncateString(item.CouponName ?? "", 25),
+           OptimizedTruncateString(item.CustomerName ?? "", 20),
+     item.CustomerPhone ?? "",
+  OptimizedTruncateString(item.SalesPersonName ?? "", 15),
+          item.ExpiresAtDisplay,
+     item.TotalPrice.ToString("N2")
+ };
+
+       for (int j =0; j < rowData.Length; j++)
+          {
+      var cell = new Border
+    {
+             BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+      BorderThickness = new Thickness(0.5),
+              Background = new SolidColorBrush(Microsoft.UI.Colors.White),
+            Child = new TextBlock
+           {
+  Text = rowData[j],
+   FontSize =8,
+        Margin = new Thickness(4,2,4,2),
+           TextAlignment = (j >=8) ? TextAlignment.Right : TextAlignment.Left,
+     Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
+         VerticalAlignment = VerticalAlignment.Center,
+      TextWrapping = TextWrapping.Wrap,
+      TextTrimming = TextTrimming.None
+  }
+  };
+         Grid.SetColumn(cell, j);
+   Grid.SetRow(cell, rowIndex);
+        table.Children.Add(cell);
+        }
+      }
+
+      var availableWidth = 794 - 40;
+            table.Width = availableWidth;
+
+            return table;
+        }
+
+        // Method สำหรับรายงาน UnlimitedGrouped
+        private static Grid CreateUnlimitedGroupedTable(int pageNumber)
+        {
+        if (currentViewModel == null) return new Grid();
+            
+            var table = new Grid
+   {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+      Width = double.NaN
+            };
+
+  // 8 columns: วันที่, ใบเสร็จ, คูปอง, ลูกค้า, เบอร์โทร, เซล, วันหมดอายุ, รวม
+        var columnWidths = new[] { 0.8, 1.0, 1.5, 1.2, 1.0, 1.0, 1.0, 0.8 }; // relative widths
+            foreach (var width in columnWidths)
+            {
+   table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width, GridUnitType.Star) });
+            }
+
+         // Header row
+  var headers = new[] { "วันที่", "ใบเสร็จ", "คูปอง", "ลูกค้า", "เบอร์โทร", "เซล", "หมดอายุ", "รวม" };
+     table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            
+        for (int i =0; i < headers.Length; i++)
+            {
+   var headerCell = new Border
+        {
+      Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,220,220,220)),
+         BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+      BorderThickness = new Thickness(0.6),
+           Child = new TextBlock
+     {
+      Text = headers[i],
+     FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+   FontSize =9,
+      Margin = new Thickness(2,2,2,2),
+             TextAlignment = TextAlignment.Center,
+ Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
+     TextWrapping = TextWrapping.Wrap
+         }
+         };
+     Grid.SetColumn(headerCell, i);
+     Grid.SetRow(headerCell,0);
+           table.Children.Add(headerCell);
+            }
+
+            // Data rows
+     var itemsPerPage =45;
+            var startIndex = (pageNumber -1) * itemsPerPage;
+    var endIndex = Math.Min(startIndex + itemsPerPage, currentViewModel.ReportData.Count);
+
+        for (int i = startIndex; i < endIndex; i++)
+          {
+       var item = currentViewModel.ReportData[i];
+       var rowIndex = i - startIndex +1;
+         table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(20) });
+
+       var rowData = new[]
+        {
+    item.ReceiptDate.ToString("dd/MM/yy"),
+        item.ReceiptCode,
+            OptimizedTruncateString(item.CouponName ?? "", 25),
+OptimizedTruncateString(item.CustomerName ?? "", 20),
+            item.CustomerPhone ?? "",
+         OptimizedTruncateString(item.SalesPersonName ?? "", 15),
+    item.ExpiresAtDisplay,
+      item.TotalPrice.ToString("N2")
+       };
+
+         for (int j =0; j < rowData.Length; j++)
+   {
+          var cell = new Border
+    {
+    BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+    BorderThickness = new Thickness(0.5),
+      Background = new SolidColorBrush(Microsoft.UI.Colors.White),
+Child = new TextBlock
+        {
+      Text = rowData[j],
+            FontSize =8,
+         Margin = new Thickness(4,2,4,2),
+             TextAlignment = (j >=7) ? TextAlignment.Right : TextAlignment.Left,
+        Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
+          VerticalAlignment = VerticalAlignment.Center,
+      TextWrapping = TextWrapping.Wrap,
+              TextTrimming = TextTrimming.None
+              }
+};
+                    Grid.SetColumn(cell, j);
+     Grid.SetRow(cell, rowIndex);
+table.Children.Add(cell);
+                }
+  }
+
+       var availableWidth = 794 - 40;
+      table.Width = availableWidth;
+
+            return table;
         }
 
 // เพิ่ม helper method ใหม่ที่เหมาะสมกับการพิมพ์
