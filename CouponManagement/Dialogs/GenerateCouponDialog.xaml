@@ -76,6 +76,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     
                     <StackPanel Grid.Column="0">
@@ -89,6 +90,11 @@
                     </StackPanel>
                     
                     <StackPanel Grid.Column="2">
+                        <TextBlock Text="ขายแล้ว" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBlock x:Name="SoldCountTextBlock" Text="0 คูปอง" FontSize="18" FontWeight="SemiBold" Foreground="Orange"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="3">
                         <TextBlock Text="คงเหลือ" Style="{StaticResource FieldLabelStyle}"/>
                         <TextBlock x:Name="AvailableCountTextBlock" Text="0 คูปอง" FontSize="18" FontWeight="SemiBold" Foreground="{ThemeResource SystemAccentColor}"/>
                     </StackPanel>

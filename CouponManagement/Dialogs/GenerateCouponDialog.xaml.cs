@@ -102,16 +102,20 @@ namespace CouponManagement.Dialogs
                 {
                     var totalGenerated = freshDefinition.GeneratedCoupons.Count;
                     var totalUsed = freshDefinition.GeneratedCoupons.Count(gc => gc.IsUsed);
-                    var available = totalGenerated - totalUsed;
+                    var totalSold = freshDefinition.GeneratedCoupons.Count(gc => gc.ReceiptItemId != null);
+                    // คำนวณคงเหลือ = สร้างแล้ว - ขายแล้ว
+                    var available = totalGenerated - totalSold;
 
                     GeneratedCountTextBlock.Text = $"{totalGenerated:N0} คูปอง";
                     UsedCountTextBlock.Text = $"{totalUsed:N0} คูปอง";
+                    SoldCountTextBlock.Text = $"{totalSold:N0} คูปอง";
                     AvailableCountTextBlock.Text = $"{available:N0} คูปอง";
                 }
                 else
                 {
                     GeneratedCountTextBlock.Text = "0 คูปอง";
                     UsedCountTextBlock.Text = "0 คูปอง";
+                    SoldCountTextBlock.Text = "0 คูปอง";
                     AvailableCountTextBlock.Text = "0 คูปอง";
                 }
             }
@@ -122,6 +126,7 @@ namespace CouponManagement.Dialogs
 
                 GeneratedCountTextBlock.Text = "ไม่ทราบ";
                 UsedCountTextBlock.Text = "ไม่ทราบ";
+                SoldCountTextBlock.Text = "ไม่ทราบ";
                 AvailableCountTextBlock.Text = "ไม่ทราบ";
             }
         }

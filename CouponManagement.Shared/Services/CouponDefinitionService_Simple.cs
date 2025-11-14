@@ -652,5 +652,77 @@ namespace CouponManagement.Shared.Services
  .AsNoTracking()
  .FirstOrDefaultAsync(g => g.Prefix.ToUpper() == p && g.Suffix.ToUpper() == s);
  }
- }
+
+ // ดึงสถิติรวมของคูปองทั้งหมด
+   public async Task<CouponDefinitionStatistics> GetStatisticsAsync()
+        {
+            using var context = new CouponContext();
+
+       // นับจำนวนคูปองทั้งหมดที่สร้าง
+      var totalGenerated = await context.GeneratedCoupons.CountAsync();
+
+            // นับจำนวนคงเหลือ (ไม่ใช้และไม่ขาย)
+       var totalRemaining = await context.GeneratedCoupons
+    .CountAsync(gc => !gc.IsUsed && gc.ReceiptItemId == null);
+
+            // นับจำนวนที่ขายแล้ว (มี ReceiptItemId)
+          var totalSold = await context.GeneratedCoupons
+    .CountAsync(gc => gc.ReceiptItemId != null);
+
+        // นับจำนวนที่ใช้แล้ว (IsUsed = true)
+            var totalUsed = await context.GeneratedCoupons
+              .CountAsync(gc => gc.IsUsed);
+
+            return new CouponDefinitionStatistics
+            {
+            TotalGenerated = totalGenerated,
+          TotalRemaining = totalRemaining,
+     TotalSold = totalSold,
+    TotalUsed = totalUsed
+  };
+        }
+
+        // ดึงสถิติของ CouponDefinition แต่ละตัว
+        public async Task<CouponDefinitionStatistics> GetStatisticsByDefinitionIdAsync(int couponDefinitionId)
+  {
+            using var context = new CouponContext();
+
+            // นับจำนวนคูปองที่สร้างสำหรับ definition นี้
+            var totalGenerated = await context.GeneratedCoupons
+     .CountAsync(gc => gc.CouponDefinitionId == couponDefinitionId);
+
+            // นับจำนวนคงเหลือ (ไม่ใช้และไม่ขาย)
+            var totalRemaining = await context.GeneratedCoupons
+      .CountAsync(gc => gc.CouponDefinitionId == couponDefinitionId 
+        && !gc.IsUsed 
+ && gc.ReceiptItemId == null);
+
+    // นับจำนวนที่ขายแล้ว (มี ReceiptItemId)
+    var totalSold = await context.GeneratedCoupons
+       .CountAsync(gc => gc.CouponDefinitionId == couponDefinitionId 
+   && gc.ReceiptItemId != null);
+
+      // นับจำนวนที่ใช้แล้ว (IsUsed = true)
+        var totalUsed = await context.GeneratedCoupons
+                .CountAsync(gc => gc.CouponDefinitionId == couponDefinitionId 
+     && gc.IsUsed);
+
+            return new CouponDefinitionStatistics
+       {
+       TotalGenerated = totalGenerated,
+          TotalRemaining = totalRemaining,
+            TotalSold = totalSold,
+      TotalUsed = totalUsed
+       };
+        }
+    } // End of CouponDefinitionService class
+
+    // Statistics model
+    public class CouponDefinitionStatistics
+    {
+        public int TotalGenerated { get; set; }
+        public int TotalRemaining { get; set; }
+        public int TotalSold { get; set; }
+        public int TotalUsed { get; set; }
+    }
 }

@@ -17,6 +17,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
+using Microsoft.UI.Dispatching; // เพิ่ม namespace สำหรับ DispatcherQueue
 
 namespace CouponManagement
 {
@@ -114,6 +115,10 @@ namespace CouponManagement
 
         // สำหรับแสดงข้อความสถานะ
         private InfoBar? _statusInfoBar;
+
+        // สำหรับบันทึกตำแหน่ง scroll
+        private double _savedScrollPosition = 0;
+        private int? _selectedCouponDefinitionId = null;
 
         public CouponDefinitionPage()
         {
@@ -226,8 +231,33 @@ namespace CouponManagement
                 CouponDefinitions.Clear();
                 foreach (var item in data)
                 {
+                    // Load statistics for each limited coupon definition
+                    if (item.IsLimited)
+                    {
+                        try
+                        {
+                            var stats = await _service.GetStatisticsByDefinitionIdAsync(item.Id);
+                            item.StatTotalGenerated = stats.TotalGenerated;
+                            item.StatRemaining = stats.TotalRemaining;
+                            item.StatSold = stats.TotalSold;
+                            item.StatUsed = stats.TotalUsed;
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error loading statistics for CouponDefinition {item.Id}: {ex.Message}");
+                            // Set to 0 if error
+                            item.StatTotalGenerated = 0;
+                            item.StatRemaining = 0;
+                            item.StatSold = 0;
+                            item.StatUsed = 0;
+                        }
+                    }
+     
                     CouponDefinitions.Add(item);
                 }
+
+                // กลับไปยังตำแหน่ง scroll ที่บันทึกไว้
+                await RestoreScrollPositionAsync();
             }
             catch (OverflowException ex)
             {
@@ -348,6 +378,10 @@ namespace CouponManagement
             {
                 try
                 {
+                    // บันทึกตำแหน่ง scroll ปัจจุบันและ ID ที่เลือก
+                    SaveScrollPosition();
+                    _selectedCouponDefinitionId = definition.Id;
+
                     // Disable button ระหว่างเปิด dialog
                     button.IsEnabled = false;
                     var originalContent = button.Content;
@@ -396,6 +430,10 @@ namespace CouponManagement
 
                 try
                 {
+                    // บันทึกตำแหน่ง scroll ปัจจุบันและ ID ที่เลือก
+                    SaveScrollPosition();
+                    _selectedCouponDefinitionId = definition.Id;
+
                     // Disable button ระหว่างเปิด dialog
                     button.IsEnabled = false;
                     var originalContent = button.Content;
@@ -408,6 +446,12 @@ namespace CouponManagement
                     if (result == ContentDialogResult.Primary)
                     {
                         ShowSuccessMessage("สร้างคูปองเรียบร้อย");
+                        // Refresh data immediately to update statistics
+                        await LoadDataAsync();
+                    }
+                    else
+                    {
+                        // If dialog was closed without saving, still refresh to ensure UI is up-to-date
                         await LoadDataAsync();
                     }
                 }
@@ -486,6 +530,103 @@ namespace CouponManagement
             {
                 Frame.Navigate(typeof(CouponDefinitionPage));
             }
+        }
+
+        // บันทึกตำแหน่ง scroll ปัจจุบัน
+        private void SaveScrollPosition()
+        {
+            try
+            {
+                var scrollViewer = FindScrollViewer(CouponDefinitionsListView);
+                if (scrollViewer != null)
+                {
+                    _savedScrollPosition = scrollViewer.VerticalOffset;
+                    System.Diagnostics.Debug.WriteLine($"Saved scroll position: {_savedScrollPosition}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error saving scroll position: {ex.Message}");
+            }
+        }
+
+        // กลับไปยังตำแหน่ง scroll ที่บันทึกไว้
+        private async Task RestoreScrollPositionAsync()
+        {
+            try
+            {
+                // รอให้ UI อัพเดทก่อน
+                await Task.Delay(100);
+
+                await this.DispatcherQueue.EnqueueAsync(() =>
+                {
+                    var scrollViewer = FindScrollViewer(CouponDefinitionsListView);
+                    if (scrollViewer != null && _savedScrollPosition > 0)
+                    {
+                        scrollViewer.ChangeView(null, _savedScrollPosition, null, disableAnimation: false);
+                        System.Diagnostics.Debug.WriteLine($"Restored scroll position: {_savedScrollPosition}");
+
+                        // ถ้ามี ID ที่เลือกไว้ ให้ highlight รายการนั้น
+                        if (_selectedCouponDefinitionId.HasValue)
+                        {
+                            var selectedItem = CouponDefinitions.FirstOrDefault(c => c.Id == _selectedCouponDefinitionId.Value);
+                            if (selectedItem != null)
+                            {
+                                CouponDefinitionsListView.SelectedItem = selectedItem;
+                                CouponDefinitionsListView.ScrollIntoView(selectedItem);
+                            }
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error restoring scroll position: {ex.Message}");
+            }
+        }
+
+        // หา ScrollViewer จาก ListView
+        private ScrollViewer? FindScrollViewer(DependencyObject element)
+        {
+            if (element == null) return null;
+
+            if (element is ScrollViewer scrollViewer)
+                return scrollViewer;
+
+            int childCount = VisualTreeHelper.GetChildrenCount(element);
+            for (int i = 0; i < childCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(element, i);
+                var result = FindScrollViewer(child);
+                if (result != null)
+                    return result;
+            }
+
+            return null;
+        }
+    }
+
+    // Extension method สำหรับ DispatcherQueue
+    public static class DispatcherQueueExtensions
+    {
+        public static Task EnqueueAsync(this DispatcherQueue dispatcher, Action action)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+     
+       dispatcher.TryEnqueue(() =>
+         {
+   try
+          {
+         action();
+        tcs.SetResult(true);
+ }
+      catch (Exception ex)
+       {
+                 tcs.SetException(ex);
+    }
+        });
+     
+   return tcs.Task;
         }
     }
 }

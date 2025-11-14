@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 using CouponManagement.Shared;
 using CouponManagement.Shared.Services;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +10,24 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+      // รองรับภาษาไทยและภาษาอื่นๆ ในการ encode JSON
+        options.JsonSerializerOptions.Encoder = JavaScriptEncoder.Create(UnicodeRanges.All);
+        options.JsonSerializerOptions.WriteIndented = false;
+    });
+
+// เพิ่ม CORS สำหรับ development
+builder.Services.AddCors(options =>
+{
+ options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+      .AllowAnyMethod()
+    .AllowAnyHeader();
+    });
+});
 
 // DbContext - read connection string from appsettings.json
 builder.Services.AddDbContext<CouponContext>(options =>
@@ -46,7 +65,8 @@ app.Use(async (context, next) =>
  {
  if (isProtectedApi)
  {
- context.Response.StatusCode =401; // Unauthorized for API
+ context.Response.StatusCode = 401; // Unauthorized for API
+ context.Response.ContentType = "text/plain; charset=utf-8";
  await context.Response.WriteAsync("Unauthorized");
  return;
  }
@@ -67,6 +87,9 @@ if (app.Environment.IsDevelopment())
  app.UseSwagger();
  app.UseSwaggerUI();
 }
+
+// Use CORS
+app.UseCors();
 
 // Serve static files from wwwroot (redeem.html)
 app.UseStaticFiles();

@@ -910,36 +910,36 @@ for (int i = startIndex; i < endIndex; i++)
          OptimizedTruncateString(item.SalesPersonName ?? "", 15),
         item.ExpiresAtDisplay,
    item.TotalPrice.ToString("N2")
-      };
+ };
 
-   for (int j =0; j < rowData.Length; j++)
-     {
-// กำหนดสีสำหรับคอลัมน์สถานะ
-    var foregroundColor = Microsoft.UI.Colors.Black;
-     if (j == 2) // คอลัมน์สถานะ
-     {
-foregroundColor = item.ReceiptStatus == "Cancelled" ? Microsoft.UI.Colors.Red : Microsoft.UI.Colors.Green;
-         }
-
-    var cell = new Border
-{
-   BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
-       BorderThickness = new Thickness(0.5),
-      Background = new SolidColorBrush(Microsoft.UI.Colors.White),
-         Child = new TextBlock
+  for (int j =0; j < rowData.Length; j++)
       {
+    // กำหนดสีสำหรับคอลัมน์สถานะ
+    var foregroundColor = Microsoft.UI.Colors.Black;
+       if (j == 2) // คอลัมน์สถานะ
+   {
+          foregroundColor = item.ReceiptStatus == "Cancelled" ? Microsoft.UI.Colors.Red : Microsoft.UI.Colors.Green;
+    }
+
+      var cell = new Border
+    {
+  BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
+      BorderThickness = new Thickness(0.5),
+              Background = new SolidColorBrush(Microsoft.UI.Colors.White),
+            Child = new TextBlock
+       {
   Text = rowData[j],
-       FontSize =8,
+ FontSize =8,
   Margin = new Thickness(4,2,4,2),
     TextAlignment = (j >=8) ? TextAlignment.Right : TextAlignment.Left,
        Foreground = new SolidColorBrush(foregroundColor),
-    FontWeight = (j == 2) ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
-            VerticalAlignment = VerticalAlignment.Center,
+ FontWeight = (j == 2) ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
+      VerticalAlignment = VerticalAlignment.Center,
          TextWrapping = TextWrapping.Wrap,
               TextTrimming = TextTrimming.None
-        }
+   }
   };
-           Grid.SetColumn(cell, j);
+  Grid.SetColumn(cell, j);
       Grid.SetRow(cell, rowIndex);
  table.Children.Add(cell);
   }
@@ -1055,22 +1055,22 @@ Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,220,220,2
         private static Grid CreateUnlimitedGroupedTable(int pageNumber)
         {
         if (currentViewModel == null) return new Grid();
-            
+  
             var table = new Grid
-   {
-                HorizontalAlignment = HorizontalAlignment.Stretch,
+ {
+        HorizontalAlignment = HorizontalAlignment.Stretch,
       Width = double.NaN
-            };
+   };
 
-  // 8 columns: วันที่, ใบเสร็จ, คูปอง, ลูกค้า, เบอร์โทร, เซล, วันหมดอายุ, รวม
-        var columnWidths = new[] { 0.8, 1.0, 1.5, 1.2, 1.0, 1.0, 1.0, 0.8 }; // relative widths
+  // 9 columns: วันที่, ใบเสร็จ, คูปอง, ลูกค้า, เบอร์โทร, เซล, วันหมดอายุ, จำนวน, รวม
+        var columnWidths = new[] { 0.8, 1.0, 1.5, 1.2, 1.0, 1.0, 1.0, 0.6, 0.8 }; // relative widths
             foreach (var width in columnWidths)
-            {
+      {
    table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width, GridUnitType.Star) });
-            }
+        }
 
          // Header row
-  var headers = new[] { "วันที่", "ใบเสร็จ", "คูปอง", "ลูกค้า", "เบอร์โทร", "เซล", "หมดอายุ", "รวม" };
+  var headers = new[] { "วันที่", "ใบเสร็จ", "คูปอง", "ลูกค้า", "เบอร์โทร", "เซล", "หมดอายุ", "จำนวน", "รวม" };
      table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             
         for (int i =0; i < headers.Length; i++)
@@ -1080,31 +1080,31 @@ Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,220,220,2
       Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,220,220,220)),
          BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
       BorderThickness = new Thickness(0.6),
-           Child = new TextBlock
+       Child = new TextBlock
      {
       Text = headers[i],
      FontWeight = Microsoft.UI.Text.FontWeights.Bold,
    FontSize =9,
       Margin = new Thickness(2,2,2,2),
-             TextAlignment = TextAlignment.Center,
+  TextAlignment = TextAlignment.Center,
  Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
      TextWrapping = TextWrapping.Wrap
          }
-         };
+ };
      Grid.SetColumn(headerCell, i);
      Grid.SetRow(headerCell,0);
-           table.Children.Add(headerCell);
+    table.Children.Add(headerCell);
             }
 
             // Data rows
-     var itemsPerPage =45;
-            var startIndex = (pageNumber -1) * itemsPerPage;
+   var itemsPerPage =45;
+       var startIndex = (pageNumber -1) * itemsPerPage;
     var endIndex = Math.Min(startIndex + itemsPerPage, currentViewModel.ReportData.Count);
 
         for (int i = startIndex; i < endIndex; i++)
-          {
-       var item = currentViewModel.ReportData[i];
-       var rowIndex = i - startIndex +1;
+        {
+     var item = currentViewModel.ReportData[i];
+    var rowIndex = i - startIndex +1;
          table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(20) });
 
        var rowData = new[]
@@ -1113,42 +1113,43 @@ Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,220,220,2
         item.ReceiptCode,
             OptimizedTruncateString(item.CouponName ?? "", 25),
 OptimizedTruncateString(item.CustomerName ?? "", 20),
-            item.CustomerPhone ?? "",
+         item.CustomerPhone ?? "",
          OptimizedTruncateString(item.SalesPersonName ?? "", 15),
     item.ExpiresAtDisplay,
+  item.Quantity.ToString(),
       item.TotalPrice.ToString("N2")
        };
 
          for (int j =0; j < rowData.Length; j++)
    {
-          var cell = new Border
+   var cell = new Border
     {
     BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
     BorderThickness = new Thickness(0.5),
       Background = new SolidColorBrush(Microsoft.UI.Colors.White),
 Child = new TextBlock
-        {
+      {
       Text = rowData[j],
             FontSize =8,
          Margin = new Thickness(4,2,4,2),
-             TextAlignment = (j >=7) ? TextAlignment.Right : TextAlignment.Left,
-        Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
+         TextAlignment = (j >=7) ? TextAlignment.Right : TextAlignment.Left,
+      Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
           VerticalAlignment = VerticalAlignment.Center,
-      TextWrapping = TextWrapping.Wrap,
-              TextTrimming = TextTrimming.None
+    TextWrapping = TextWrapping.Wrap,
+         TextTrimming = TextTrimming.None
               }
 };
-                    Grid.SetColumn(cell, j);
+                 Grid.SetColumn(cell, j);
      Grid.SetRow(cell, rowIndex);
 table.Children.Add(cell);
-                }
+     }
   }
 
        var availableWidth = 794 - 40;
       table.Width = availableWidth;
 
             return table;
-        }
+     }
 
 // เพิ่ม helper method ใหม่ที่เหมาะสมกับการพิมพ์
         private static string OptimizedTruncateString(string text, int maxLength)

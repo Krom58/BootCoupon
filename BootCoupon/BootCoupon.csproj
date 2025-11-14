@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk;Microsoft.NET.Sdk.Publish">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
@@ -17,6 +17,9 @@
     <PublishTrimmed>false</PublishTrimmed>
     <Nullable>enable</Nullable>
 	<ApplicationIcon>Assets\BootCouponIcon.ico</ApplicationIcon>
+	<!-- Suppress trimming warnings from EF Core and SQL Client -->
+	<SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
+	<TrimmerSingleWarn>false</TrimmerSingleWarn>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -94,8 +97,10 @@
   <PropertyGroup>
     <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+    <!-- Disable trimming for desktop apps using EF Core to avoid IL2xxx warnings -->
+    <PublishTrimmed>False</PublishTrimmed>
+    <!-- Suppress trim analysis warnings if trimming is accidentally enabled -->
+    <NoWarn>$(NoWarn);IL2026;IL2104;IL3050</NoWarn>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <GenerateAppInstallerFile>True</GenerateAppInstallerFile>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>

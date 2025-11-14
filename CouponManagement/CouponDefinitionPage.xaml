@@ -192,6 +192,36 @@
                                         <TextBlock Text=" คูปอง"/>
                                     </StackPanel>
 
+                                    <!-- Statistics for Limited Coupons -->
+                                    <Grid Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}" Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,20,0">
+                                            <TextBlock Text="📊 สร้างแล้ว: " FontWeight="SemiBold" Foreground="{ThemeResource SystemAccentColor}"/>
+                                            <TextBlock Text="{x:Bind StatTotalGenerated}" Foreground="{ThemeResource SystemAccentColor}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,20,0">
+                                            <TextBlock Text="📦 คงเหลือ: " FontWeight="SemiBold" Foreground="Green"/>
+                                            <TextBlock Text="{x:Bind StatRemaining}" Foreground="Green"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,20,0">
+                                            <TextBlock Text="💰 ขายแล้ว: " FontWeight="SemiBold" Foreground="Orange"/>
+                                            <TextBlock Text="{x:Bind StatSold}" Foreground="Orange"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                            <TextBlock Text="✅ ใช้แล้ว: " FontWeight="SemiBold" Foreground="DarkCyan"/>
+                                            <TextBlock Text="{x:Bind StatUsed}" Foreground="DarkCyan"/>
+                                        </StackPanel>
+                                    </Grid>
+
                                     <!-- Description preview -->
                                     <TextBlock Text="{x:Bind DescriptionPreview}" Style="{StaticResource PreviewTextStyle}"/>
                                 </StackPanel>

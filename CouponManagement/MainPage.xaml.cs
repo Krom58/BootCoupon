@@ -36,5 +36,11 @@ namespace CouponManagement
             // Navigate to Generated Coupons page
             Frame.Navigate(typeof(GeneratedCouponsPage));
         }
+
+        private void EditReceiptButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Navigate to ReprintReceiptPage (contains edit/print/cancel functionality)
+            Frame.Navigate(typeof(ReceiptPage));
+        }
     }
 }

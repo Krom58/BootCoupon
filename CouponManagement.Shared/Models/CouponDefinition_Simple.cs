@@ -103,6 +103,19 @@ namespace CouponManagement.Shared.Models
 
         [NotMapped]
         public int GeneratedCount => CodeGenerator?.GeneratedCount ?? 0;
+
+        // Statistics properties (will be populated on demand)
+        [NotMapped]
+        public int StatTotalGenerated { get; set; }
+
+        [NotMapped]
+        public int StatRemaining { get; set; }
+
+        [NotMapped]
+        public int StatSold { get; set; }
+
+        [NotMapped]
+        public int StatUsed { get; set; }
         
         private string GetStatusText()
         {
@@ -204,6 +217,9 @@ namespace CouponManagement.Shared.Models
 
         // New: optional expiration date for this generated coupon
         public DateTime? ExpiresAt { get; set; }
+
+        // New: flag to indicate if this is a complimentary/free coupon (COM)
+        public bool IsComplimentary { get; set; } = false;
 
         // Navigation property
         public CouponDefinition? CouponDefinition { get; set; }

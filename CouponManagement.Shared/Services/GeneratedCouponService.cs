@@ -85,6 +85,37 @@ namespace CouponManagement.Shared.Services
         }
 
         /// <summary>
+        /// Mark a generated coupon as complimentary (IsComplimentary = true).
+        /// Returns true if coupon found (and now marked or already marked), false if not found.
+        /// </summary>
+        public async Task<bool> MarkComplimentaryAsync(string code)
+        {
+            if (string.IsNullOrWhiteSpace(code)) return false;
+            var coupon = await _context.GeneratedCoupons.FirstOrDefaultAsync(gc => gc.GeneratedCode == code);
+            if (coupon == null) return false;
+            if (coupon.IsComplimentary) return true;
+            coupon.IsComplimentary = true;
+            _context.GeneratedCoupons.Update(coupon);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        /// <summary>
+        /// Set or unset the IsComplimentary flag for a generated coupon.
+        /// Returns true if coupon found and updated.
+        /// </summary>
+        public async Task<bool> SetComplimentaryAsync(string code, bool isComplimentary)
+        {
+            if (string.IsNullOrWhiteSpace(code)) return false;
+            var coupon = await _context.GeneratedCoupons.FirstOrDefaultAsync(gc => gc.GeneratedCode == code);
+            if (coupon == null) return false;
+            coupon.IsComplimentary = isComplimentary;
+            _context.GeneratedCoupons.Update(coupon);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        /// <summary>
         /// ดึงรายการคูปองที่ถูกสร้างทั้งหมดพร้อมการกรองและการแบ่งหน้า
         /// </summary>
         public async Task<PagedResult<GeneratedCouponDisplayModel>> GetGeneratedCouponsAsync(
@@ -374,10 +405,39 @@ namespace CouponManagement.Shared.Services
 
             foreach (var item in result.Items)
             {
-                csv.AppendLine($"\"{item.GeneratedCode}\",\"{item.CouponDefinitionCode}\",\"{item.CouponDefinitionName}\",\"{item.StatusText}\",\"{item.CreatedBy ?? ""}\",\"{item.UsedBy ?? (item.StatusText == "ขายแล้ว" ? item.UsageText : "") }\",\"{item.ReceiptItemId?.ToString() ?? ""}\",\"{item.UsedDate?.ToString("dd/MM/yyyy HH:mm") ?? (item.StatusText == "ขายแล้ว" ? item.UsageText : "") }\",\"{item.CreatedAt:dd/MM/yyyy HH:mm}\",\"{item.ExpiresAt?.ToString("dd/MM/yyyy") ?? ""}\"");
+                csv.AppendLine($"\"{item.GeneratedCode}\",\"{item.CouponDefinitionCode}\",\"{item.CouponDefinitionName}\",\"{item.StatusText}\",\"{item.CreatedBy ?? ""}\",\"{item.ReceiptItemId?.ToString() ?? ""}\",\"{item.CreatedAt:dd/MM/yyyy HH:mm}\",\"{item.ExpiresAt?.ToString("dd/MM/yyyy") ?? ""}\"");
             }
 
             return System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+        }
+
+        /// <summary>
+        /// Reset a generated coupon's used status (set IsUsed = false, UsedBy = null, UsedDate = null).
+        /// Returns true if the coupon was found and updated.
+        /// </summary>
+        public async Task<bool> ResetGeneratedCouponAsync(int? id, string? code, string? cancelledBy = null)
+        {
+            GeneratedCoupon? coupon = null;
+            if (id.HasValue)
+            {
+                coupon = await _context.GeneratedCoupons.FirstOrDefaultAsync(gc => gc.Id == id.Value);
+            }
+            else if (!string.IsNullOrWhiteSpace(code))
+            {
+                coupon = await _context.GeneratedCoupons.FirstOrDefaultAsync(gc => gc.GeneratedCode == code);
+            }
+
+            if (coupon == null) return false;
+
+            // Reset fields
+            coupon.IsUsed = false;
+            coupon.UsedBy = null;
+            coupon.UsedDate = null;
+            // Optionally track who cancelled (not stored in model by default) - skip
+
+            _context.GeneratedCoupons.Update(coupon);
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         public void Dispose()

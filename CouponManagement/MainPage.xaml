@@ -55,6 +55,11 @@
                     Content="ดูคูปองที่สร้างแล้ว"
                     Click="GeneratedCouponsButton_Click"
                     Style="{StaticResource MenuButtonStyle}"/>
+            <!-- ปุ่มใหม่: แก้ไขใบเสร็จ -->
+            <Button x:Name="EditReceiptButton"
+                    Content="แก้ไขใบเสร็จ"
+                    Click="EditReceiptButton_Click"
+                    Style="{StaticResource MenuButtonStyle}"/>
         </StackPanel>
     </Grid>
 </Page>

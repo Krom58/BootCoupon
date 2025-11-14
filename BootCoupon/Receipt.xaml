@@ -163,6 +163,8 @@
  </Grid.ColumnDefinitions>
  <StackPanel Grid.Column="0" VerticalAlignment="Center">
  <TextBlock Text="{x:Bind CouponDefinition.Name}" FontWeight="SemiBold" FontSize="20"/>
+ <!-- show COM badge if applicable -->
+ <TextBlock Text="{x:Bind ComBadgeText}" FontSize="14" Foreground="Orange" FontWeight="SemiBold" Margin="0,2,0,0"/>
  <!-- show selected generated codes (if any) below the name -->
  <TextBlock Text="{x:Bind SelectedCodesPreview}" FontSize="16" Opacity="0.9" Foreground="Green" TextWrapping="Wrap"/>
  <TextBlock Text="{x:Bind CouponDefinition.Code}" FontSize="14" Opacity="0.7"/>
@@ -204,14 +206,39 @@
  VerticalAlignment="Center"/>
  </StackPanel>
 
- <!-- Total Price -->
- <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,10"
- Padding="10" CornerRadius="8">
- <TextBlock Text="รวมทั้งหมด: " FontSize="28" FontWeight="Bold" VerticalAlignment="Center" />
- <TextBlock x:Name="TotalPriceTextBlock" Text="0" FontSize="28" FontWeight="Bold" VerticalAlignment="Center" 
- Margin="8,0" Foreground="DarkGreen" />
- <TextBlock Text="บาท" FontSize="28" FontWeight="Bold" VerticalAlignment="Center" />
- </StackPanel>
+ <!-- Total Price Summary - 3 rows -->
+ <StackPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,10,0,10"
+ Padding="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
+BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" 
+BorderThickness="1" CornerRadius="8">
+  
+  <!-- Row 1: Subtotal (ราคารวมก่อนลด) -->
+  <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+     <TextBlock Text="ราคารวมก่อนลด: " FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="180" TextAlignment="Right" />
+    <TextBlock x:Name="SubtotalTextBlock" Text="0.00" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" 
+   Margin="8,0" MinWidth="100" TextAlignment="Right" />
+     <TextBlock Text="บาท" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+   </StackPanel>
+
+       <!-- Row 2: Total Discount (ส่วนลดรวม) -->
+     <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+   <TextBlock Text="ส่วนลดรวม: " FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="180" TextAlignment="Right" />
+       <TextBlock x:Name="TotalDiscountTextBlock" Text="0.00" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" 
+  Margin="8,0" Foreground="Orange" MinWidth="100" TextAlignment="Right" />
+     <TextBlock Text="บาท" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+           </StackPanel>
+
+  <!-- Separator Line -->
+    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,8,0,8" />
+
+             <!-- Row 3: Net Total (รวมสุทธิ) -->
+          <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+ <TextBlock Text="รวมสุทธิ: " FontSize="24" FontWeight="Bold" VerticalAlignment="Center" MinWidth="180" TextAlignment="Right" />
+         <TextBlock x:Name="TotalPriceTextBlock" Text="0.00" FontSize="24" FontWeight="Bold" VerticalAlignment="Center" 
+    Margin="8,0" Foreground="Green" MinWidth="100" TextAlignment="Right" />
+     <TextBlock Text="บาท" FontSize="24" FontWeight="Bold" VerticalAlignment="Center" />
+   </StackPanel>
+    </StackPanel>
  </Grid>
  </Border>
  </Grid>

@@ -1,8 +1,9 @@
 ﻿<!doctype html>
-<html>
+<html lang="th">
 <head>
  <meta charset="utf-8" />
- <title>Redeem & Sold Coupons</title>
+ <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+ <title>รายการใบเสร็จ</title>
  <style>
  body { font-family: 'Sarabun', Arial, Helvetica, sans-serif; margin:0; padding:0; background:#f5f5f5; }
  .page-header { background:#fff; padding:16px 24px; box-shadow:0 2px 4px rgba(0,0,0,0.1); margin-bottom:20px; position:relative; }
@@ -24,27 +25,16 @@
  .search-field.small { min-width:120px; }
  .search-field.small select, .search-field.small input { min-width:100px; }
  
- .filter-mode { display:flex; align-items:center; gap:20px; margin-bottom:15px; padding:10px; background:#fff; border-radius:4px; }
- .filter-mode label { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:14px; color:#495057; }
- .filter-mode input[type="radio"] { cursor:pointer; }
- .filter-mode strong { margin-right:10px; color:#212529; }
- 
  button { padding:10px 20px; font-size:14px; font-weight:600; cursor:pointer; border-radius:6px; border:1px solid transparent; transition:all 0.2s; }
  button:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 2px 4px rgba(0,0,0,0.2); }
  button:disabled { opacity:0.5; cursor:not-allowed; }
  
- #redeemSelected { background:#28a745; color:white; border:none; font-size:16px; padding:10px 24px; }
- #redeemSelected:hover:not(:disabled) { background:#218838; }
  #btnSearch { background:#007bff; color:white; border:none; padding:8px 20px; }
  #btnSearch:hover { background:#0056b3; }
  #btnClearDate { background:#6c757d; color:white; border:none; padding:8px 16px; margin-left:8px; }
  #btnClearDate:hover { background:#5a6268; }
  #btnTodayReport { background:#17a2b8; color:white; border:none; font-size:14px; padding:8px 16px; }
  #btnTodayReport:hover { background:#138496; }
- #btnExportExcel { background:#28a745; color:white; border:none; font-size:14px; padding:8px 16px; }
- #btnExportExcel:hover { background:#218838; }
- #btnExportPdf { background:#dc3545; color:white; border:none; font-size:14px; padding:8px 16px; }
- #btnExportPdf:hover { background:#c82333; }
  
  table { border-collapse:collapse; width:100%; margin-top:15px; background:#fff; font-size:13px; }
  th, td { border:1px solid #dee2e6; padding:8px 10px; text-align:center; }
@@ -53,103 +43,171 @@
  
  .detail-btn { background:#17a2b8; color:white; border:none; padding:5px 10px; font-size:12px; border-radius:4px; cursor:pointer; white-space:nowrap; }
  .detail-btn:hover { background:#138496; }
+
+     .status-active {
+         display: inline-block;
+         background: linear-gradient(180deg,#28a745,#1e7e34);
+         color: #fff;
+         padding: 4px 10px;
+         border-radius: 12px;
+         font-weight: 700;
+         font-size: 13px;
+         box-shadow: 0 1px 0 rgba(0,0,0,0.06) inset;
+     }
+ .status-cancelled { color:#dc3545; font-weight:bold; }
  
  .summary { font-size:13px; color:#6c757d; margin-top:10px; }
  .pager { margin-top:15px; display:flex; align-items:center; gap:12px; }
  .pager button { padding:8px 16px; font-size:14px; }
  .pager span { font-size:14px; color:#495057; }
  
- #modal, #detailModal { display:none; position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:1000; }
- #modal .box, #detailModal .box { background:#fff; padding:24px; border-radius:8px; max-width:500px; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
- #modal h3, #detailModal h3 { margin:0 0 16px 0; color:#212529; }
- #modal button, #detailModal button { margin-right:8px; }
- .failure-list { color:#dc3545; margin-top:12px; max-height:200px; overflow:auto; background:#f8d7da; padding:12px; border-radius:4px; }
- .success-list { color:#28a745; margin-top:12px; background:#d4edda; padding:12px; border-radius:4px; }
- .warning-text { color:#856404; background:#fff3cd; padding:8px; border-radius:4px; margin-bottom:12px; }
+ #detailModal { display:none; position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:1000; }
+ #detailModal .box { background:#fff; padding:24px; border-radius:8px; max-width:1200px; width:90%; max-height:90vh; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+ #detailModal h3 { margin:0 0 16px 0; color:#212529; }
+ #detailModal button { margin-right:8px; }
+ 
+ .detail-container { display:flex; gap:20px; margin-bottom:20px; }
+ .detail-left { flex:1; min-width:0; }
+ .detail-right { flex:1; min-width:0; border-left:2px solid #dee2e6; padding-left:20px; }
+ 
+ .detail-content { background:#f8f9fa; padding:15px; border-radius:6px; margin-top:12px; }
+ .detail-section { margin-bottom:20px; }
+ .detail-section h4 { margin:0 0 10px 0; color:#495057; font-size:16px; border-bottom:2px solid #dee2e6; padding-bottom:5px; }
+ .detail-row { display:flex; margin-bottom:8px; }
+ .detail-label { font-weight:600; min-width:180px; color:#495057; }
+ .detail-value { color:#212529; flex:1; word-wrap:break-word; }
+ 
+ .items-list { max-height:500px; overflow-y:auto; }
+ .item-card { background:#fff; border:1px solid #dee2e6; border-radius:6px; padding:12px; margin-bottom:12px; transition: all 0.3s ease; }
+ .item-card:hover { box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+ .item-card.redeemed { background:#f5f5f5; border-color:#adb5bd; opacity:0.8; }
+ .item-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+ .item-name { font-weight:600; color:#212529; font-size:14px; }
+ .item-card.redeemed .item-name { color:#6c757d; }
+ .item-price { color:#28a745; font-weight:600; }
+ .item-card.redeemed .item-price { color:#6c757d; }
+ .item-info { font-size:13px; color:#6c757d; margin-bottom:4px; }
+ .item-codes { background:#f8f9fa; padding:8px; border-radius:4px; margin-top:8px; font-size:12px; }
+ .item-card.redeemed .item-codes { background:#e9ecef; }
+ .item-actions { margin-top:8px; display:flex; gap:8px; }
+ .item-btn { padding:6px 12px; font-size:12px; border-radius:4px; cursor:pointer; border:none; }
+ .btn-view { background:#17a2b8; color:white; }
+ .btn-view:hover { background:#138496; }
+ .btn-redeem { background:#28a745; color:white; }
+ .btn-redeem:hover { background:#218838; }
+ .btn-redeem:disabled { background:#6c757d; cursor:not-allowed; }
+ .redeemed-badge { display:inline-block; background:#6c757d; color:white; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin-top:8px; }
+ 
+ @media (max-width: 768px) {
+ .detail-container { flex-direction:column; }
+ .detail-right { border-left:none; border-top:2px solid #dee2e6; padding-left:0; padding-top:20px; }
+ }
+ 
+ /* Coupon Detail Modal */
+ #couponModal { display:none; position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:1001; }
+ #couponModal .box { background:#fff; padding:24px; border-radius:8px; max-width:600px; width:90%; max-height:90vh; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+ #couponModal h3 { margin:0 0 16px 0; color:#212529; }
+ 
+ .coupon-detail-content { background:#f8f9fa; padding:15px; border-radius:6px; }
+ .coupon-detail-section { margin-bottom:20px; }
+ .coupon-detail-section:last-child { margin-bottom:0; }
+ .coupon-detail-section h4 { margin:0 0 10px 0; color:#495057; font-size:16px; border-bottom:2px solid #dee2e6; padding-bottom:5px; }
+ .coupon-detail-row { display:flex; margin-bottom:8px; }
+ .coupon-detail-label { font-weight:600; min-width:140px; color:#495057; }
+ .coupon-detail-value { color:#212529; flex:1; word-wrap:break-word; }
+ .coupon-price { font-size:20px; font-weight:bold; color:#28a745; }
+ .coupon-description { background:#fff; padding:12px; border-radius:4px; border:1px solid #dee2e6; margin-top:8px; white-space:pre-wrap; line-height:1.6; }
+ 
+ .items-table { width:100%; font-size:13px; margin-top:10px; }
+ .items-table th { background:#e9ecef; }
+ 
  #error { color:#dc3545; margin-top:12px; padding:10px; background:#f8d7da; border-radius:4px; display:none; }
  #error:not(:empty) { display:block; }
  
- .detail-content { background:#f8f9fa; padding:15px; border-radius:6px; margin-top:12px; max-height:400px; overflow-y:auto; }
- .detail-row { display:flex; margin-bottom:10px; }
- .detail-label { font-weight:600; min-width:140px; color:#495057; }
- .detail-value { color:#212529; flex:1; word-wrap:break-word; white-space:pre-wrap; }
- 
  /* จัดกรองคอลัมน์ตาราง */
- .col-checkbox { width:40px; text-align:center; }
  .col-code { width:120px; }
- .col-def-code { width:100px; }
- .col-def-name { width:150px; }
- .col-status { width:80px; }
- .col-usage { width:180px; }
- .col-used-by { width:100px; }
  .col-date { width:140px; }
- .col-expires { width:100px; }
+ .col-customer { width:150px; }
+ .col-phone { width:120px; }
+ .col-sales { width:120px; }
+ .col-payment { width:100px; }
+ .col-discount { width:100px; }
+ .col-total { width:100px; }
+ .col-status { width:80px; }
  .col-detail { width:100px; text-align:center; }
+ .col-unredeemed { width:140px; text-align:center; }
  
- .expired-row { background:#ffe6e6 !important; }
+ .cancelled-row { background:#ffe6e6 !important; }
+
+ /* Confirm Dialog */
+ #confirmModal { display:none; position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.7); align-items:center; justify-content:center; z-index:1002; }
+ #confirmModal .box { background:#fff; padding:30px; border-radius:8px; max-width:500px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+ #confirmModal h3 { margin:0 0 16px 0; color:#212529; font-size:20px; }
+ #confirmModal .confirm-message { margin-bottom:20px; color:#495057; font-size:15px; line-height:1.6; }
+ #confirmModal .confirm-actions { display:flex; gap:12px; justify-content:flex-end; }
+ #confirmModal .confirm-actions button { min-width:100px; }
+ .btn-confirm { background:#28a745; color:white; border:none; }
+ .btn-confirm:hover { background:#218838; }
+ .btn-cancel { background:#6c757d; color:white; border:none; }
+ .btn-cancel:hover { background:#5a6268; }
+ .coupon-code-highlight { background:#fff3cd; padding:2px 8px; border-radius:4px; font-weight:bold; color:#856404; }
+ 
+ .unredeemed-text { font-size:13px; color:#495057; display:inline-block; }
+ 
  </style>
 </head>
 <body>
  <div class="page-header">
  <button id="logoutBtn">🚪 Logout</button>
- <h1>ตัดคูปอง และ รายการคูปอง</h1>
+ <h1>📋 รายการใบเสร็จ</h1>
  </div>
 
  <div class="panel">
  <div class="header-section">
- <h2>รายการคูปอง</h2>
+ <h2>รายการใบเสร็จทั้งหมด</h2>
  <div class="top-actions">
- <button id="btnTodayReport">📊 รีพอร์ตวันนี้</button>
- <button id="btnExportExcel">📊 Export Excel</button>
- <button id="btnExportPdf">📄 Export PDF</button>
- <button id="redeemSelected" disabled>✂️ ตัดคูปอง</button>
+ <button id="btnTodayReport">📊 รายงานวันนี้</button>
  </div>
  </div>
  
  <div class="search-section">
- <!-- Filter Mode Selector -->
- <div class="filter-mode">
- <strong>รูปแบบการค้นหา:</strong>
- <label>
- <input type="radio" name="filterMode" value="text" checked> 
- พิมพ์ค้นหา (Text Input)
- </label>
- <label>
- <input type="radio" name="filterMode" value="dropdown"> 
- เลือกจากรายการ (Dropdown)
- </label>
- </div>
- 
- <!-- Search Fields -->
  <div class="search-row">
  <div class="search-field">
- <label>ค้นหาด้วยรหัสคูปอง:</label>
- <input id="searchCode" type="text" placeholder="ใส่รหัสคูปอง" />
+ <label>รหัสใบเสร็จ:</label>
+ <input id="searchReceiptCode" type="text" placeholder="ค้นหารหัสใบเสร็จ" />
  </div>
  
- <div class="search-field" id="defCodeField">
- <label id="defCodeLabel">รหัสคำนิยาม:</label>
- <input id="defCodeText" type="text" placeholder="พิมพ์รหัสคำนิยาม" />
- <select id="defCodeDropdown" style="display:none">
- <option value="">-- ทั้งหมด --</option>
- </select>
+ <div class="search-field">
+ <label>รหัสคูปอง:</label>
+ <input id="searchCouponCode" type="text" placeholder="ค้นหารหัสคูปอง" />
  </div>
  
- <div class="search-field" id="defNameField">
- <label id="defNameLabel">ชื่อคำนิยาม:</label>
- <input id="defNameText" type="text" placeholder="พิมพ์ชื่อคำนิยาม" />
- <select id="defNameDropdown" style="display:none">
+ <div class="search-field">
+ <label>ชื่อลูกค้า:</label>
+ <input id="searchCustomerName" type="text" placeholder="ค้นหาชื่อลูกค้า" />
+ </div>
+ 
+ <div class="search-field">
+ <label>เบอร์โทร:</label>
+ <input id="searchPhone" type="text" placeholder="ค้นหาเบอร์โทร" />
+ </div>
+ 
+ <div class="search-field small">
+ <label>สถานะ:</label>
+ <select id="searchStatus">
  <option value="">-- ทั้งหมด --</option>
+ <option value="Active">ใช้งาน</option>
+ <option value="Cancelled">ยกเลิก</option>
  </select>
  </div>
  
  <div class="search-field small">
- <label>วันที่ขาย (จาก):</label>
+ <label>วันที่ (จาก):</label>
  <input id="dateFrom" type="date" />
  </div>
  
  <div class="search-field small">
- <label>วันที่ขาย (ถึง):</label>
+ <label>วันที่ (ถึง):</label>
  <input id="dateTo" type="date" />
  </div>
  
@@ -176,16 +234,16 @@
  <table id="results">
  <thead>
  <tr>
- <th class="col-checkbox"><input type="checkbox" id="selectAll" /></th>
- <th class="col-code">รหัสคูปอง</th>
- <th class="col-def-code">รหัสคำนิยาม</th>
- <th class="col-def-name">ชื่อคำนิยาม</th>
+ <th class="col-code">รหัสใบเสร็จ</th>
+ <th class="col-date">วันที่</th>
+ <th class="col-customer">ชื่อลูกค้า</th>
+ <th class="col-phone">เบอร์โทร</th>
+ <th class="col-sales">เซลล์</th>
+ <th class="col-payment">การชำระ</th>
+ <th class="col-discount">ส่วนลด</th>
+ <th class="col-total">ยอดรวม</th>
  <th class="col-status">สถานะ</th>
- <th class="col-usage">การใช้งาน/ใบเสร็จ</th>
- <th class="col-used-by">UsedBy</th>
- <th class="col-date">UsedDate</th>
- <th class="col-date">สร้างเมื่อ</th>
- <th class="col-expires">วันหมดอายุ</th>
+ <th class="col-unredeemed">สถานะคูปอง</th>
  <th class="col-detail">รายละเอียด</th>
  </tr>
  </thead>
@@ -202,29 +260,50 @@
  <div id="error"></div>
  </div>
 
- <!-- Redeem Modal -->
- <div id="modal">
+ <!-- Detail Modal -->
+ <div id="detailModal">
  <div class="box">
- <h3>ตัดคูปองที่เลือก</h3>
- <div id="modalWarning" class="warning-text" style="display:none"></div>
- <div id="modalPrompt" style="margin-bottom:12px; font-size:14px;">ยืนยันการตัดคูปอง</div>
- <div style="margin-top:16px">
- <button id="modalConfirm" style="background:#28a745; color:white; border:none;">✅ บันทึก</button>
- <button id="modalCancel" style="background:#6c757d; color:white; border:none;">❌ ยกเลิก</button>
- <span id="modalMsg" style="margin-left:12px; color:#28a745; font-weight:600;"></span>
+ <h3>📋 รายละเอียดใบเสร็จ</h3>
+ 
+ <!-- 2 Column Layout -->
+ <div class="detail-container">
+ <!-- Left Column: Receipt Info -->
+ <div class="detail-left">
+ <div id="detailContent" class="detail-content"></div>
  </div>
- <div id="modalFailures" class="failure-list" style="display:none"></div>
- <div id="modalSuccess" class="success-list" style="display:none"></div>
+ 
+ <!-- Right Column: Items List -->
+ <div class="detail-right">
+ <h4 style="margin-top:0; color:#495057; border-bottom:2px solid #dee2e6; padding-bottom:5px;">รายการสินค้า</h4>
+ <div id="itemsList" class="items-list"></div>
+ </div>
+ </div>
+ 
+ <div style="margin-top:16px; text-align:right; clear:both;">
+ <button id="detailClose" style="background:#6c757d; color:white; border:none;">ปิด</button>
+ </div>
  </div>
  </div>
 
- <!-- Detail Modal -->
- <div id="detailModal">
- <div class="box" style="max-width:600px">
- <h3>📋 รายละเอียดคูปอง</h3>
- <div id="detailContent" class="detail-content"></div>
- <div style="margin-top:16px; text-align:right">
- <button id="detailClose" style="background:#6c757d; color:white; border:none;">ปิด</button>
+ <!-- Coupon Detail Modal -->
+ <div id="couponModal">
+ <div class="box" style="max-width:600px;">
+ <h3>🎟️ รายละเอียดคูปอง</h3>
+ <div id="couponContent" class="coupon-detail-content"></div>
+ <div style="margin-top:16px; text-align:right;">
+ <button id="couponClose" style="background:#6c757d; color:white; border:none;">ปิด</button>
+ </div>
+ </div>
+ </div>
+
+ <!-- Confirm Dialog -->
+ <div id="confirmModal">
+ <div class="box">
+ <h3>✂️ ยืนยันการตัดคูปอง</h3>
+ <div class="confirm-message" id="confirmMessage"></div>
+ <div class="confirm-actions">
+ <button id="confirmYes" class="btn-confirm">✓ ใช่, ตัดคูปอง</button>
+ <button id="confirmNo" class="btn-cancel">✗ ยกเลิก</button>
  </div>
  </div>
  </div>
@@ -239,97 +318,35 @@
  $('logoutBtn').addEventListener('click', ()=>{
  if(confirm('คุณต้องการออกจากระบบหรือไม่?')){
  try{ sessionStorage.removeItem('currentUser'); }catch(e){}
+
  window.location.href = '/login.html';
  }
  });
 
- // Filter mode switching
- const filterModeRadios = document.querySelectorAll('input[name="filterMode"]');
- filterModeRadios.forEach(radio => {
- radio.addEventListener('change', (e) => {
- const isText = e.target.value === 'text';
- $('defCodeText').style.display = isText ? 'block' : 'none';
- $('defCodeDropdown').style.display = isText ? 'none' : 'block';
- $('defNameText').style.display = isText ? 'block' : 'none';
- $('defNameDropdown').style.display = isText ? 'none' : 'block';
- });
- });
+ const resultsBody = document.querySelector('#results tbody');
+ const summaryEl = $('summary');
+ const pageInfo = $('pageInfo');
+ const errorEl = $('error');
+ let currentData = [];
+ let page=1, totalPages=1;
+ let currentReceiptId = null; // เก็บ receiptId ปัจจุบันสำหรับ reload
 
  // Today Report Button
  $('btnTodayReport').addEventListener('click', ()=>{
  const today = new Date().toISOString().split('T')[0];
  $('dateFrom').value = today;
  $('dateTo').value = today;
- page = 1;
- loadSold();
+ page =1;
+ loadReceipts();
  });
 
  // Clear Date Button
  $('btnClearDate').addEventListener('click', ()=>{
  $('dateFrom').value = '';
  $('dateTo').value = '';
- page = 1;
- loadSold();
+ page =1;
+ loadReceipts();
  });
-
- // Export Excel Button
- $('btnExportExcel').addEventListener('click', async ()=>{
- try {
- const filters = getFilterValues();
- const params = new URLSearchParams();
- if(filters.search) params.append('searchCode',filters.search);
- if(filters.defCode) params.append('couponDefinitionCode',filters.defCode);
- if(filters.defName) params.append('couponDefinitionName',filters.defName);
- if(filters.dateFrom) params.append('createdFrom', filters.dateFrom + 'T00:00:00');
- if(filters.dateTo) params.append('createdTo', filters.dateTo + 'T23:59:59');
-
- const url = '/api/CouponRedemption/export/excel?' + params.toString();
- window.open(url, '_blank');
- } catch(err) {
- console.error('Error exporting Excel:', err);
- alert('เกิดข้อผิดพลาดในการส่งออก Excel: ' + err.message);
- }
- });
-
- // Export PDF Button
- $('btnExportPdf').addEventListener('click', async ()=>{
- try {
- const filters = getFilterValues();
- const params = new URLSearchParams();
- if(filters.search) params.append('searchCode',filters.search);
- if(filters.defCode) params.append('couponDefinitionCode',filters.defCode);
- if(filters.defName) params.append('couponDefinitionName',filters.defName);
- if(filters.dateFrom) params.append('createdFrom', filters.dateFrom + 'T00:00:00');
- if(filters.dateTo) params.append('createdTo', filters.dateTo + 'T23:59:59');
-
- const url = '/api/CouponRedemption/export/pdf?' + params.toString();
- window.open(url, '_blank');
- } catch(err) {
- console.error('Error exporting PDF:', err);
- alert('เกิดข้อผิดพลาดในการส่งออก PDF: ' + err.message);
- }
- });
- 
- // Table & selection
- const resultsBody = document.querySelector('#results tbody');
- const summaryEl = $('summary');
- const pageInfo = $('pageInfo');
- const errorEl = $('error');
- const selectAll = $('selectAll');
- let selectedIds = new Set();
- let currentData = []; // เก็บข้อมูลปัจจุบัน
- 
- selectAll.addEventListener('change', ()=>{
- const checked = selectAll.checked;
- document.querySelectorAll('input.rowSelect').forEach(cb=> {
- cb.checked = checked;
- if(checked) selectedIds.add(parseInt(cb.dataset.id,10));
- });
- if(!checked) selectedIds.clear();
- updateRedeemButton();
- });
-
- let page=1, totalPages=1;
 
  function formatDate(d){ 
  if(!d) return ''; 
@@ -345,98 +362,43 @@
  }); 
  }catch{ return d; } 
  }
- 
- function formatDateOnly(d){
- if(!d) return '';
- try{
- const dt=new Date(d);
- if(isNaN(dt)) return d;
- return dt.toLocaleDateString('th-TH', {
- year: 'numeric',
- month: '2-digit',
- day: '2-digit'
- });
- }catch{ return d; }
- }
 
- function isExpired(expiresAt){
- if(!expiresAt) return false;
- try{
- const expDate = new Date(expiresAt);
- const now = new Date();
- return expDate < now;
- }catch{
- return false;
- }
+ function formatCurrency(amount){ 
+ return (amount ||0).toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2}); 
  }
 
  function getFilterValues(){
- const isText = document.querySelector('input[name="filterMode"]:checked').value === 'text';
  return {
- search: $('searchCode').value.trim(),
- defCode: isText ? $('defCodeText').value.trim() : $('defCodeDropdown').value.trim(),
- defName: isText ? $('defNameText').value.trim() : $('defNameDropdown').value.trim(),
+ receiptCode: $('searchReceiptCode').value.trim(),
+ couponCode: $('searchCouponCode').value.trim(),
+ customerName: $('searchCustomerName').value.trim(),
+ customerPhone: $('searchPhone').value.trim(),
+ status: $('searchStatus').value,
  dateFrom: $('dateFrom').value,
  dateTo: $('dateTo').value,
  pageSize: parseInt($('pageSize').value,10)||25
  };
  }
 
- async function loadCouponDefinitions(){
- try{
- const resp = await fetch('/api/CouponDefinitions');
- if(!resp.ok) {
- console.error('Failed to load definitions:', resp.status, resp.statusText);
- return;
- }
- const defs = await resp.json();
- 
- console.log('Loaded coupon definitions:', defs.length);
- 
- const codeSelect = $('defCodeDropdown');
- const nameSelect = $('defNameDropdown');
- 
- codeSelect.innerHTML = '<option value="">-- ทั้งหมด --</option>';
- nameSelect.innerHTML = '<option value="">-- ทั้งหมด --</option>';
- 
- const codes = new Set();
- const names = new Set();
- 
- defs.forEach(def=>{
- if(def.code && !codes.has(def.code)){
- codes.add(def.code);
- codeSelect.add(new Option(def.code, def.code));
- }
- if(def.name && !names.has(def.name)){
- names.add(def.name);
- nameSelect.add(new Option(def.name, def.name));
- }
- });
- 
- console.log('Populated dropdowns - Codes:', codes.size, 'Names:', names.size);
- }catch(err){
- console.error('Error loading coupon definitions:', err);
- errorEl.textContent = 'ไม่สามารถโหลดรายการคำนิยามได้: ' + err.message;
- }
- }
-
- async function loadSold(){ 
+ async function loadReceipts(){ 
  errorEl.textContent=''; 
  const filters = getFilterValues();
  
  const params = new URLSearchParams(); 
  params.append('page',page); 
  params.append('pageSize',filters.pageSize); 
- if(filters.search) params.append('searchCode',filters.search); 
- if(filters.defCode) params.append('couponDefinitionCode',filters.defCode); 
- if(filters.defName) params.append('couponDefinitionName',filters.defName);
- if(filters.dateFrom) params.append('createdFrom', filters.dateFrom + 'T00:00:00');
- if(filters.dateTo) params.append('createdTo', filters.dateTo + 'T23:59:59');
+ if(filters.receiptCode) params.append('receiptCode',filters.receiptCode); 
+ if(filters.couponCode) params.append('couponCode',filters.couponCode);
+ if(filters.customerName) params.append('customerName',filters.customerName);
+ if(filters.customerPhone) params.append('customerPhone',filters.customerPhone);
+ if(filters.status) params.append('status',filters.status);
+ if(filters.dateFrom) params.append('dateFrom', filters.dateFrom + 'T00:00:00');
+ if(filters.dateTo) params.append('dateTo', filters.dateTo + 'T23:59:59');
  
- console.log('Loading sold coupons with params:', params.toString());
+ console.log('Loading receipts with params:', params.toString());
  
  try{ 
- const resp = await fetch('/api/CouponRedemption/sold?'+params.toString()); 
+ const resp = await fetch('/api/Receipts?'+params.toString()); 
  if(!resp.ok){ 
  errorEl.textContent='HTTP '+resp.status+' - '+resp.statusText; 
  resultsBody.innerHTML=''; 
@@ -445,75 +407,405 @@
  return; 
  } 
  const data=await resp.json(); 
- console.log('Loaded sold coupons:', data.items?.length || 0, 'items');
- renderSold(data); 
+ console.log('Loaded receipts:', data.items?.length ||0, 'items');
+ renderReceipts(data); 
  }catch(err){ 
- console.error('Error loading sold coupons:', err);
+ console.error('Error loading receipts:', err);
  errorEl.textContent='เกิดข้อผิดพลาด: '+err.message; 
  } 
  }
 
- function showDetail(item){
- try{
- console.log('Showing detail for item:', item);
- 
- let description = 'ไม่มีรายละเอียด';
- 
- if(item.couponDefinitionParams){
- try{
- const params = JSON.parse(item.couponDefinitionParams);
- description = params.description || 'ไม่มีรายละเอียด';
- }catch(parseErr){
- console.error('Error parsing params:', parseErr);
- description = item.couponDefinitionParams;
- }
+ // ฟังก์ชันตรวจสอบว่าคูปองถูกตัดแล้วหรือไม่
+ async function checkCouponRedeemed(generatedCodes) {
+ if (!generatedCodes || generatedCodes.length ===0) {
+ return { allRedeemed: false, redeemedCodes: [], complimentaryCodes: [], totalCodes:0 };
  }
  
- // จัดการขึ้นบรรทัดใหม่ใน description
- const formattedDescription = escapeHtml(description).replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
+ try {
+ // เรียก API เพื่อเช็คสถานะของแต่ละ code
+ const checks = await Promise.all(
+ generatedCodes.map(async (code) => {
+ try {
+ const resp = await fetch(`/api/GeneratedCoupons/bycode/${encodeURIComponent(code)}`);
+ if (resp.ok) {
+ try {
+ const text = await resp.text();
+ if (!text) return { code, isUsed: false, isComplimentary: false };
+ const parsed = JSON.parse(text);
+ // Normalize: server returns 'generatedCode' field
+ return {
+ code: parsed.generatedCode ?? code,
+ isUsed: parsed.isUsed || false,
+ isComplimentary: parsed.isComplimentary || false,
+ id: parsed.id ?? null
+ };
+ } catch { return { code, isUsed: false, isComplimentary: false } }
+ }
+ return { code, isUsed: false, isComplimentary: false };
+ } catch { return { code, isUsed: false, isComplimentary: false } };
+ })
+ );
  
- const expiredText = isExpired(item.expiresAt) ? ' <span style="color:#dc3545; font-weight:bold;">(หมดอายุแล้ว)</span>' : '';
+ const redeemedCodes = checks.filter(c => c && c.isUsed).map(c => c.code);
+ const complimentaryCodes = checks.filter(c => c && c.isComplimentary).map(c => c.code);
+ const allRedeemed = checks.length >0 && checks.every(c => c && c.isUsed);
  
- const html = `
- <div class="detail-row">
- <div class="detail-label">รหัสคำนิยาม:</div>
- <div class="detail-value">${escapeHtml(item.couponDefinitionCode)}</div>
+ return { 
+ allRedeemed, 
+ redeemedCodes, 
+ complimentaryCodes,
+ totalCodes: generatedCodes.length 
+ };
+ } catch (err) {
+ console.error('Error checking coupon redeemed:', err);
+ return { allRedeemed: false, redeemedCodes: [], complimentaryCodes: [], totalCodes:0 };
+ }
+ }
+
+ async function showDetail(receiptId){
+ try{
+ console.log('Loading receipt detail:', receiptId);
+ currentReceiptId = receiptId; // เก็บไว้สำหรับ reload
+ 
+ const resp = await fetch(`/api/Receipts/${receiptId}`);
+ if(!resp.ok){
+ throw new Error('HTTP ' + resp.status);
+ }
+ 
+ const receipt = await resp.json();
+ console.log('Loaded receipt detail:', receipt);
+ 
+ const statusClass = receipt.status === 'Active' ? 'status-active' : 'status-cancelled';
+ const totalBeforeDiscount = receipt.totalAmount + receipt.discount;
+ 
+ // Left Column: Receipt Information
+ const receiptInfoHtml = `
+ <div class="detail-section">
+ <h4>ข้อมูลใบเสร็จ</h4>
+ <div class="detail-row"><div class="detail-label">รหัสใบเสร็จ:</div>
+ <div class="detail-value">${escapeHtml(receipt.receiptCode)}</div>
+ 
  </div>
  <div class="detail-row">
- <div class="detail-label">ชื่อคำนิยาม:</div>
- <div class="detail-value">${escapeHtml(item.couponDefinitionName)}</div>
- </div>
- <div class="detail-row">
- <div class="detail-label">ราคา:</div>
- <div class="detail-value">${(item.couponDefinitionPrice || 0).toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2})} บาท</div>
- </div>
- <div class="detail-row">
- <div class="detail-label">รายละเอียด:</div>
- <div class="detail-value">${formattedDescription}</div>
- </div>
- <div class="detail-row">
- <div class="detail-label">รหัสคูปอง:</div>
- <div class="detail-value">${escapeHtml(item.generatedCode)}</div>
+ <div class="detail-label">วันที่:</div>
+ <div class="detail-value">${formatDate(receipt.receiptDate)}</div>
  </div>
  <div class="detail-row">
  <div class="detail-label">สถานะ:</div>
- <div class="detail-value">${escapeHtml(item.statusText)}</div>
+ <div class="detail-value"><span class="${statusClass}">${escapeHtml(receipt.statusText)}</span></div>
+ </div>
+ </div>
+ 
+ <div class="detail-section">
+ <h4>ข้อมูลลูกค้า</h4>
+ <div class="detail-row">
+ <div class="detail-label">ชื่อลูกค้า:</div>
+ <div class="detail-value">${escapeHtml(receipt.customerName)}</div>
  </div>
  <div class="detail-row">
- <div class="detail-label">การใช้งาน:</div>
- <div class="detail-value">${escapeHtml(item.usageText)}</div>
+ <div class="detail-label">เบอร์โทรศัพท์:</div>
+ <div class="detail-value">${escapeHtml(receipt.customerPhoneNumber)}</div>
+ </div>
+ </div>
+ 
+ <div class="detail-section">
+ <h4>ข้อมูลการขาย</h4>
+ <div class="detail-row">
+ <div class="detail-label">เซลล์:</div>
+ <div class="detail-value">${escapeHtml(receipt.salesPersonName || '-')}</div>
  </div>
  <div class="detail-row">
- <div class="detail-label">วันหมดอายุ:</div>
- <div class="detail-value">${item.expiresAt ? formatDateOnly(item.expiresAt) : 'ไม่มีกำหนด'}${expiredText}</div>
+ <div class="detail-label">เบอร์โทรเซลล์:</div>
+ <div class="detail-value">${escapeHtml(receipt.salesPersonPhone || '-')}</div>
  </div>
  <div class="detail-row">
- <div class="detail-label">สร้างเมื่อ:</div>
- <div class="detail-value">${formatDate(item.createdAt)}</div>
+ <div class="detail-label">วิธีการชำระเงิน:</div>
+ <div class="detail-value">${escapeHtml(receipt.paymentMethodName || '-')}</div>
+ </div>
+ </div>
+ 
+ <div class="detail-section">
+ <h4>ยอดเงิน</h4>
+ <div class="detail-row">
+ <div class="detail-label">ยอดรวมก่อนส่วนลด:</div>
+ <div class="detail-value">${formatCurrency(totalBeforeDiscount)} บาท</div>
+ </div>
+ <div class="detail-row">
+ <div class="detail-label">ส่วนลด:</div>
+ <div class="detail-value" style="color:#dc3545;">${formatCurrency(receipt.discount)} บาท</div>
+ </div>
+ <div class="detail-row">
+ <div class="detail-label">ยอดสุทธิ:</div>
+ <div class="detail-value" style="font-weight:bold; color:#28a745; font-size:16px;">${formatCurrency(receipt.totalAmount)} บาท</div>
+ </div>
  </div>
  `;
  
- $('detailContent').innerHTML = html;
+ $('detailContent').innerHTML = receiptInfoHtml;
+ 
+ // Right Column: Items List - แสดง Loading ก่อน
+ $('itemsList').innerHTML = '<p style="text-align:center; padding:20px; color:#6c757d;">กำลังโหลดข้อมูล...</p>';
+ 
+ // โหลดและแสดง items พร้อมตรวจสอบสถานะ
+ if(receipt.items && receipt.items.length >0){
+ let itemsHtml = '';
+ 
+ for (const item of receipt.items) {
+ const codesText = item.generatedCodes && item.generatedCodes.length >0 
+ ? item.generatedCodes.join(', ') 
+ : 'ไม่มีรหัสคูปอง';
+ 
+ // ตรวจสอบว่าคูปองถูกตัดแล้วหรือไม่
+ const redeemStatus = await checkCouponRedeemed(item.generatedCodes);
+ const hasUnusedCoupons = item.generatedCodes && item.generatedCodes.length >0 && !redeemStatus.allRedeemed;
+ const isRedeemed = redeemStatus.allRedeemed && item.generatedCodes && item.generatedCodes.length >0;
+ 
+ const cardClass = isRedeemed ? 'item-card redeemed' : 'item-card';
+ 
+ // สร้างข้อความสถานะ
+ let statusBadge = '';
+ if (isRedeemed) {
+ statusBadge = '<div class="redeemed-badge">✂️ คูปองใบนี้ถูกตัดไปแล้ว</div>';
+ } else if (redeemStatus.redeemedCodes && redeemStatus.redeemedCodes.length >0) {
+ statusBadge = `<div class="redeemed-badge">✂️ ตัดไปแล้ว ${redeemStatus.redeemedCodes.length}/${redeemStatus.totalCodes} ใบ</div>`;
+ }
+ 
+ // เพิ่ม COM badge ถ้ามีคูปองฟรี
+ let comBadge = '';
+ if (redeemStatus.complimentaryCodes && redeemStatus.complimentaryCodes.length >0) {
+ comBadge = `<div class="redeemed-badge" style="background:#17a2b8; margin-top:4px;">🎁 COM (ฟรี) จำนวน ${redeemStatus.complimentaryCodes.length} ใบ</div>`;
+ }
+ 
+ // per-item COM checkbox (disabled so it only shows status)
+ const isComplimentary = redeemStatus.complimentaryCodes && redeemStatus.complimentaryCodes.length >0;
+ 
+ itemsHtml += `
+ <div class="${cardClass}">
+ <div class="item-header">
+ <div class="item-name">${escapeHtml(item.couponName)}</div>
+ <div class="item-price">${formatCurrency(item.totalPrice)} บาท</div>
+ </div>
+ 
+ <div class="item-info">รหัส: ${escapeHtml(item.couponCode)}</div>
+ <div class="item-info">จำนวน: ${item.quantity} x ${formatCurrency(item.unitPrice)} บาท</div>
+ <div class="item-codes">
+ <strong>รหัสคูปองที่สร้าง:</strong><br>
+ ${escapeHtml(codesText)}
+ </div>
+ ${statusBadge}
+ ${comBadge}
+ <div class="item-actions">
+ <label style="font-size:13px; color:#495057; display:flex; align-items:center; gap:6px;">
+ <input type="checkbox" class="item-com-checkbox" ${isComplimentary ? 'checked' : ''} style="margin:0;">COM (ฟรี)
+ </label>
+ <button class="item-btn btn-view" data-coupon-code="${escapeHtml(item.couponCode)}">
+ 📋 ดูรายละเอียดคูปอง
+ </button>
+ <button class="item-btn btn-redeem" ${!hasUnusedCoupons ? 'disabled' : ''} 
+ data-receipt-id="${receipt.receiptID}"
+ data-coupon-code="${escapeHtml(item.couponCode)}"
+ data-coupon-name="${escapeHtml(item.couponName)}"
+ data-generated-codes="${escapeHtml(JSON.stringify(item.generatedCodes || []))}">
+ ✂️ ตัดคูปอง
+ </button>
+ <!-- ปุ่มยกเลิกการตัดคูปอง (แสดงไว้ทางขวาใต้ไอเทม) -->
+ <button class="item-btn btn-cancel-redeem" style="margin-left:auto; background:#dc3545; color:#fff;" 
+ ${!(redeemStatus.redeemedCodes && redeemStatus.redeemedCodes.length>0) ? 'disabled' : ''}
+ data-receipt-id="${receipt.receiptID}"
+ data-coupon-code="${escapeHtml(item.couponCode)}"
+ data-generated-codes="${escapeHtml(JSON.stringify(item.generatedCodes || []))}">
+ ✖️ ยกเลิกการตัด
+ </button>
+ </div>
+ </div>
+ `;
+ }
+ 
+ $('itemsList').innerHTML = itemsHtml;
+ } else {
+ $('itemsList').innerHTML = '<p style="color:#6c757d; text-align:center; padding:20px;">ไม่มีรายการสินค้า</p>';
+ }
+ 
+ // Attach event listeners for view coupon buttons
+ document.querySelectorAll('.btn-view').forEach(btn => {
+ btn.addEventListener('click', (e) => {
+ const couponCode = e.currentTarget.dataset.couponCode;
+ viewCouponDetail(couponCode);
+ });
+ });
+ 
+ // Attach event listeners for COM checkboxes (set/unset complimentary in DB)
+ document.querySelectorAll('.item-com-checkbox').forEach(chk => {
+ chk.addEventListener('change', async (e) => {
+ const checkbox = e.currentTarget;
+ const itemCard = checkbox.closest('.item-card');
+ // find generated codes from the redeem button dataset if present
+ const redeemBtn = itemCard ? itemCard.querySelector('.btn-redeem') : null;
+ const generatedCodes = redeemBtn ? (JSON.parse(redeemBtn.dataset.generatedCodes || '[]')) : [];
+ const setTo = checkbox.checked === true;
+
+ if (!generatedCodes || generatedCodes.length ===0) {
+ // nothing to update
+ return;
+ }
+
+ // disable while updating
+ checkbox.disabled = true;
+ try {
+ // send requests for all generated codes in parallel
+ const results = await Promise.all(generatedCodes.map(async (code) => {
+ try {
+ const resp = await fetch('/api/GeneratedCoupons/set-complimentary', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ code: code, isComplimentary: setTo })
+ });
+ if (!resp.ok) {
+ const txt = await resp.text();
+ throw new Error('HTTP ' + resp.status + ' - ' + txt);
+ }
+ return true;
+ } catch (err) {
+ console.error('Failed to set complimentary for', code, err);
+ return false;
+ }
+ }));
+ 
+ if (results.some(r => r === false)) {
+ throw new Error('Some codes failed to update');
+ }
+ } catch (err) {
+ console.error('Error updating complimentary flag:', err);
+ alert('ไม่สามารถเปลี่ยนสถานะ COM ได้: ' + err.message);
+ // revert checkbox
+ checkbox.checked = !setTo;
+ } finally {
+ checkbox.disabled = false;
+ }
+ });
+ });
+ 
+ // Attach event listeners for redeem coupon buttons
+ document.querySelectorAll('.btn-redeem').forEach(btn => {
+ if (!btn.disabled) {
+ btn.addEventListener('click', (e) => {
+ const receiptId = parseInt(e.currentTarget.dataset.receiptId,10);
+ const couponCode = e.currentTarget.dataset.couponCode;
+ const couponName = e.currentTarget.dataset.couponName;
+ const generatedCodes = JSON.parse(e.currentTarget.dataset.generatedCodes || '[]');
+ // find the checkbox in the same item-card
+ const itemCard = e.currentTarget.closest('.item-card');
+ const comCheckbox = itemCard ? itemCard.querySelector('.item-com-checkbox') : null;
+ const isComplimentaryChecked = comCheckbox ? comCheckbox.checked : false;
+ redeemCouponFromItem(receiptId, couponCode, couponName, generatedCodes, isComplimentaryChecked);
+ });
+ }
+ });
+ 
+ // Attach event listeners for cancel redemption buttons
+ document.querySelectorAll('.btn-cancel-redeem').forEach(btn => {
+ if (!btn.disabled) {
+ btn.addEventListener('click', (e) => {
+ const el = e.currentTarget;
+ const generatedCodes = JSON.parse(el.dataset.generatedCodes || '[]');
+ 
+ // find redeemed codes by querying API for each generated code
+ (async () => {
+ try {
+ const checks = await Promise.all(generatedCodes.map(async code => {
+ try {
+ const resp = await fetch(`/api/GeneratedCoupons/bycode/${encodeURIComponent(code)}`);
+ if (resp.ok) {
+ try {
+ const text = await resp.text();
+ const parsed = text ? JSON.parse(text) : null;
+ // normalize to same shape as checkCouponRedeemed
+ return parsed ? { code: parsed.generatedCode ?? code, isUsed: parsed.isUsed || false, isComplimentary: parsed.isComplimentary || false, id: parsed.id ?? null } : { code, isUsed: false, isComplimentary: false, id: null };
+ } catch { return { code, isUsed: false, isComplimentary: false, id: null }; }
+ }
+ return { code, isUsed: false, isComplimentary: false, id: null };
+ } catch { return { code, isUsed: false, isComplimentary: false, id: null }; }
+ }));
+ 
+ const used = checks.filter(c => c && c.isUsed).map(c => c.code);
+ if (!used || used.length ===0) {
+ alert('ไม่พบคูปองที่ถูกตัดไว้สำหรับยกเลิก');
+ return;
+ }
+ 
+ // choose the most recently used code if available (last in array)
+ const codeToCancel = used[used.length -1];
+ 
+ const message = `
+ <p>คุณต้องการยกเลิกการตัดคูปองนี้ใช่หรือไม่?</p>
+ <p style="margin-top:10px;"><strong>รหัสคูปองที่จะยกเลิก:</strong> <span class="coupon-code-highlight">${escapeHtml(codeToCancel)}</span></p>
+ <p style="margin-top:10px; color:#dc3545;">⚠️ การยกเลิกจะเปลี่ยนสถานะคูปองกลับเป็นยังไม่ได้ใช้</p>
+ `;
+ 
+ showConfirmDialog(message, async () => {
+ try {
+ // First fetch the generated coupon record to get its internal id (if available)
+ let genRecord = null;
+ try {
+ const gResp = await fetch(`/api/GeneratedCoupons/bycode/${encodeURIComponent(codeToCancel)}`);
+ if (gResp.ok) {
+ try {
+ const txt = await gResp.text();
+ genRecord = txt ? JSON.parse(txt) : null;
+ } catch { genRecord = null; }
+ }
+ } catch (ex) { console.warn('Failed to fetch generated coupon record', ex); genRecord = null; }
+ 
+ // Prepare payload for reset endpoint — include id if we found one, and always include code
+ const payload = {
+ code: codeToCancel,
+ cancelledBy: currentUser
+ };
+ // try to set id from common property names
+ if (genRecord) {
+ payload.id = genRecord.id || genRecord.generatedCouponId || genRecord.GeneratedCouponId || genRecord.GeneratedCouponID || genRecord.couponId || genRecord.idGenerated || null;
+ }
+ 
+ // Call reset endpoint that backend should implement to clear IsUsed/UsedBy/UsedDate
+ const resp = await fetch('/api/GeneratedCoupons/reset', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify(payload)
+ });
+ 
+ let result = null;
+ try {
+ const text = await resp.text();
+ result = text ? JSON.parse(text) : null;
+ } catch (pe) { console.warn('Reset response not JSON or empty', pe); result = null; }
+ 
+ if (resp.ok && result && (result.result === 'Success' || result.success === true)) {
+ alert('✓ ยกเลิกการตัดคูปองเรียบร้อยแล้ว');
+ if (currentReceiptId) await showDetail(currentReceiptId);
+ } else if (resp.ok && !result) {
+ // backend returned200 with empty body — treat as success
+ alert('✓ ยกเลิกการตัดคูปองเรียบร้อยแล้ว');
+ if (currentReceiptId) await showDetail(currentReceiptId);
+ } else {
+ let errMsg = 'ไม่สามารถยกเลิกคูปองได้';
+ if (result && result.message) errMsg = result.message;
+ alert('❌ ' + errMsg);
+ }
+ } catch (err) {
+ console.error('Error cancelling redemption:', err);
+ alert('เกิดข้อผิดพลาด: ' + err.message);
+ }
+ });
+ 
+ } catch (err) {
+ console.error('Error finding redeemed codes:', err);
+ alert('เกิดข้อผิดพลาด: ' + err.message);
+ }
+ })();
+ });
+ }
+ });
+ 
  $('detailModal').style.display = 'flex';
  }catch(err){
  console.error('Error showing detail:', err);
@@ -521,10 +813,317 @@
  }
  }
 
- function renderSold(data){ 
+ async function showCouponDetail(couponCode){
+ try{
+ console.log('Loading coupon detail:', couponCode);
+ 
+ const resp = await fetch(`/api/Coupons/${couponCode}`);
+ if(!resp.ok){
+ throw new Error('HTTP ' + resp.status);
+ }
+ 
+ const coupon = await resp.json();
+ console.log('Loaded coupon detail:', coupon);
+ 
+ const statusClass = coupon.status === 'Active' ? 'status-active' : 'status-cancelled';
+ 
+ const couponInfoHtml = `
+ <div class="detail-section">
+ <h4>ข้อมูลคูปอง</h4>
+ <div class="detail-row">
+ <div class="detail-label">รหัสคูปอง:</div>
+ <div class="detail-value">${escapeHtml(coupon.couponCode)}</div>
+ </div>
+ <div class="detail-row">
+ <div class="detail-label">ชื่อคูปอง:</div>
+ <div class="detail-value">${escapeHtml(coupon.couponName)}</div>
+ </div>
+ <div class="detail-row">
+ <div class="detail-label">สถานะ:</div>
+ <div class="detail-value"><span class="${statusClass}">${escapeHtml(coupon.statusText)}</span></div>
+ </div>
+ <div class="detail-row">
+ <div class="detail-label">วันที่สร้าง:</div>
+ <div class="detail-value">${formatDate(coupon.createDate)}</div>
+ </div>
+ <div class="detail-row">
+ <div class="detail-label">วันที่หมดอายุ:</div>
+ <div class="detail-value">${formatDate(coupon.expireDate)}</div>
+ </div>
+ <div class="detail-row">
+ <div class="detail-label">จำนวนการใช้งาน:</div>
+ <div class="detail-value">${escapeHtml(coupon.usageCount ||0)}</div>
+ </div>
+ </div>
+ 
+ <div class="detail-section">
+ <h4>ข้อมูลการใช้งาน</h4>
+ <div class="detail-row">
+ <div class="detail-label">รหัสใบเสร็จที่ใช้งานล่าสุด:</div>
+ <div class="detail-value">${escapeHtml(coupon.lastUsedReceipt || '-')}</div>
+ </div>
+ <div class="detail-row">
+ <div class="detail-label">วันที่ใช้งานล่าสุด:</div>
+ <div class="detail-value">${formatDate(coupon.lastUsedDate)}</div>
+ </div>
+ </div>
+ `;
+ 
+ $('couponContent').innerHTML = couponInfoHtml;
+ $('couponModal').style.display = 'flex';
+ }catch(err){
+ console.error('Error showing coupon detail:', err);
+ alert('ไม่สามารถแสดงรายละเอียดคูปองได้: ' + err.message);
+ }
+ }
+
+ // Helper functions for item actions
+ async function viewCouponDetail(couponCode) {
+ try {
+ console.log('Loading coupon detail:', couponCode);
+ 
+ // เรียก API endpoint ใหม่ที่ส่งข้อมูลละเอียด
+ const resp = await fetch(`/api/CouponDefinitions/bycode/${encodeURIComponent(couponCode)}`);
+ if(!resp.ok) {
+ if(resp.status ===404) {
+ throw new Error('ไม่พบข้อมูลคูปอง: ' + couponCode);
+ }
+ throw new Error('HTTP ' + resp.status);
+ }
+ 
+ const coupon = await resp.json();
+ console.log('Loaded coupon detail:', coupon);
+ 
+ // Format dates
+ const validFrom = coupon.validFrom ? formatDate(coupon.validFrom) : '-';
+ const validTo = coupon.validTo ? formatDate(coupon.validTo) : '-';
+ 
+ // Format description with line breaks
+ const description = (coupon.description || 'ไม่มีรายละเอียด').replace(/\n/g, '<br>');
+ 
+ // สถานะ
+ let statusBadge = '';
+ if (!coupon.isActive) {
+ statusBadge = '<span style="color:#dc3545; font-weight:bold;">✗ ปิดใช้งาน</span>';
+ } else if (coupon.isExpired) {
+ statusBadge = '<span style="color:#dc3545; font-weight:bold;">⏰ หมดอายุ</span>';
+ } else if (coupon.isCurrentlyValid) {
+ statusBadge = '<span style="color:#28a745; font-weight:bold;">✓ ใช้งานได้</span>';
+ } else {
+ statusBadge = '<span style="color:#ffc107; font-weight:bold;">⏳ ยังไม่เริ่ม</span>';
+ }
+ 
+ const html = `
+ <div class="coupon-detail-section">
+ <h4>ข้อมูลพื้นฐาน</h4>
+ <div class="coupon-detail-row">
+ <div class="coupon-detail-label">รหัสคูปอง:</div>
+ <div class="coupon-detail-value"><strong>${escapeHtml(coupon.code)}</strong></div>
+ </div>
+ <div class="coupon-detail-row">
+ <div class="coupon-detail-label">ชื่อคูปอง:</div>
+ <div class="coupon-detail-value">${escapeHtml(coupon.name)}</div>
+ </div>
+ <div class="coupon-detail-row">
+ <div class="coupon-detail-label">ประเภท:</div>
+ <div class="coupon-detail-value">${escapeHtml(coupon.couponType || '-')}</div>
+ </div>
+ <div class="coupon-detail-row">
+ <div class="coupon-detail-label">ราคา:</div>
+ <div class="coupon-detail-value">
+ <span class="coupon-price">${formatCurrency(coupon.price)} บาท</span>
+ </div>
+ </div>
+ <div class="coupon-detail-row">
+ <div class="coupon-detail-label">สถานะ:</div>
+ <div class="coupon-detail-value">${statusBadge}</div>
+ </div>
+ </div>
+ 
+ <div class="coupon-detail-section">
+ <h4>รายละเอียด</h4>
+ <div class="coupon-description">${description}</div>
+ </div>
+ 
+ <div class="coupon-detail-section">
+ <h4>ข้อมูลการใช้งาน</h4>
+ <div class="coupon-detail-row">
+ <div class="coupon-detail-label">วันที่เริ่มใช้งาน:</div>
+ <div class="coupon-detail-value">${validFrom}</div>
+ </div>
+ <div class="coupon-detail-row">
+ <div class="coupon-detail-label">วันหมดอายุ:</div>
+ <div class="coupon-detail-value" style="${coupon.isExpired ? 'color:#dc3545; font-weight:bold;' : ''}">${validTo}</div>
+ </div>
+ ${coupon.expiryDays >0 ? `
+ <div class="coupon-detail-row">
+ <div class="coupon-detail-label">อายุการใช้งาน:</div>
+ <div class="coupon-detail-value">${coupon.expiryDays} วัน</div>
+ </div>
+ ` : ''}
+
+ <div class="coupon-detail-row">
+ <div class="coupon-detail-label">ประเภทจำนวน:</div>
+ <div class="coupon-detail-value">${coupon.isLimited ? 'จำกัดจำนวน' : 'ไม่จำกัดจำนวน'}</div>
+ </div>
+ </div>
+ `;
+ 
+ $('couponContent').innerHTML = html;
+ $('couponModal').style.display = 'flex';
+ 
+ } catch(err) {
+ console.error('Error loading coupon detail:', err);
+ alert('ไม่สามารถโหลดรายละเอียดคูปองได้: ' + err.message);
+ }
+ }
+
+ // ฟังก์ชันแสดง Confirmation Dialog
+ function showConfirmDialog(message, onConfirm) {
+ $('confirmMessage').innerHTML = message;
+ $('confirmModal').style.display = 'flex';
+ 
+ // Remove old event listeners
+ const btnYes = $('confirmYes');
+ const btnNo = $('confirmNo');
+ const newBtnYes = btnYes.cloneNode(true);
+ const newBtnNo = btnNo.cloneNode(true);
+ btnYes.parentNode.replaceChild(newBtnYes, btnYes);
+ btnNo.parentNode.replaceChild(newBtnNo, btnNo);
+ 
+ // Add new event listeners
+ newBtnYes.addEventListener('click', () => {
+ $('confirmModal').style.display = 'none';
+ onConfirm();
+ });
+ 
+ newBtnNo.addEventListener('click', () => {
+ $('confirmModal').style.display = 'none';
+ });
+ }
+
+ // ฟังก์ชันตัดคูปอง พร้อม Confirmation Dialog
+ async function redeemCouponFromItem(receiptId, couponCode, couponName, generatedCodes, isComplimentaryChecked = false) {
+ try {
+ // ตรวจสอบว่ามีคูปองที่ยังไม่ถูกใช้หรือไม่
+ if (!generatedCodes || generatedCodes.length ===0) {
+ alert('ไม่มีรหัสคูปองที่ยังไม่ถูกใช้');
+ return;
+ }
+
+ // หา code ที่ยังไม่ถูกใช้
+ let codeToRedeem = null;
+ for (const code of generatedCodes) {
+ try {
+ const resp = await fetch(`/api/GeneratedCoupons/bycode/${encodeURIComponent(code)}`);
+ if (resp.ok) {
+ const coupon = await resp.json();
+ if (!coupon.isUsed) {
+ codeToRedeem = code;
+ break;
+ }
+ }
+ } catch (err) {
+ console.error('Error checking code:', code, err);
+ }
+ }
+ 
+ if (!codeToRedeem) {
+ alert('ไม่มีรหัสคูปองที่ยังไม่ถูกใช้');
+ return;
+ }
+ 
+ // If user checked COM checkbox, mark selected generated code as complimentary before redeem
+ if (isComplimentaryChecked) {
+ try {
+ const respMark = await fetch('/api/GeneratedCoupons/mark-complimentary/' + encodeURIComponent(codeToRedeem), { method: 'POST' });
+ if (!respMark.ok) {
+ console.warn('Mark complimentary failed for', codeToRedeem, respMark.status);
+ }
+ else {
+ console.log('Marked complimentary for', codeToRedeem);
+ }
+ } catch (ex) {
+ console.error('Error marking complimentary:', ex);
+ }
+ }
+ 
+ // แสดง Confirmation Dialog
+ const message = `
+
+ <p>คุณต้องการตัดคูปองนี้ใช่หรือไม่?</p>
+ <p style="margin-top:10px;">
+ <strong>คูปอง:</strong> ${escapeHtml(couponName)}<br>
+ <strong>รหัสคูปอง:</strong> <span class="coupon-code-highlight">${escapeHtml(codeToRedeem)}</span><br>
+ </p>
+ <p style="margin-top:10px; color:#dc3545; font-size:13px;">
+ ⚠️ หลังจากตัดคูปองแล้วจะไม่สามารถยกเลิกได้
+ </p>
+ `;
+ 
+ showConfirmDialog(message, async () => {
+ // ส่ง request ไปยัง API
+ console.log('Redeeming coupon:', codeToRedeem);
+ 
+ try {
+ const response = await fetch('/api/CouponRedemption/redeem', {
+ method: 'POST',
+ headers: {
+ 'Content-Type': 'application/json'
+ },
+ body: JSON.stringify({
+ code: codeToRedeem,
+ redeemedBy: currentUser,
+ receiptItemId: null
+ })
+ });
+ 
+ // Safely parse JSON only if response has content
+ let result = null;
+ try {
+ const text = await response.text();
+ result = text ? JSON.parse(text) : null;
+ } catch(parseErr) {
+ console.warn('Redeem response not JSON or empty:', parseErr);
+ result = null;
+ }
+ console.log('Redeem result:', result);
+ 
+ if (response.ok && result && result.result === 'Success') {
+ alert(`✓ ตัดคูปองสำเร็จ!\n\nรหัสคูปอง: ${codeToRedeem}\nตัดโดย: ${result.usedBy}\nเวลา: ${formatDate(result.usedDate)}`);
+ 
+ // Reload receipt detail เพื่ออัพเดทข้อมูล
+ if (currentReceiptId) {
+ await showDetail(currentReceiptId);
+ }
+ } else {
+ // แสดง error message
+ let errorMsg = 'ไม่สามารถตัดคูปองได้';
+ if (result && result.result === 'NotFound') {
+ errorMsg = 'ไม่พบรหัสคูปองนี้';
+ } else if (result && result.result === 'Expired') {
+ errorMsg = 'คูปองหมดอายุแล้ว';
+ } else if (result && result.result === 'AlreadyUsed') {
+ errorMsg = 'คูปองถูกใช้ไปแล้ว';
+ } else if (result && result.message) {
+ errorMsg = result.message;
+ }
+ alert('❌ ' + errorMsg);
+ }
+ } catch (err) {
+ console.error('Error redeeming coupon:', err);
+ alert('เกิดข้อผิดพลาด: ' + err.message);
+ }
+ });
+ 
+ } catch (err) {
+ console.error('Error in redeemCouponFromItem:', err);
+ alert('เกิดข้อผิดพลาด: ' + err.message);
+ }
+ }
+
+ function renderReceipts(data){ 
  resultsBody.innerHTML=''; 
- selectedIds.clear(); 
- selectAll.checked=false; 
  
  if(!data || !Array.isArray(data.items)){ 
  summaryEl.textContent='ไม่พบข้อมูล'; 
@@ -537,54 +1136,50 @@
  
  data.items.forEach((item, idx)=>{
  const tr=document.createElement('tr');
- const id=item.id;
- const expired = isExpired(item.expiresAt);
+ const isCancelled = item.status === 'Cancelled';
+ const statusClass = item.status === 'Active' ? 'status-active' : 'status-cancelled';
  
- if(expired) {
- tr.classList.add('expired-row');
+ if(isCancelled) {
+ tr.classList.add('cancelled-row');
  }
  
+ // read UnredeemedSummary (handle PascalCase or camelCase) and render as plain text
+ const unredeemedRaw = (item.unredeemedSummary || item.UnredeemedSummary || '').trim();
+ const unredeemedEsc = escapeHtml(unredeemedRaw);
+ 
  tr.innerHTML=`
- <td class="col-checkbox"><input class="rowSelect" type="checkbox" data-id="${id}" /></td>
- <td class="col-code">${escapeHtml(item.generatedCode)}</td>
- <td class="col-def-code">${escapeHtml(item.couponDefinitionCode)}</td>
- <td class="col-def-name">${escapeHtml(item.couponDefinitionName)}</td>
- <td class="col-status">${escapeHtml(item.statusText)}</td>
- <td class="col-usage">${escapeHtml(item.usageText)}</td>
- <td class="col-used-by">${escapeHtml(item.usedBy ?? '')}</td>
- <td class="col-date">${item.usedDate ? formatDate(item.usedDate) : ''}</td>
- <td class="col-date">${formatDate(item.createdAt)}</td>
- <td class="col-expires">${item.expiresAt ? formatDateOnly(item.expiresAt) : ''}${expired ? ' <span style="color:#dc3545;">⚠️</span>' : ''}</td>
- <td class="col-detail"><button class="detail-btn" data-idx="${idx}">📋 ดูรายละเอียด</button></td>
+ <td class="col-code">${escapeHtml(item.receiptCode || item.ReceiptCode)}</td>
+ <td class="col-date">${formatDate(item.receiptDate || item.ReceiptDate)}</td>
+ <td class="col-customer">${escapeHtml(item.customerName || item.CustomerName)}</td>
+ <td class="col-phone">${escapeHtml(item.customerPhoneNumber || item.CustomerPhoneNumber)}</td>
+ <td class="col-sales">${escapeHtml(item.salesPersonName || item.SalesPersonName || '-')}</td>
+ <td class="col-payment">${escapeHtml(item.paymentMethodName || item.PaymentMethodName || '-')}</td>
+ <td class="col-discount">${formatCurrency(item.discount || item.Discount)}</td>
+ <td class="col-total">${formatCurrency(item.totalAmount || item.TotalAmount)}</td>
+ <td class="col-status"><span class="${statusClass}">${escapeHtml(item.statusText || item.StatusText || (item.status || item.Status))}</span></td>
+ <td class="col-unredeemed"><span class="unredeemed-text">${unredeemedEsc}</span></td>
+ <td class="col-detail"><button class="detail-btn" data-id="${item.receiptID || item.ReceiptID}">ดูรายละเอียด</button></td>
  `;
  resultsBody.appendChild(tr);
  });
  
- // Attach events
- document.querySelectorAll('input.rowSelect').forEach(cb=>{
- cb.addEventListener('change', ()=>{ 
- const id=parseInt(cb.dataset.id,10); 
- if(cb.checked) selectedIds.add(id); 
- else selectedIds.delete(id); 
- updateRedeemButton(); 
- });
- });
- 
+ // Attach detail button events
  document.querySelectorAll('.detail-btn').forEach(btn=>{
  btn.addEventListener('click', ()=>{
- const idx = parseInt(btn.dataset.idx, 10);
- if(currentData[idx]) showDetail(currentData[idx]);
+ const receiptId = parseInt(btn.dataset.id,10);
+ showDetail(receiptId);
  });
  });
  
  const total = data.totalCount ??0;
- summaryEl.textContent=`ผลลัพธ์ ${total.toLocaleString('th-TH')} รายการ`;
+ const totalSum = data.items.reduce((sum, item) => sum + (item.totalAmount || item.TotalAmount ||0),0);
+ summaryEl.textContent=`ผลลัพธ์ ${total.toLocaleString('th-TH')} รายการ | ยอดรวมทั้งหมด: ${formatCurrency(totalSum)} บาท`;
+ 
  page = data.page ||1; 
  totalPages = data.totalPages ||1; 
  pageInfo.textContent=`หน้า ${page} จาก ${totalPages}`;
  $('prev').disabled = page <=1; 
  $('next').disabled = page >= totalPages;
- updateRedeemButton(); 
  }
 
  function escapeHtml(s){ 
@@ -592,158 +1187,32 @@
  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); 
  }
 
- function updateRedeemButton(){ 
- $('redeemSelected').disabled = selectedIds.size ===0; 
- }
-
  // Events
- $('btnSearch').addEventListener('click', ()=>{ page=1; loadSold(); });
- $('searchCode').addEventListener('input', ()=>{ page=1; loadSold(); });
- $('defCodeText').addEventListener('input', ()=>{ page=1; loadSold(); });
- $('defNameText').addEventListener('input', ()=>{ page=1; loadSold(); });
- $('defCodeDropdown').addEventListener('change', ()=>{ page=1; loadSold(); });
- $('defNameDropdown').addEventListener('change', ()=>{ page=1; loadSold(); });
- $('dateFrom').addEventListener('change', ()=>{ page=1; loadSold(); });
- $('dateTo').addEventListener('change', ()=>{ page=1; loadSold(); });
- $('pageSize').addEventListener('change', ()=>{ page=1; loadSold(); });
- $('prev').addEventListener('click', ()=>{ if(page>1){ page--; loadSold(); } });
- $('next').addEventListener('click', ()=>{ if(page<totalPages){ page++; loadSold(); } });
+ $('btnSearch').addEventListener('click', ()=>{ page=1; loadReceipts(); });
+ $('searchReceiptCode').addEventListener('input', ()=>{ page=1; loadReceipts(); });
+ $('searchCouponCode').addEventListener('input', ()=>{ page=1; loadReceipts(); });
+ $('searchCustomerName').addEventListener('input', ()=>{ page=1; loadReceipts(); });
+ $('searchPhone').addEventListener('input', ()=>{ page=1; loadReceipts(); });
+ $('searchStatus').addEventListener('change', ()=>{ page=1; loadReceipts(); });
+ $('dateFrom').addEventListener('change', ()=>{ page=1; loadReceipts(); });
+ $('dateTo').addEventListener('change', ()=>{ page=1; loadReceipts(); });
+ $('pageSize').addEventListener('change', ()=>{ page=1; loadReceipts(); });
+ $('prev').addEventListener('click', ()=>{ if(page>1){ page--; loadReceipts(); } });
+ $('next').addEventListener('click', ()=>{ if(page<totalPages){ page++; loadReceipts(); } });
 
  // Detail modal
- $('detailClose').addEventListener('click', ()=>{ $('detailModal').style.display='none'; });
-
- // Redeem
- $('redeemSelected').addEventListener('click', ()=>{
- if(selectedIds.size ===0) return;
- 
- // Check for expired coupons in selection
- const expiredCoupons = [];
- selectedIds.forEach(id => {
- const item = currentData.find(d => d.id === id);
- if(item && isExpired(item.expiresAt)) {
- expiredCoupons.push(item.generatedCode);
- }
- });
- 
- $('modal').style.display='flex';
- $('modalMsg').textContent='';
- $('modalFailures').style.display='none';
- $('modalSuccess').style.display='none';
- $('modalFailures').innerHTML='';
- $('modalSuccess').innerHTML='';
- 
- if(expiredCoupons.length > 0) {
- $('modalWarning').innerHTML = `⚠️ <strong>คำเตือน:</strong> มีคูปองหมดอายุ ${expiredCoupons.length} รายการ: ${escapeHtml(expiredCoupons.join(', '))}`;
- $('modalWarning').style.display = 'block';
- } else {
- $('modalWarning').style.display = 'none';
- }
- 
- const codes = Array.from(selectedIds).map(id => {
- const cb = document.querySelector(`input.rowSelect[data-id="${id}"]`);
- const row = cb?.closest('tr');
- return row ? row.children[1].innerText.trim() : '';
- }).filter(Boolean);
- 
- $('modalPrompt').textContent = codes.length ===1 
- ? `ยืนยันจะตัดบัตรใบ ${codes[0]} นี้ใช่ไหม` 
- : `ยืนยันจะตัดบัตร ${codes.length} ใบ ใช่ไหม`;
+ $('detailClose').addEventListener('click', ()=>{ 
+ $('detailModal').style.display='none';
+ // Refresh the main receipts table when the detail modal is closed
+ loadReceipts().catch(err => console.error('Error reloading receipts after closing detail modal:', err));
  });
 
- $('modalCancel').addEventListener('click', ()=>{ $('modal').style.display='none'; });
- 
- $('modalConfirm').addEventListener('click', async ()=>{
- const usedBy = currentUser || 'system';
- const ids = Array.from(selectedIds);
- $('modalConfirm').disabled = true; 
- $('modalMsg').textContent='กำลังบันทึก...';
- const successes = [];
- const failures = [];
- 
- try{
- for(const id of ids){
- const checkbox = document.querySelector(`input.rowSelect[data-id="${id}"]`);
- if(!checkbox) continue;
- const row = checkbox.closest('tr');
- const code = row.children[1].innerText.trim();
- 
- // Check expiration before redeeming
- const item = currentData.find(d => d.id === id);
- if(item && isExpired(item.expiresAt)) {
- failures.push({ code, message: 'คูปองหมดอายุแล้ว' });
- continue;
- }
- 
- try{
- const resp = await fetch('/api/CouponRedemption/redeem',{ 
- method:'POST', 
- headers:{'Content-Type':'application/json'}, 
- body: JSON.stringify({ code, redeemedBy: usedBy })
- });
- 
- const body = await resp.json().catch(()=>null);
- if(resp.ok){ 
- successes.push(code); 
- } else {
- const msg = body?.message ?? body?.result ?? resp.statusText;
- failures.push({ code, message: msg });
- }
- }catch(netErr){ 
- failures.push({ code, message: 'Network error' }); 
- }
- }
- 
- if(failures.length){ 
- let html = '<strong>ไม่สามารถตัดคูปองบางรายการได้:</strong><ul>'; 
- failures.forEach(f=> html += `<li>${escapeHtml(f.code)}: ${escapeHtml(f.message)}</li>`); 
- html += '</ul>'; 
- $('modalFailures').innerHTML = html; 
- $('modalFailures').style.display = 'block'; 
- }
- 
- if(successes.length){ 
- $('modalSuccess').innerHTML = `<strong>✅ ตัดคูปองสำเร็จ:</strong> ${escapeHtml(successes.join(', '))}`; 
- $('modalSuccess').style.display = 'block';
- await loadSold();
- 
- successes.forEach(c=>{
- const row = Array.from(document.querySelectorAll('#results tbody tr'))
- .find(r => r.children[1].innerText.trim() === c);
- if(row){ 
- const cb = row.querySelector('input.rowSelect'); 
- if(cb) cb.checked = false; 
- const idAttr = cb?.dataset.id; 
- if(idAttr) selectedIds.delete(parseInt(idAttr,10)); 
- }
- });
- updateRedeemButton(); 
- }
- 
- $('modalMsg').textContent = successes.length ? 'บันทึกเรียบร้อย' : 'ไม่สามารถบันทึกได้';
- 
- if(successes.length && failures.length === 0){ 
- setTimeout(()=>{ 
- $('modal').style.display='none'; 
- $('modalMsg').textContent=''; 
- $('modalFailures').style.display='none'; 
- $('modalSuccess').style.display='none'; 
- $('modalWarning').style.display='none';
- },2000); 
- }
- 
- $('modalConfirm').disabled = false;
- }catch(err){ 
- $('modalMsg').textContent='เกิดข้อผิดพลาด: '+err; 
- $('modalConfirm').disabled=false; 
- }
- });
+ // Coupon modal
+ $('couponClose').addEventListener('click', ()=>{ $('couponModal').style.display='none'; });
 
  // Initialize
- console.log('Initializing page...');
- loadCouponDefinitions().then(()=> {
- console.log('Coupon definitions loaded, loading sold coupons...');
- return loadSold();
- }).catch(err => {
+ console.log('Initializing receipts page...');
+ loadReceipts().catch(err => {
  console.error('Initialization error:', err);
  errorEl.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message;
  });
