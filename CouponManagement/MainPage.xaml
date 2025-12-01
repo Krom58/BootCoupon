@@ -60,6 +60,11 @@
                     Content="แก้ไขใบเสร็จ"
                     Click="EditReceiptButton_Click"
                     Style="{StaticResource MenuButtonStyle}"/>
+            <!-- ปุ่มใหม่: จัดการผู้ใช้ -->
+            <Button x:Name="ManageUsersButton"
+                    Content="จัดการผู้ใช้"
+                    Click="ManageUsersButton_Click"
+                    Style="{StaticResource MenuButtonStyle}"/>
         </StackPanel>
     </Grid>
 </Page>

@@ -65,13 +65,13 @@ namespace CouponManagement.Web.Controllers
         /// <returns>Paged result of receipts.</returns>
         [HttpGet]
         public async Task<IActionResult> GetReceipts(
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 25,
+            [FromQuery] int page =1,
+            [FromQuery] int pageSize =25,
             [FromQuery] string? receiptCode = null,
             [FromQuery] string? customerName = null,
             [FromQuery] string? customerPhone = null,
-            [FromQuery] DateTime? dateFrom = null,
-            [FromQuery] DateTime? dateTo = null,
+            [FromQuery] DateTimeOffset? dateFrom = null,
+            [FromQuery] DateTimeOffset? dateTo = null,
             [FromQuery] string? status = null,
             [FromQuery] int? salesPersonId = null,
             [FromQuery] int? paymentMethodId = null,
@@ -92,11 +92,21 @@ namespace CouponManagement.Web.Controllers
                 if (!string.IsNullOrWhiteSpace(customerPhone))
                     query = query.Where(r => r.CustomerPhoneNumber.Contains(customerPhone));
 
+                // Handle date range robustly: dateFrom/dateTo are DateTimeOffset in UTC or with offset.
+                // We'll convert to UTC and use inclusive start and exclusive end (next day) comparison to avoid timezone issues.
                 if (dateFrom.HasValue)
-                    query = query.Where(r => r.ReceiptDate >= dateFrom.Value);
+                {
+                    var startUtc = dateFrom.Value.UtcDateTime;
+                    query = query.Where(r => r.ReceiptDate >= startUtc);
+                }
 
                 if (dateTo.HasValue)
-                    query = query.Where(r => r.ReceiptDate <= dateTo.Value);
+                {
+                    // Use end-exclusive by adding1 millisecond (or better: add1 tick) is risky; instead interpret provided dateTo as exact instant
+                    // If client sends end of day in local timezone (23:59:59.999) converted to UTC, it's safe to use <= comparison.
+                    var endUtc = dateTo.Value.UtcDateTime;
+                    query = query.Where(r => r.ReceiptDate <= endUtc);
+                }
 
                 if (!string.IsNullOrWhiteSpace(status))
                     query = query.Where(r => r.Status == status);
@@ -174,7 +184,7 @@ namespace CouponManagement.Web.Controllers
 
                 var receipts = await query
                     .OrderByDescending(r => r.ReceiptDate)
-                    .Skip((page - 1) * pageSize)
+                    .Skip((page -1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
 
@@ -228,7 +238,7 @@ namespace CouponManagement.Web.Controllers
                                           }).ToListAsync();
 
                     // load definitions for those ids
-                    var defIds = gcStats.Select(x => x.CouponDefinitionId).Where(id => id != 0).Distinct().ToList();
+                    var defIds = gcStats.Select(x => x.CouponDefinitionId).Where(id => id !=0).Distinct().ToList();
                     var definitions = await context.CouponDefinitions
                         .Where(d => defIds.Contains(d.Id))
                         .ToDictionaryAsync(d => d.Id, d => d.IsLimited);
@@ -250,7 +260,7 @@ namespace CouponManagement.Web.Controllers
                         });
 
                     // Attach UnredeemedSummary to items
-                    for (int i = 0; i < items.Count; i++)
+                    for (int i =0; i < items.Count; i++)
                     {
                         var dict = (IDictionary<string, object?>)items[i];
                         var rid = (int)dict["ReceiptID"]!;
@@ -261,7 +271,7 @@ namespace CouponManagement.Web.Controllers
                             if (s.HasLimited)
                             {
                                 summary = $"ยังไม่ได้ตัดอีก {s.LimitedUnredeemed} ใบ";
-                                if (s.LimitedComplimentary > 0)
+                                if (s.LimitedComplimentary >0)
                                 {
                                     summary += $" | COM (ฟรี) {s.LimitedComplimentary} ใบ";
                                 }

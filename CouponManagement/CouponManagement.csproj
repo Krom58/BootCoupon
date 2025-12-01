@@ -27,6 +27,7 @@
 
  <ItemGroup>
    <None Remove="ReceiptPage.xaml" />
+   <None Remove="UsersPage.xaml" />
  </ItemGroup>
 
  <ItemGroup>
@@ -60,6 +61,12 @@
 
  <ItemGroup>
  <ProjectReference Include="..\CouponManagement.Shared\CouponManagement.Shared.csproj" />
+ </ItemGroup>
+
+ <ItemGroup>
+   <Page Update="UsersPage.xaml">
+     <Generator>MSBuild:Compile</Generator>
+   </Page>
  </ItemGroup>
 
  <ItemGroup>

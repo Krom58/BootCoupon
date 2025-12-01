@@ -25,6 +25,11 @@
  <!-- Filter panel -->
  <Border Grid.Row="1" Background="#333333" CornerRadius="8" Padding="8" Margin="0,0,0,6">
  <Grid>
+ <!-- add two rows: main controls and coupon type selector below -->
+ <Grid.RowDefinitions>
+ <RowDefinition Height="Auto" />
+ <RowDefinition Height="Auto" />
+ </Grid.RowDefinitions>
  <Grid.ColumnDefinitions>
  <ColumnDefinition Width="Auto" />
  <ColumnDefinition Width="200" />
@@ -33,6 +38,7 @@
  <ColumnDefinition Width="Auto" />
  </Grid.ColumnDefinitions>
 
+ <!-- first row: existing controls -->
  <TextBlock Text="สถานะ:" VerticalAlignment="Center" Foreground="White" Margin="6,0" FontSize="13" />
  <ComboBox x:Name="StatusFilterComboBox" Grid.Column="1" VerticalAlignment="Center" Margin="8,0" SelectedIndex="0" Height="28">
  <ComboBoxItem Tag="">-- ทั้งหมด --</ComboBoxItem>
@@ -44,6 +50,13 @@
  <TextBox x:Name="SearchTextBox" Grid.Column="3" VerticalAlignment="Center" Margin="8,0" PlaceholderText="ค้นหาจากชื่อลูกค้า รหัสใบเสร็จ หรือเบอร์โทร" Height="28" />
 
  <Button x:Name="RefreshButton" Grid.Column="4" Content="รีเฟรช" Margin="10,0,0,0" Padding="8,4" VerticalAlignment="Center" Background="#e7aef6" Height="28" />
+
+ <!-- second row: coupon type selector -->
+ <TextBlock Grid.Row="1" Text="ประเภทคูปอง:" VerticalAlignment="Center" Foreground="White" Margin="6,6,0,0" FontSize="13" />
+ <ComboBox x:Name="CouponTypeFilterComboBox" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Margin="8,6,0,0" Height="28">
+ <!-- items will be populated from code-behind -->
+ <ComboBoxItem Tag="">-- ทั้งหมด --</ComboBoxItem>
+ </ComboBox>
  </Grid>
  </Border>
 

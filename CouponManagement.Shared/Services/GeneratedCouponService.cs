@@ -27,12 +27,16 @@ namespace CouponManagement.Shared.Services
         /// as long as it has not been marked used (IsUsed == false).
         /// If caller provides a non-null receiptItemId, it will be stored; otherwise existing ReceiptItemId is preserved.
         /// </summary>
-        public async Task<RedeemResult> RedeemCouponAsync(string code, string redeemedBy, int? receiptItemId = null, DateTime? redeemedAtUtc = null)
+        public async Task<RedeemResult> RedeemCouponAsync(string code, string redeemedBy, int? receiptItemId = null, DateTime? redeemedAtLocal = null)
         {
             if (string.IsNullOrWhiteSpace(code))
                 return new RedeemResult(RedeemResultType.InvalidRequest, "Coupon code is required.");
 
-            redeemedAtUtc ??= DateTime.UtcNow;
+            // If caller supplied a time, use it as-is (client local time). Otherwise use server local time.
+            if (!redeemedAtLocal.HasValue)
+            {
+                redeemedAtLocal = DateTime.Now; // server local time
+            }
 
             // Load coupon metadata first
             var coupon = await _context.GeneratedCoupons
@@ -42,7 +46,8 @@ namespace CouponManagement.Shared.Services
             if (coupon == null)
                 return new RedeemResult(RedeemResultType.NotFound, "Coupon not found.");
 
-            if (coupon.ExpiresAt.HasValue && coupon.ExpiresAt.Value < redeemedAtUtc.Value)
+            // Compare expiry against redeemed time (both treated as local/naive)
+            if (coupon.ExpiresAt.HasValue && coupon.ExpiresAt.Value < redeemedAtLocal.Value)
                 return new RedeemResult(RedeemResultType.Expired, "Coupon has expired.");
 
             // If already marked used, cannot redeem
@@ -51,14 +56,11 @@ namespace CouponManagement.Shared.Services
                 return new RedeemResult(RedeemResultType.AlreadyUsed, "Coupon already used.");
             }
 
-            // Atomic update:
-            // - set IsUsed =1, UsedDate, UsedBy
-            // - set ReceiptItemId only if caller provided a non-null receiptItemId (do not clear existing)
-            // WHERE clause only checks IsUsed =0 so sold coupons (ReceiptItemId != null) can be marked used too.
+            // Atomic update: set IsUsed, UsedDate, UsedBy (store redeemedAtLocal as-is)
             var rows = await _context.Database.ExecuteSqlInterpolatedAsync($@"
                 UPDATE GeneratedCoupons
                 SET IsUsed =1,
-                    UsedDate = {redeemedAtUtc.Value},
+                    UsedDate = {redeemedAtLocal.Value},
                     UsedBy = {redeemedBy},
                     ReceiptItemId = CASE WHEN {receiptItemId} IS NOT NULL THEN {receiptItemId} ELSE ReceiptItemId END
                 WHERE Id = {coupon.Id} AND IsUsed =0
@@ -438,6 +440,80 @@ namespace CouponManagement.Shared.Services
             _context.GeneratedCoupons.Update(coupon);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        /// <summary>
+        /// ดึงคูปองที่ถูกตัด (IsUsed == true) พร้อมกรองโดย UsedDate และแบ่งหน้า
+        /// </summary>
+        public async Task<PagedResult<GeneratedCouponDisplayModel>> GetRedeemedCouponsAsync(
+            int page = 1,
+            int pageSize = 50,
+            DateTime? usedFrom = null,
+            DateTime? usedTo = null,
+            string? usedBy = null,
+            string? couponDefinitionCode = null,
+            string? couponDefinitionName = null)
+        {
+            var query = _context.GeneratedCoupons
+                .Include(gc => gc.CouponDefinition)
+                .Include(gc => gc.ReceiptItem)
+                .AsQueryable();
+
+            // Only redeemed
+            query = query.Where(gc => gc.IsUsed == true);
+
+            if (usedFrom.HasValue)
+                query = query.Where(gc => gc.UsedDate >= usedFrom.Value);
+
+            if (usedTo.HasValue)
+                query = query.Where(gc => gc.UsedDate <= usedTo.Value);
+
+            if (!string.IsNullOrWhiteSpace(usedBy))
+                query = query.Where(gc => gc.UsedBy != null && gc.UsedBy.Contains(usedBy));
+
+            if (!string.IsNullOrWhiteSpace(couponDefinitionCode))
+                query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.Code.Contains(couponDefinitionCode));
+
+            if (!string.IsNullOrWhiteSpace(couponDefinitionName))
+                query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.Name.Contains(couponDefinitionName));
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(gc => gc.UsedDate)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(gc => new GeneratedCouponDisplayModel
+                {
+                    Id = gc.Id,
+                    GeneratedCode = gc.GeneratedCode,
+                    CouponDefinitionId = gc.CouponDefinitionId,
+                    CouponDefinitionCode = gc.CouponDefinition != null ? gc.CouponDefinition.Code : "",
+                    CouponDefinitionName = gc.CouponDefinition != null ? gc.CouponDefinition.Name : "",
+                    CouponDefinitionParams = gc.CouponDefinition != null ? gc.CouponDefinition.Params : "",
+                    CouponDefinitionPrice = gc.CouponDefinition != null ? gc.CouponDefinition.Price : 0m,
+                    BatchNumber = gc.BatchNumber,
+                    IsUsed = gc.IsUsed,
+                    UsedDate = gc.UsedDate,
+                    UsedBy = gc.UsedBy,
+                    CreatedAt = gc.CreatedAt,
+                    CreatedBy = gc.CreatedBy,
+                    ExpiresAt = gc.ExpiresAt,
+                    IsSold = gc.ReceiptItemId != null,
+                    ReceiptItemId = gc.ReceiptItemId,
+                    StatusText = gc.IsUsed ? (gc.ReceiptItemId != null ? "ขายแล้ว/ถูกใช้" : "ถูกใช้") : "ยังไม่ได้ใช้",
+                    UsageText = gc.IsUsed && gc.UsedDate.HasValue ? $"ใช้โดย {gc.UsedBy} เมื่อ {gc.UsedDate.Value:dd/MM/yyyy HH:mm}" : ""
+                })
+                .ToListAsync();
+
+            return new PagedResult<GeneratedCouponDisplayModel>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+            };
         }
 
         public void Dispose()

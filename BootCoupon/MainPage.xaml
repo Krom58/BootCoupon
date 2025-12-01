@@ -40,7 +40,8 @@
                     Height="100" 
                     FontSize="28"
                     HorizontalAlignment="Stretch"
-                    CornerRadius="8">
+                    CornerRadius="8"
+                    IsEnabled="False">
                 <Button.Background>
                     <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
                         <GradientStop Color="#FF107C10"/>
@@ -57,7 +58,8 @@
                     Height="100" 
                     FontSize="28"
                     HorizontalAlignment="Stretch"
-                    CornerRadius="8">
+                    CornerRadius="8"
+                    IsEnabled="False">
                 <Button.Background>
                     <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
                         <GradientStop Color="#FF8E24AA"/>
@@ -74,7 +76,8 @@
                     Height="100" 
                     FontSize="28"
                     HorizontalAlignment="Stretch"
-                    CornerRadius="8">
+                    CornerRadius="8"
+                    IsEnabled="False">
                 <Button.Background>
                     <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
                         <GradientStop Color="#FF00A4EF"/>

@@ -120,4 +120,7 @@
       <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="sql\" />
+  </ItemGroup>
 </Project>

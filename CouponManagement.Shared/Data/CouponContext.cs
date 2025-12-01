@@ -32,6 +32,7 @@ namespace CouponManagement.Shared
         public DbSet<PaymentMethod> PaymentMethods { get; set; } = null!;
         public DbSet<BootCoupon.Models.ReservedCoupon> ReservedCoupons { get; set; } = null!;
         public DbSet<CouponManagement.Shared.Models.ApplicationUser> ApplicationUsers { get; set; } = null!;
+        public DbSet<CouponManagement.Shared.Models.LoginLog> LoginLogs { get; set; } = null!;
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -296,6 +297,18 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
                 entity.HasIndex(e => e.Username).IsUnique();
+            });
+
+            // LoginLog mapping
+            modelBuilder.Entity<CouponManagement.Shared.Models.LoginLog>(entity =>
+            {
+                entity.ToTable("LoginLog");
+                entity.HasKey(e => e.LogId);
+                entity.Property(e => e.LoggedAt).HasDefaultValueSql("GETDATE()");
+                entity.Property(e => e.UserName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Action).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.Location).HasMaxLength(200);
+                entity.Property(e => e.App).HasMaxLength(200);
             });
         }
     }

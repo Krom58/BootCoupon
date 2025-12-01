@@ -30,10 +30,173 @@ namespace BootCoupon
 {
     public sealed partial class MainPage : Page
     {
+        private ApplicationUser? _currentUser;
+
         public MainPage()
         {
             InitializeComponent();
             // ลบการตั้งค่า EPPlus license ออก
+
+            // Show login when page is loaded
+            this.Loaded += MainPage_Loaded;
+        }
+
+        private async void MainPage_Loaded(object? sender, RoutedEventArgs e)
+        {
+            await PromptLoginAsync();
+        }
+
+        private async Task PromptLoginAsync()
+        {
+            // Loop until successful login or user cancels
+            while (true)
+            {
+                var usernameBox = new TextBox
+                {
+                    PlaceholderText = "ชื่อผู้ใช้",
+                    Width = 320
+                };
+                var passwordBox = new PasswordBox
+                {
+                    PlaceholderText = "รหัสผ่าน",
+                    Width = 320
+                };
+
+                var panel = new StackPanel { Spacing = 8 };
+                panel.Children.Add(new TextBlock { Text = "กรุณาเข้าสู่ระบบ", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, FontSize = 16 });
+                panel.Children.Add(new TextBlock { Text = "ชื่อผู้ใช้:" });
+                panel.Children.Add(usernameBox);
+                panel.Children.Add(new TextBlock { Text = "รหัสผ่าน:" });
+                panel.Children.Add(passwordBox);
+
+                var loginDialog = new ContentDialog
+                {
+                    Title = "เข้าสู่ระบบ",
+                    Content = panel,
+                    PrimaryButtonText = "เข้าสู่ระบบ",
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = this.XamlRoot
+                };
+
+                var result = await loginDialog.ShowAsync();
+
+                if (result != ContentDialogResult.Primary)
+                {
+                    // user cancelled - leave app in locked state
+                    await ShowErrorDialog("ยังไม่ได้เข้าสู่ระบบ ระบบจะถูกล็อคจนกว่าจะเข้าสู่ระบบ");
+
+                    // Log cancellation
+                    try
+                    {
+                        using (var logContext = new CouponContext())
+                        {
+                            string attemptedUser = usernameBox.Text?.Trim() ?? "(no user)";
+                            // Location = where in app this happened; OwnerMachineId = which machine performed it
+                            string appName = GetAppName();
+                            await LogLoginAttemptAsync(logContext, attemptedUser, "Login Cancelled", "LoginDialog - Cancel", Environment.MachineName, appName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to log login cancellation: {ex}");
+                    }
+
+                    break;
+                }
+
+                string username = usernameBox.Text?.Trim() ?? string.Empty;
+                string password = passwordBox.Password ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+                {
+                    await ShowErrorDialog("กรุณากรอกชื่อผู้ใช้และรหัสผ่าน");
+                    // Log missing credentials
+                    try
+                    {
+                        using (var logContext = new CouponContext())
+                        {
+                            string appName = GetAppName();
+                            await LogLoginAttemptAsync(logContext, username, "Login Failed - missing credentials", "LoginDialog - MissingCredentials", Environment.MachineName, appName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to log missing credentials: {ex}");
+                    }
+                    continue;
+                }
+
+                try
+                {
+                    using (var context = new CouponContext())
+                    {
+                        // Ensure database exists and is accessible
+                        await context.Database.EnsureCreatedAsync();
+
+                        // Find user by username (case-insensitive) and check password
+                        var user = await context.ApplicationUsers
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());
+
+                        if (user == null)
+                        {
+                            // Log attempt
+                            string appName = GetAppName();
+                            await LogLoginAttemptAsync(context, username, "Login Failed - user not found", "PromptLogin - UserLookup", Environment.MachineName, appName);
+
+                            await ShowErrorDialog("ไม่พบผู้ใช้ดังกล่าว");
+                            continue;
+                        }
+
+                        if (!user.IsActive)
+                        {
+                            // Log attempt
+                            string appName = GetAppName();
+                            await LogLoginAttemptAsync(context, username, "Login Failed - account inactive", "PromptLogin - CheckIsActive", Environment.MachineName, appName);
+
+                            await ShowErrorDialog("บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ");
+                            continue;
+                        }
+
+                        // For now passwords are stored in plain text per project note
+                        if (user.Password != password)
+                        {
+                            // Log attempt
+                            string appName = GetAppName();
+                            await LogLoginAttemptAsync(context, username, "Login Failed - wrong password", "PromptLogin - PasswordCheck", Environment.MachineName, appName);
+
+                            await ShowErrorDialog("รหัสผ่านไม่ถูกต้อง");
+                            continue;
+                        }
+
+                        // Success
+                        _currentUser = user;
+
+                        // Log success
+                        string appSuccess = GetAppName();
+                        await LogLoginAttemptAsync(context, user.Username, "Login Successful", "PromptLogin - Success", Environment.MachineName, appSuccess);
+
+                        EnableMainFunctions();
+                        await ShowSuccessDialog($"ยินดีต้อนรับ {user.DisplayName ?? user.Username}");
+                        break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Login error: {ex}");
+                    await ShowErrorDialog($"เกิดข้อผิดพลาดขณะตรวจสอบข้อมูลผู้ใช้: {ex.Message}");
+                    // Optionally break to avoid infinite loop on DB failure
+                    break;
+                }
+            }
+        }
+
+        private void EnableMainFunctions()
+        {
+            CreateReceiptButton.IsEnabled = true;
+            ReprintReceiptButton.IsEnabled = true;
+            SalesReportButton.IsEnabled = true;
+            SettingsButton.IsEnabled = true;
         }
 
         private void CreateReceiptButton_Click(object sender, RoutedEventArgs e)
@@ -212,7 +375,6 @@ namespace BootCoupon
                         Title = "ตั้งค่าระบบ",
                         Content = settingsPanel,
                         PrimaryButtonText = "บันทึก",
-                        CloseButtonText = "ยกเลิก",
                         DefaultButton = ContentDialogButton.Primary,
                         XamlRoot = this.XamlRoot
                     };
@@ -355,6 +517,36 @@ namespace BootCoupon
         private async System.Threading.Tasks.Task ShowSuccessDialog(string message)
         {
             await ShowMessageDialog(message, "สำเร็จ");
+        }
+
+        // New helper: log login attempts to dbo.Log table
+        private async Task LogLoginAttemptAsync(CouponContext context, string userName, string action, string? location = null, string? ownerMachineId = null, string? appName = null)
+        {
+            try
+            {
+                var loggedAt = DateTime.Now;
+                await context.Database.ExecuteSqlRawAsync(
+                    "INSERT INTO dbo.[Log] (LoggedAt, UserName, Action, Location, OwnerMachineId, App) VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
+                    loggedAt, userName ?? string.Empty, action ?? string.Empty, location ?? string.Empty, ownerMachineId ?? string.Empty, appName ?? string.Empty);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to write login log: {ex}");
+            }
+        }
+
+        // Helper to get current app/project name
+        private static string GetAppName()
+        {
+            try
+            {
+                var asm = System.Reflection.Assembly.GetEntryAssembly() ?? typeof(App).Assembly;
+                return asm.GetName().Name ?? "BootCoupon";
+            }
+            catch
+            {
+                return "BootCoupon";
+            }
         }
     }
 }

@@ -61,11 +61,11 @@ namespace CouponManagement.Web.Controllers
   couponDefinitionId = coupon.CouponDefinitionId,
      batchNumber = coupon.BatchNumber,
  isUsed = coupon.IsUsed,
-    usedDate = coupon.UsedDate,
+    usedDate = coupon.UsedDate.HasValue ? coupon.UsedDate.Value.ToUniversalTime().ToString("o") : null,
     usedBy = coupon.UsedBy,
-     createdAt = coupon.CreatedAt,
+     createdAt = coupon.CreatedAt.ToUniversalTime().ToString("o"),
 createdBy = coupon.CreatedBy,
-        expiresAt = coupon.ExpiresAt,
+        expiresAt = coupon.ExpiresAt.HasValue ? coupon.ExpiresAt.Value.ToUniversalTime().ToString("o") : null,
         receiptItemId = coupon.ReceiptItemId,
     isComplimentary = coupon.IsComplimentary
        };
@@ -129,11 +129,11 @@ catch (Exception ex)
         couponDefinitionId = coupon.CouponDefinitionId,
  batchNumber = coupon.BatchNumber,
       isUsed = coupon.IsUsed,
-     usedDate = coupon.UsedDate,
+     usedDate = coupon.UsedDate.HasValue ? coupon.UsedDate.Value.ToUniversalTime().ToString("o") : null,
   usedBy = coupon.UsedBy,
-   createdAt = coupon.CreatedAt,
+   createdAt = coupon.CreatedAt.ToUniversalTime().ToString("o"),
      createdBy = coupon.CreatedBy,
-   expiresAt = coupon.ExpiresAt,
+   expiresAt = coupon.ExpiresAt.HasValue ? coupon.ExpiresAt.Value.ToUniversalTime().ToString("o") : null,
    receiptItemId = coupon.ReceiptItemId,
      isComplimentary = coupon.IsComplimentary
         };

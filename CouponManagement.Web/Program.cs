@@ -6,6 +6,7 @@ using System.Text.Unicode;
 using CouponManagement.Shared;
 using CouponManagement.Shared.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +37,13 @@ builder.Services.AddDbContext<CouponContext>(options =>
 // Register application services
 builder.Services.AddScoped<GeneratedCouponService>();
 
+// add forwarded headers options
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+ options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+ // optionally limit known networks/proxies here
+});
+
 // Swagger + include XML comments
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -56,7 +64,9 @@ app.Use(async (context, next) =>
  var path = context.Request.Path.Value ?? string.Empty;
 
  bool isProtectedStatic = path.Equals("/redeem.html", StringComparison.OrdinalIgnoreCase);
- bool isProtectedApi = path.StartsWith("/api/CouponRedemption", StringComparison.OrdinalIgnoreCase);
+ // Protect CouponRedemption APIs except export endpoints (allow exports without pos_user cookie)
+ bool isProtectedApi = path.StartsWith("/api/CouponRedemption", StringComparison.OrdinalIgnoreCase)
+ && !path.StartsWith("/api/CouponRedemption/export", StringComparison.OrdinalIgnoreCase);
 
  if (isProtectedStatic || isProtectedApi)
  {
@@ -65,7 +75,7 @@ app.Use(async (context, next) =>
  {
  if (isProtectedApi)
  {
- context.Response.StatusCode = 401; // Unauthorized for API
+ context.Response.StatusCode =401; // Unauthorized for API
  context.Response.ContentType = "text/plain; charset=utf-8";
  await context.Response.WriteAsync("Unauthorized");
  return;
@@ -87,6 +97,9 @@ if (app.Environment.IsDevelopment())
  app.UseSwagger();
  app.UseSwaggerUI();
 }
+
+// Use forwarded headers (when behind a proxy)
+app.UseForwardedHeaders();
 
 // Use CORS
 app.UseCors();

@@ -37,6 +37,10 @@ namespace CouponManagement
             var statusCombo = this.FindName("StatusFilterComboBox") as ComboBox;
             if (statusCombo != null) statusCombo.SelectionChanged += StatusCombo_SelectionChanged;
 
+            // wire coupon type filter
+            var couponTypeCombo = this.FindName("CouponTypeFilterComboBox") as ComboBox;
+            if (couponTypeCombo != null) couponTypeCombo.SelectionChanged += CouponTypeCombo_SelectionChanged;
+
             var editBtn = this.FindName("EditButton") as Button;
             if (editBtn != null) editBtn.Click += EditButton_Click;
 
@@ -55,6 +59,8 @@ namespace CouponManagement
 
         private async void ReceiptPage_Loaded(object sender, RoutedEventArgs e)
         {
+            // load coupon types first so filter is available
+            await LoadCouponTypesAsync();
             await LoadReceiptsAsync();
         }
 
@@ -115,6 +121,11 @@ namespace CouponManagement
         }
 
         private async void StatusCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            await LoadReceiptsAsync();
+        }
+
+        private async void CouponTypeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             await LoadReceiptsAsync();
         }
@@ -256,7 +267,7 @@ namespace CouponManagement
                 panel.Children.Add(payCombo);
 
                 panel.Children.Add(new TextBlock { Text = "ส่วนลด (บาท):" });
-                var discountBox = new Microsoft.UI.Xaml.Controls.NumberBox { Value = (double)(receipt.Discount), Minimum = 0, Maximum = 1000000 };
+                var discountBox = new Microsoft.UI.Xaml.Controls.NumberBox { Value = (double)(receipt.Discount), Minimum =0, Maximum =1000000 };
                 panel.Children.Add(discountBox);
 
                 decimal totalBeforeDiscount = receipt.TotalAmount + receipt.Discount;
@@ -268,7 +279,7 @@ namespace CouponManagement
 
                 discountBox.ValueChanged += (s, args) =>
                 {
-                    var val = double.IsNaN(discountBox.Value) ? 0 : discountBox.Value;
+                    var val = double.IsNaN(discountBox.Value) ?0 : discountBox.Value;
                     var net = totalBeforeDiscount - (decimal)val;
                     netText.Text = $"ยอดสุทธิ: {net:N2} บาท";
                 };
@@ -297,7 +308,7 @@ namespace CouponManagement
                     receipt.CustomerPhoneNumber = phoneBox.Text.Trim();
                     receipt.SalesPersonId = salesCombo.SelectedValue as int? ?? receipt.SalesPersonId;
                     receipt.PaymentMethodId = payCombo.SelectedValue as int? ?? receipt.PaymentMethodId;
-                    var newDiscount = (decimal)(double.IsNaN(discountBox.Value) ? 0 : discountBox.Value);
+                    var newDiscount = (decimal)(double.IsNaN(discountBox.Value) ?0 : discountBox.Value);
                     receipt.Discount = newDiscount;
                     receipt.TotalAmount = totalBeforeDiscount - newDiscount;
 
@@ -627,98 +638,161 @@ var dialog = new ContentDialog
 closeTopBtn.Click += (s, ev) => dialog.Hide();
 
 await dialog.ShowAsync();
-            }
-            catch (Exception ex)
-            {
-                var err = new ContentDialog { Title = "ข้อผิดพลาด", Content = ex.Message, CloseButtonText = "ตกลง", XamlRoot = this.XamlRoot };
-                await err.ShowAsync();
-            }
-        }
+ }
+ catch (Exception ex)
+ {
+ var err = new ContentDialog { Title = "ข้อผิดพลาด", Content = ex.Message, CloseButtonText = "ตกลง", XamlRoot = this.XamlRoot };
+ await err.ShowAsync();
+ }
+ }
 
-        private async Task LoadReceiptsAsync()
-        {
-            TextBlock? statusTextBlock = this.FindName("StatusText") as TextBlock;
-            try
-            {
-                if (statusTextBlock != null) statusTextBlock.Text = "กำลังโหลด...";
-                using var ctx = new CouponContext();
+ private async Task LoadReceiptsAsync()
+ {
+ TextBlock? statusTextBlock = this.FindName("StatusText") as TextBlock;
+ try
+ {
+ if (statusTextBlock != null) statusTextBlock.Text = "กำลังโหลด...";
+ using var ctx = new CouponContext();
 
-                // apply filters
-                string? search = null;
-                var searchBox = this.FindName("SearchTextBox") as TextBox;
-                if (searchBox != null && !string.IsNullOrWhiteSpace(searchBox.Text)) search = searchBox.Text.Trim();
+ // apply filters
+ string? search = null;
+ var searchBox = this.FindName("SearchTextBox") as TextBox;
+ if (searchBox != null && !string.IsNullOrWhiteSpace(searchBox.Text)) search = searchBox.Text.Trim();
 
-                string? statusFilter = null;
-                var statusCombo = this.FindName("StatusFilterComboBox") as ComboBox;
-                if (statusCombo != null && statusCombo.SelectedItem is ComboBoxItem cbi && cbi.Tag != null)
-                {
-                    var tag = cbi.Tag.ToString();
-                    if (!string.IsNullOrEmpty(tag)) statusFilter = tag;
-                }
+ string? statusFilter = null;
+ var statusCombo = this.FindName("StatusFilterComboBox") as ComboBox;
+ if (statusCombo != null && statusCombo.SelectedItem is ComboBoxItem cbi && cbi.Tag != null)
+ {
+ var tag = cbi.Tag.ToString();
+ if (!string.IsNullOrEmpty(tag)) statusFilter = tag;
+ }
 
-                var query = ctx.Receipts.AsQueryable();
+ // coupon type filter
+ string? couponTypeFilter = null;
+ var couponTypeCombo = this.FindName("CouponTypeFilterComboBox") as ComboBox;
+ if (couponTypeCombo != null && couponTypeCombo.SelectedItem is ComboBoxItem ctbi && ctbi.Tag != null)
+ {
+ var tag = ctbi.Tag.ToString();
+ if (!string.IsNullOrEmpty(tag)) couponTypeFilter = tag;
+ }
 
-                if (!string.IsNullOrEmpty(statusFilter))
-                {
-                    query = query.Where(r => r.Status == statusFilter);
-                }
+ var query = ctx.Receipts.AsQueryable();
 
-                if (!string.IsNullOrEmpty(search))
-                {
-                    var s = search.ToLower();
+ if (!string.IsNullOrEmpty(statusFilter))
+ {
+ query = query.Where(r => r.Status == statusFilter);
+ }
 
-                    // also search receipts by coupon code (either CouponDefinitions.Code or GeneratedCoupons.GeneratedCode)
-                    var receiptIdsByCode = await (from ri in ctx.ReceiptItems
-                                                  join cd in ctx.CouponDefinitions on ri.CouponId equals cd.Id into cdg
-                                                  from cd in cdg.DefaultIfEmpty()
-                                                  join gc in ctx.GeneratedCoupons on ri.ReceiptItemId equals gc.ReceiptItemId into gcg
-                                                  from gc in gcg.DefaultIfEmpty()
-                                                  where (cd != null && (cd.Code ?? "").ToLower().Contains(s)) || (gc != null && (gc.GeneratedCode ?? "").ToLower().Contains(s))
-                                                  select ri.ReceiptId).Distinct().ToListAsync();
+ if (!string.IsNullOrEmpty(search))
+ {
+ var s = search.ToLower();
 
-                    query = query.Where(r => (r.CustomerName ?? "").ToLower().Contains(s) || (r.ReceiptCode ?? "").ToLower().Contains(s) || (r.CustomerPhoneNumber ?? "").ToLower().Contains(s) || receiptIdsByCode.Contains(r.ReceiptID));
-                }
+ // also search receipts by coupon code (either CouponDefinitions.Code or GeneratedCoupons.GeneratedCode)
+ var receiptIdsByCode = await (from ri in ctx.ReceiptItems
+ join cd in ctx.CouponDefinitions on ri.CouponId equals cd.Id into cdg
+ from cd in cdg.DefaultIfEmpty()
+ join gc in ctx.GeneratedCoupons on ri.ReceiptItemId equals gc.ReceiptItemId into gcg
+ from gc in gcg.DefaultIfEmpty()
+ where (cd != null && (cd.Code ?? "").ToLower().Contains(s)) || (gc != null && (gc.GeneratedCode ?? "").ToLower().Contains(s))
+ select ri.ReceiptId).Distinct().ToListAsync();
 
-                var receipts = await query.OrderByDescending(r => r.ReceiptID).ToListAsync();
+ query = query.Where(r => (r.CustomerName ?? "").ToLower().Contains(s) || (r.ReceiptCode ?? "").ToLower().Contains(s) || (r.CustomerPhoneNumber ?? "").ToLower().Contains(s) || receiptIdsByCode.Contains(r.ReceiptID));
+ }
 
-                _rows.Clear();
-                foreach (var r in receipts)
-                {
-                    // Load related names safely
-                    string salesName = string.Empty;
-                    if (r.SalesPersonId.HasValue)
-                    {
-                        var sp = await ctx.SalesPerson.FindAsync(r.SalesPersonId.Value);
-                        salesName = sp?.Name ?? string.Empty;
-                    }
+ // apply coupon type filter by finding receipts that contain receipt items whose coupon definition has the selected type
+ if (!string.IsNullOrEmpty(couponTypeFilter))
+ {
+ if (int.TryParse(couponTypeFilter, out var typeId))
+ {
+ var matchingReceiptIds = await (from ri in ctx.ReceiptItems
+ join cd in ctx.CouponDefinitions on ri.CouponId equals cd.Id
+ where cd.CouponTypeId == typeId
+ select ri.ReceiptId).Distinct().ToListAsync();
 
-                    string paymentName = string.Empty;
-                    if (r.PaymentMethodId.HasValue)
-                    {
-                        var pm = await ctx.PaymentMethods.FindAsync(r.PaymentMethodId.Value);
-                        paymentName = pm?.Name ?? string.Empty;
-                    }
+ if (!matchingReceiptIds.Any())
+ {
+ // no receipts match -> clear rows and return
+ _rows.Clear();
+ if (statusTextBlock != null) statusTextBlock.Text = "โหลดข้อมูลเรียบร้อย :0 รายการ";
+ return;
+ }
 
-                    _rows.Add(new ReceiptRow
-                    {
-                        Id = r.ReceiptID,
-                        ReceiptCode = r.ReceiptCode ?? string.Empty,
-                        CustomerName = r.CustomerName ?? string.Empty,
-                        CustomerPhone = r.CustomerPhoneNumber ?? string.Empty,
-                        ReceiptDate = r.ReceiptDate,
-                        ReceiptDateString = r.ReceiptDate.ToString("dd/MM/yyyy HH:mm"),
-                        SalesPersonName = salesName,
-                        PaymentMethodName = paymentName,
-                        Status = r.Status ?? string.Empty
-                    });
-                }
+ query = query.Where(r => matchingReceiptIds.Contains(r.ReceiptID));
+ }
+ }
 
-                if (statusTextBlock != null) statusTextBlock.Text = $"โหลดข้อมูลเรียบร้อย : {_rows.Count} รายการ";
-            }
-            catch (Exception)
-            {
-                if (statusTextBlock != null) statusTextBlock.Text = "เกิดข้อผิดพลาดในการโหลด";
-            }
-        }
-    }
+ var receipts = await query.OrderByDescending(r => r.ReceiptID).ToListAsync();
+
+ _rows.Clear();
+ foreach (var r in receipts)
+ {
+ // Load related names safely
+ string salesName = string.Empty;
+ if (r.SalesPersonId.HasValue)
+ {
+ var sp = await ctx.SalesPerson.FindAsync(r.SalesPersonId.Value);
+ salesName = sp?.Name ?? string.Empty;
+ }
+
+ string paymentName = string.Empty;
+ if (r.PaymentMethodId.HasValue)
+ {
+ var pm = await ctx.PaymentMethods.FindAsync(r.PaymentMethodId.Value);
+ paymentName = pm?.Name ?? string.Empty;
+ }
+
+ _rows.Add(new ReceiptRow
+ {
+ Id = r.ReceiptID,
+ ReceiptCode = r.ReceiptCode ?? string.Empty,
+ CustomerName = r.CustomerName ?? string.Empty,
+ CustomerPhone = r.CustomerPhoneNumber ?? string.Empty,
+ ReceiptDate = r.ReceiptDate,
+ ReceiptDateString = r.ReceiptDate.ToString("dd/MM/yyyy HH:mm"),
+ SalesPersonName = salesName,
+ PaymentMethodName = paymentName,
+ Status = r.Status ?? string.Empty
+ });
+ }
+
+ if (statusTextBlock != null) statusTextBlock.Text = $"โหลดข้อมูลเรียบร้อย : {_rows.Count} รายการ";
+ }
+ catch (Exception)
+ {
+ if (statusTextBlock != null) statusTextBlock.Text = "เกิดข้อผิดพลาดในการโหลด";
+ }
+ }
+
+ private async Task LoadCouponTypesAsync()
+ {
+ try
+ {
+ var combo = this.FindName("CouponTypeFilterComboBox") as ComboBox;
+ if (combo == null) return;
+
+ using var ctx = new CouponContext();
+ var types = await ctx.CouponTypes.OrderBy(ct => ct.Name).ToListAsync();
+
+ // Clear existing items except the default first item
+ combo.Items.Clear();
+
+ // Add default All item
+ var allItem = new ComboBoxItem { Tag = string.Empty, Content = "-- ทั้งหมด --" };
+ combo.Items.Add(allItem);
+
+ foreach (var t in types)
+ {
+ var item = new ComboBoxItem { Tag = t.Id.ToString(), Content = t.Name };
+ combo.Items.Add(item);
+ }
+
+ // select default
+ combo.SelectedIndex =0;
+ }
+ catch
+ {
+ // ignore errors silently
+ }
+ }
+ }
 }
