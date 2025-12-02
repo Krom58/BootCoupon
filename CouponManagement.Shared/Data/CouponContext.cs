@@ -1,6 +1,6 @@
-using CouponManagement.Shared.Models;
-using Microsoft.EntityFrameworkCore;
 using System;
+using Microsoft.EntityFrameworkCore;
+using CouponManagement.Shared.Models;
 
 namespace CouponManagement.Shared
 {
@@ -32,7 +32,9 @@ namespace CouponManagement.Shared
         public DbSet<PaymentMethod> PaymentMethods { get; set; } = null!;
         public DbSet<BootCoupon.Models.ReservedCoupon> ReservedCoupons { get; set; } = null!;
         public DbSet<CouponManagement.Shared.Models.ApplicationUser> ApplicationUsers { get; set; } = null!;
-        public DbSet<CouponManagement.Shared.Models.LoginLog> LoginLogs { get; set; } = null!;
+
+        // Login logs (added so controllers can write login entries)
+        public DbSet<LoginLog> LoginLogs { get; set; } = null!;
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -300,15 +302,16 @@ namespace CouponManagement.Shared
             });
 
             // LoginLog mapping
-            modelBuilder.Entity<CouponManagement.Shared.Models.LoginLog>(entity =>
+            modelBuilder.Entity<LoginLog>(entity =>
             {
-                entity.ToTable("LoginLog");
+                entity.ToTable("LoginLogs");
                 entity.HasKey(e => e.LogId);
                 entity.Property(e => e.LoggedAt).HasDefaultValueSql("GETDATE()");
-                entity.Property(e => e.UserName).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Action).IsRequired().HasMaxLength(500);
-                entity.Property(e => e.Location).HasMaxLength(200);
+                entity.Property(e => e.UserName).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Action).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Location).HasMaxLength(100);
                 entity.Property(e => e.App).HasMaxLength(200);
+                entity.HasIndex(e => e.UserName).HasDatabaseName("IX_LoginLogs_UserName");
             });
         }
     }

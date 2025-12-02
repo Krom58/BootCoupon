@@ -279,7 +279,7 @@
         background: #fff;
         padding: 24px;
         border-radius: 8px;
-        max-width: 1200px;
+        max-width: 1400px;
         width: 90%;
         max-height: 90vh;
         overflow-y: auto;
@@ -306,8 +306,9 @@
         min-width: 0;
     }
 
+    /* make right column wider so buttons don't crowd */
     .detail-right {
-        flex: 1;
+        flex: 1.4;
         min-width: 0;
         border-left: 2px solid #dee2e6;
         padding-left: 20px;
@@ -358,9 +359,14 @@
         background: #fff;
         border: 1px solid #dee2e6;
         border-radius: 6px;
-        padding: 12px;
-        margin-bottom: 12px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
         transition: all 0.3s ease;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        min-height: auto;
     }
 
     .item-card:hover {
@@ -375,24 +381,39 @@
 
     .item-header {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin-bottom: 8px;
+        gap: 8px;
+        flex: 0 0 auto;
     }
 
     .item-name {
         font-weight: 600;
         color: #212529;
-        font-size: 14px;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
     }
 
     .item-card.redeemed .item-name {
         color: #6c757d;
     }
 
+    .item-code {
+        font-size: 12px;
+        color: #6c757d;
+        white-space: nowrap;
+        flex: 0 0 auto;
+    }
+
     .item-price {
         color: #28a745;
         font-weight: 600;
+        font-size: 13px;
+        white-space: nowrap;
+        flex: 0 0 auto;
+        margin-left: auto;
     }
 
     .item-card.redeemed .item-price {
@@ -400,35 +421,39 @@
     }
 
     .item-info {
-        font-size: 13px;
-        color: #6c757d;
-        margin-bottom: 4px;
+        display: none;
     }
 
     .item-codes {
-        background: #f8f9fa;
-        padding: 8px;
-        border-radius: 4px;
-        margin-top: 8px;
-        font-size: 12px;
-    }
-
-    .item-card.redeemed .item-codes {
-        background: #e9ecef;
+        display: none;
     }
 
     .item-actions {
-        margin-top: 8px;
         display: flex;
-        gap: 8px;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        flex: 0 0 auto;
+    }
+
+    .item-actions label {
+        font-size: 12px;
+        color: #495057;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        margin: 0;
     }
 
     .item-btn {
-        padding: 6px 12px;
-        font-size: 12px;
+        padding: 5px 10px;
+        font-size: 11px;
         border-radius: 4px;
         cursor: pointer;
         border: none;
+        white-space: nowrap;
+        flex: 0 0 auto;
     }
 
     .btn-view {
@@ -454,15 +479,89 @@
         cursor: not-allowed;
     }
 
+    .btn-cancel-redeem {
+        background: #dc3545;
+        color: white;
+    }
+
+    .btn-cancel-redeem:hover {
+        background: #c82333;
+    }
+
+    .btn-cancel-redeem:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+    }
+
     .redeemed-badge {
         display: inline-block;
         background: #6c757d;
         color: white;
-        padding: 4px 8px;
+        padding: 3px 8px;
         border-radius: 4px;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: bold;
-        margin-top: 8px;
+        white-space: nowrap;
+        flex: 0 0 auto;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1200px) {
+        .item-card {
+            gap: 6px;
+        }
+
+        .item-name {
+            max-width: 150px;
+        }
+
+        .item-actions {
+            flex: 1 1 100%;
+            justify-content: flex-start;
+            margin-top: 4px;
+        }
+
+        .item-price {
+            margin-left: 0;
+            order: -1;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .item-card {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+        }
+
+        .item-header {
+            width: 100%;
+        }
+
+        .item-name {
+            max-width: none;
+            flex: 1;
+        }
+
+        .item-code,
+        .item-price {
+            margin-left: 0;
+        }
+
+        .item-actions {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .item-btn {
+            flex: 1 1 auto;
+            text-align: center;
+        }
+
+        .redeemed-badge {
+            width: 100%;
+            text-align: center;
+        }
     }
 
     @media (max-width: 768px) {
@@ -717,7 +816,39 @@
         display: inline-block;
     }
 
-    /* Export Modal */
+    /* Bulk controls */
+    .bulk-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 8px;
+        flex-wrap: wrap; /* allow wrapping on narrow screens */
+    }
+
+    .bulk-controls input[type="text"] {
+        padding: 6px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        min-width: 220px;
+        flex: 1 1 220px;
+    }
+
+    .bulk-controls button {
+        padding: 6px 10px;
+        font-size: 13px;
+        border-radius: 4px;
+        min-width: 120px;
+        flex: 0 0 auto;
+    }
+
+    @media (max-width: 1000px) {
+        /* When modal narrows, ensure bulk controls wrap and take full width */
+        .detail-right { padding-left: 12px; }
+        .bulk-controls input[type="text"] { flex-basis: 100%; }
+        .bulk-controls button { flex-basis: 48%; }
+    }
+
+    /* Export Date Range Modal (fixed overlay, hidden by default) */
     #exportModal {
         display: none;
         position: fixed;
@@ -733,45 +864,18 @@
 
     #exportModal .box {
         background: #fff;
-        padding: 20px;
+        padding: 24px;
         border-radius: 8px;
-        max-width: 520px;
+        max-width: 600px;
         width: 90%;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
-    }
-
-    #exportModal h3 {
-        margin: 0 0 12px 0;
-        color: #212529;
-    }
-
-    #exportModal .row {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        margin-top: 10px;
-    }
-
-    #exportModal label {
-        min-width: 100px;
-        color: #495057;
-        font-weight: 600;
-    }
-
-    #exportModal input[type="date"] {
-        padding: 8px 10px;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     }
 
     #exportModal .actions {
-        margin-top: 16px;
-        text-align: right;
-    }
-
-    #exportModal .actions button {
-        min-width: 100px;
-        margin-left: 8px;
+        margin-top: 12px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
     }
 
     .btn-export {
@@ -782,13 +886,7 @@
         border-radius: 6px;
     }
 
-    .btn-cancel {
-        background: #6c757d;
-        color: #fff;
-        border: none;
-        padding: 8px 14px;
-        border-radius: 6px;
-    }
+    .btn-export:hover { background: #0056b3; }
     </style>
 </head>
 
@@ -915,6 +1013,13 @@
                 <div class="detail-right">
                     <h4 style="margin-top:0; color:#495057; border-bottom:2px solid #dee2e6; padding-bottom:5px;">รายการสินค้า
                     </h4>
+
+                    <!-- Bulk controls: search and bulk actions -->
+                    <div class="bulk-controls">
+                        <input id="searchGeneratedCodes" type="text" placeholder="ค้นหารหัสภายในรายการ (เช่น ERB072)" />
+                        <button id="bulkRedeemBtn" style="background:#28a745; color:white;" disabled>✂️ ตัดคูปองที่เลือก</button>
+                    </div>
+
                     <div id="itemsList" class="items-list"></div>
                 </div>
             </div>
@@ -951,7 +1056,7 @@
     <!-- Export Date Range Modal -->
     <div id="exportModal">
         <div class="box">
-            <h3>เลือกระยะวันที่สำหรับรายงาน</h3>
+            <h3>เลือกรายงานตามช่วงวันที่</h3>
             <div class="row">
                 <label for="exportDateFrom">วันที่เริ่ม (จาก):</label>
                 <input id="exportDateFrom" type="date" />
@@ -961,23 +1066,9 @@
                 <input id="exportDateTo" type="date" />
             </div>
 
-            <!-- Report type checkboxes -->
-            <div class="row" style="margin-top:12px; align-items:flex-start;">
-                <label>ประเภทรายงาน:</label>
-                <div style="display:flex; flex-direction:column; gap:6px;">
-                    <label style="font-weight:500; color:#495057;"><input id="chkExportRedeemed" type="checkbox" checked
-                            style="margin-right:8px;"> รายงานตัดคูปอง (รายละเอียด)</label>
-                    <label style="font-weight:500; color:#495057;"><input id="chkExportSummary" type="checkbox"
-                            style="margin-right:8px;"> รายงานสรุป (สรุปจำนวนคูปองตามช่วงวันที่)</label>
-                    <div style="font-size:12px; color:#6c757d;">รายงานสรุปจะแสดง: คูปองทั้งหมด, คูปองCOMทั้งหมด,
-                        คูปองที่ยังไม่ถูกตัด, คูปองที่ถูกตัดแล้ว, คูปองCOMที่ยังไม่ถูกตัด, คูปองCOMที่ถูกตัดแล้ว และวันที่ดึงข้อมูล
-                    </div>
-                </div>
-            </div>
-
             <div id="exportError" style="color:#dc3545; margin-top:8px; display:none; font-size:13px;"></div>
-            <div style="margin-top:8px; color:#6c757d; font-size:13px;">หมายเหตุ: ระบบจะส่งช่วงเวลาในรูปแบบวันที่เริ่มต้นเวลา00:00:00 และวันที่สิ้นสุดเวลา23:59:59 ตามเวลาท้องถิ่นของผู้ใช้
-            </div>
+            <div style="margin-top:8px; color:#6c757d; font-size:13px;">หมายเหตุ: ระบบจะส่งช่วงเวลาในรูปแบบวันที่เริ่มต้นเวลา00:00:00 และวันที่สิ้นสุดเวลา23:59:59 ตามเวลาท้องถิ่นของผู้ใช้<br>
+            รายงานจะแสดงทั้งข้อมูลรายละเอียดและสรุปในไฟล์เดียวกัน</div>
             <div class="actions">
                 <button id="exportCancel" class="btn-cancel">ยกเลิก</button>
                 <button id="exportConfirm" class="btn-export">ดาวน์โหลด</button>
@@ -987,7 +1078,7 @@
 
     <!-- Load SheetJS for Excel generation (used by Today Report) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
-        integrity="sha512-+6kX1gVvJ9pPZfE0BqVdW4Qj9t6eY0Vx4eZkqQj3w1Y7z3Kp6o8Qqzj2X5s1Q0yCk3F8x7sK4q9zJb1q2YV2w=="
+        integrity="sha512-+6kX1gVvJ9pPZfE0BqVdW4Qj9t6eY0Vx4eZkqQj3w1Y7z3Kp6o8Qqzj2X5s1QyCk3F8x7sK4q9zJb1q2YV2w=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
     <script>
@@ -1103,6 +1194,7 @@
         if (filters.customerName) params.append('customerName', filters.customerName);
         if (filters.customerPhone) params.append('customerPhone', filters.customerPhone);
         if (filters.status) params.append('status', filters.status);
+        else params.append('status', 'Active');
         // send ISO8601 with timezone: construct local start/end and send toISOString()
         if (filters.dateFrom) {
             try {
@@ -1326,7 +1418,7 @@
                     // เพิ่ม COM badge ถ้ามีคูปองฟรี
                     let comBadge = '';
                     if (redeemStatus.complimentaryCodes && redeemStatus.complimentaryCodes.length > 0) {
-                        comBadge = `<div class="redeemed-badge" style="background:#17a2b8; margin-top:4px;">🎁 COM (ฟรี) จำนวน ${redeemStatus.complimentaryCodes.length} ใบ</div>`;
+                        comBadge = `<div class="redeemed-badge" style="background:#17a2b8;">🎁 COM (ฟรี)</div>`;
                     }
 
                     // per-item COM checkbox (disabled so it only shows status)
@@ -1335,42 +1427,32 @@
                     // ensure receipt id property handled
                     const rid = receipt.ReceiptID ?? receipt.receiptID ?? receipt.id ?? '';
 
+                    // Display generated codes instead of coupon definition code
+                    const displayCode = generatedCodes.length > 0 ? generatedCodes[0] : (item.couponCode || item.CouponCode || '');
+
                     itemsHtml += `
- <div class="${cardClass}">
+ <div class="${cardClass}" data-generated='${escapeHtml(JSON.stringify(generatedCodes))}'>
  <div class="item-header">
+ <input type="checkbox" class="bulk-select" data-generated='${escapeHtml(JSON.stringify(generatedCodes))}' style="margin:0;">
  <div class="item-name">${escapeHtml(item.couponName || item.CouponName || '')}</div>
+ </div>
+ <div class="item-code">รหัส: ${escapeHtml(displayCode)}</div>
+ ${statusBadge ? `<div style="flex: 0 0 auto;">${statusBadge}</div>` : ''}
+ ${comBadge ? `<div style="flex: 0 0 auto;">${comBadge}</div>` : ''}
  <div class="item-price">${formatCurrency(item.totalPrice || item.TotalPrice || 0)} บาท</div>
- </div>
- 
- <div class="item-info">รหัส: ${escapeHtml(item.couponCode || item.CouponCode || '')}</div>
- <div class="item-info">จำนวน: ${(item.quantity || item.Quantity || 0)} x ${formatCurrency(item.unitPrice || item.UnitPrice || 0)} บาท</div>
- <div class="item-codes">
- <strong>รหัสคูปองที่สร้าง:</strong><br>
- ${escapeHtml(codesText)}
- </div>
- ${statusBadge}
- ${comBadge}
  <div class="item-actions">
- <label style="font-size:13px; color:#495057; display:flex; align-items:center; gap:6px;">
- <input type="checkbox" class="item-com-checkbox" ${isComplimentary ? 'checked' : ''} style="margin:0;">COM (ฟรี)
+ <label>
+ <input type="checkbox" class="item-com-checkbox" ${isComplimentary ? 'checked' : ''} style="margin:0;"> COM (ฟรี)
  </label>
  <button class="item-btn btn-view" data-coupon-code="${escapeHtml(item.couponCode || item.CouponCode || '')}">
- 📋 ดูรายละเอียดคูปอง
+ 📋 ดูรายละเอียด
  </button>
- <button class="item-btn btn-redeem" ${!hasUnusedCoupons ? 'disabled' : ''} 
- data-receipt-id="${rid}"
- data-coupon-code="${escapeHtml(item.couponCode || item.CouponCode || '')}"
- data-coupon-name="${escapeHtml(item.couponName || item.CouponName || '')}"
- data-generated-codes='${escapeHtml(JSON.stringify(generatedCodes))}'>
- ✂️ ตัดคูปอง
- </button>
- <!-- ปุ่มยกเลิกการตัดคูปอง (แสดงไว้ทางขวาใต้ไอเทม) -->
- <button class="item-btn btn-cancel-redeem" style="margin-left:auto; background:#dc3545; color:#fff;" 
+ <button class="item-btn btn-cancel-redeem" 
  ${!(redeemStatus.redeemedCodes && redeemStatus.redeemedCodes.length>0) ? 'disabled' : ''}
  data-receipt-id="${rid}"
  data-coupon-code="${escapeHtml(item.couponCode || item.CouponCode || '')}"
  data-generated-codes='${escapeHtml(JSON.stringify(generatedCodes))}'>
- ✖️ ยกเลิกการตัด
+ ✖️ ยกเลิก
  </button>
  </div>
  </div>
@@ -1442,23 +1524,6 @@
                         checkbox.disabled = false;
                     }
                 });
-            });
-
-            document.querySelectorAll('.btn-redeem').forEach(btn => {
-                if (!btn.disabled) {
-                    btn.addEventListener('click', (e) => {
-                        const el = e.currentTarget;
-                        console.log('Redeem button clicked, dataset=', el.dataset);
-                        const receiptId = parseInt(el.dataset.receiptId || el.dataset.receiptid || el.dataset.receiptID, 10);
-                        const couponCode = el.dataset.couponCode || el.dataset.couponcode || el.dataset.couponCODE;
-                        const couponName = el.dataset.couponName || el.dataset.couponname || '';
-                        const generatedCodes = JSON.parse(el.dataset.generatedCodes || el.dataset.generatedcodes || '[]');
-                        const itemCard = el.closest('.item-card');
-                        const comCheckbox = itemCard ? itemCard.querySelector('.item-com-checkbox') : null;
-                        const isComplimentaryChecked = comCheckbox ? comCheckbox.checked : false;
-                        redeemCouponFromItem(receiptId, couponCode, couponName, generatedCodes, isComplimentaryChecked);
-                    });
-                }
             });
 
             document.querySelectorAll('.btn-cancel-redeem').forEach(btn => {
@@ -1604,7 +1669,198 @@
                 }
             });
 
+            // Bulk selection and actions
+            const searchBox = $('searchGeneratedCodes');
+             const bulkRedeemBtn = $('bulkRedeemBtn');
+
+            function applyGeneratedSearchFilter() {
+                const q = (searchBox.value || '').trim().toLowerCase();
+                document.querySelectorAll('#itemsList .item-card').forEach(card => {
+                    const codes = (card.getAttribute('data-generated') || '').toLowerCase();
+                    const name = (card.querySelector('.item-name')?.textContent || '').toLowerCase();
+                    if (!q || codes.indexOf(q) >= 0 || name.indexOf(q) >= 0) {
+                        card.style.display = '';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            }
+
+            searchBox.addEventListener('input', () => {
+                applyGeneratedSearchFilter();
+            });
+
+            // Function to update bulk redeem button state
+            function updateBulkRedeemButtonState() {
+                const selectedCount = Array.from(document.querySelectorAll('#itemsList .bulk-select:checked')).length;
+                bulkRedeemBtn.disabled = selectedCount === 0;
+            }
+
+            // Attach change event to all bulk select checkboxes
+            function attachBulkSelectListeners() {
+                document.querySelectorAll('#itemsList .bulk-select').forEach(checkbox => {
+                    checkbox.addEventListener('change', updateBulkRedeemButtonState);
+                });
+            }
+
+            // Initial update and attach listeners
+            attachBulkSelectListeners();
+            updateBulkRedeemButtonState();
+
+            // Bulk redeem: for each selected item pick the first unused generated code and redeem it
+            async function bulkRedeemSelectedItems() {
+                const selected = Array.from(document.querySelectorAll('#itemsList .bulk-select')).filter(cb => cb.checked);
+                if (selected.length === 0) { alert('กรุณาเลือกอย่างน้อย 1 รายการ'); return; }
+
+                // Prepare list of coupons to be redeemed for confirmation
+                const couponList = [];
+                for (const cb of selected) {
+                    const itemCard = cb.closest('.item-card');
+                    // Get coupon definition name from item-name element
+                    const couponDefinitionName = itemCard.querySelector('.item-name')?.textContent || 'ไม่ระบุชื่อ';
+                    const codes = JSON.parse(cb.getAttribute('data-generated') || '[]');
+                    
+                    // Find first unused code
+                    let firstUnusedCode = null;
+                    for (const code of codes) {
+                        try {
+                            const resp = await fetch(`/api/GeneratedCoupons/bycode/${encodeURIComponent(code)}`);
+                            if (resp.ok) {
+                                const txt = await resp.text();
+                                const parsed = txt ? JSON.parse(txt) : null;
+                                if (parsed && !parsed.isUsed) { 
+                                    firstUnusedCode = code; 
+                                    break; 
+                                }
+                                if (!parsed) { 
+                                    firstUnusedCode = code; 
+                                    break; 
+                                }
+                            }
+                        } catch (ex) { 
+                            console.warn('check code error', code, ex); 
+                        }
+                    }
+
+                    if (firstUnusedCode) {
+                        couponList.push({
+                            definitionName: couponDefinitionName,
+                            generatedCode: firstUnusedCode
+                        });
+                    } else {
+                        couponList.push({
+                            definitionName: couponDefinitionName,
+                            generatedCode: '(ไม่มีรหัสว่าง)',
+                            hasError: true
+                        });
+                    }
+                }
+
+                // Build confirmation message with list of coupons
+                let couponListHtml = '<div style="max-height: 300px; overflow-y: auto; margin: 10px 0;">';
+                couponListHtml += '<table style="width: 100%; font-size: 13px; border-collapse: collapse;">';
+                couponListHtml += '<thead><tr style="background: #f8f9fa;">';
+                couponListHtml += '<th style="padding: 8px; text-align: center; border: 1px solid #dee2e6;">ชื่อคูปอง</th>';
+                couponListHtml += '<th style="padding: 8px; text-align: center; border: 1px solid #dee2e6;">รหัสคูปอง</th>';
+                couponListHtml += '</tr></thead>';
+                couponListHtml += '<tbody>';
+                
+                couponList.forEach(item => {
+                    const rowStyle = item.hasError ? 'background: #ffe6e6;' : '';
+                    const codeStyle = item.hasError ? 'color: #dc3545; font-weight: bold;' : 'color: #856404; background: #fff3cd; padding: 2px 6px; border-radius: 3px; display: inline-block;';
+                    couponListHtml += `<tr style="${rowStyle}">
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">${escapeHtml(item.definitionName)}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;"><span style="${codeStyle}">${escapeHtml(item.generatedCode)}</span></td>
+                    </tr>`;
+                });
+                
+                couponListHtml += '</tbody></table></div>';
+
+                const validCount = couponList.filter(c => !c.hasError).length;
+                const errorCount = couponList.filter(c => c.hasError).length;
+
+                let message = `<p><strong>คุณต้องการตัดคูปองทั้งหมด ${selected.length} รายการที่เลือก ใช่หรือไม่?</strong></p>`;
+                message += couponListHtml;
+                message += `<p style="margin-top: 10px; font-size: 13px; color: #495057;">✓ สามารถตัดได้: <strong style="color: #28a745;">${validCount}</strong> รายการ</p>`;
+                if (errorCount > 0) {
+                    message += `<p style="margin-top: 5px; font-size: 13px; color: #dc3545;">⚠️ ไม่สามารถตัด: <strong>${errorCount}</strong> รายการ (ไม่มีรหัสว่าง)</p>`;
+                }
+                message += `<p style="margin-top: 10px; color: #6c757d; font-size: 12px;">หมายเหตุ: แต่ละรายการจะตัดเฉพาะ 1 ใบ</p>`;
+
+                // Show confirmation dialog
+                showConfirmDialog(message, async () => {
+                    const results = [];
+
+                    for (const cb of selected) {
+                        const codes = JSON.parse(cb.getAttribute('data-generated') || '[]');
+                        if (!codes || codes.length === 0) { results.push({ ok: false, reason: 'ไม่มีรหัส' }); continue; }
+
+                        // find first unused code
+                        let codeToRedeem = null;
+                        for (const code of codes) {
+                            try {
+                                const resp = await fetch(`/api/GeneratedCoupons/bycode/${encodeURIComponent(code)}`);
+                                if (resp.ok) {
+                                    const txt = await resp.text();
+                                    const parsed = txt ? JSON.parse(txt) : null;
+                                    if (parsed && !parsed.isUsed) { codeToRedeem = code; break; }
+                                    if (!parsed) { codeToRedeem = code; break; } // if no data assume unused
+                                } else {
+                                    // ignore and continue
+                                }
+                            } catch (ex) { console.warn('check code error', code, ex); }
+                        }
+
+                        if (!codeToRedeem) { results.push({ ok: false, reason: 'ไม่มีรหัสว่าง' }); continue; }
+
+                        try {
+                            // optional: mark COM if item's item-com-checkbox is checked
+                            const itemCard = cb.closest('.item-card');
+                            const comCheckbox = itemCard ? itemCard.querySelector('.item-com-checkbox') : null;
+                            const isCom = comCheckbox ? comCheckbox.checked : false;
+
+                            if (isCom) {
+                                // mark complimentary first
+                                try { await fetch('/api/GeneratedCoupons/set-complimentary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: codeToRedeem, isComplimentary: true }) }); } catch {}
+                            }
+
+                            // redeem
+                            const pad = (n) => String(n).padStart(2, '0');
+                            const nowLocal = new Date();
+                            const redeemedAtLocal = `${nowLocal.getFullYear()}-${pad(nowLocal.getMonth() + 1)}-${pad(nowLocal.getDate())}T${pad(nowLocal.getHours())}:${pad(nowLocal.getMinutes())}:${pad(nowLocal.getSeconds())}`;
+
+                            const resp = await fetch('/api/CouponRedemption/redeem', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ code: codeToRedeem, redeemedBy: currentUser, receiptItemId: null, redeemedAt: redeemedAtLocal })
+                            });
+
+                            const text = await resp.text();
+                            const parsed = text ? JSON.parse(text) : null;
+
+                            if (resp.ok && parsed && parsed.result === 'Success') {
+                                results.push({ ok: true, code: codeToRedeem });
+                            } else if (resp.ok && !parsed) {
+                                results.push({ ok: true, code: codeToRedeem });
+                            } else {
+                                results.push({ ok: false, code: codeToRedeem, reason: (parsed && parsed.message) || 'failed' });
+                            }
+                        } catch (err) {
+                            console.error('bulk redeem error', err);
+                            results.push({ ok: false, reason: err.message });
+                        }
+                    }
+
+                    const success = results.filter(r => r.ok).length;
+                    const fail = results.length - success;
+                    alert(`สำเร็จ ${success} รายการ, ล้มเหลว ${fail} รายการ`);
+                    if (currentReceiptId) await showDetail(currentReceiptId);
+                });
+            }
             $('detailModal').style.display = 'flex';
+            bulkRedeemBtn.addEventListener('click', () => {
+                bulkRedeemSelectedItems();
+            });
         } catch (err) {
             console.error('Error showing detail:', err);
             alert('ไม่สามารถแสดงรายละเอียดได้: ' + err.message);
@@ -2078,26 +2334,16 @@
     $('exportCancel').addEventListener('click', () => { $('exportModal').style.display = 'none'; });
     $('exportConfirm').addEventListener('click', () => { confirmExport(); });
 
-    // Validate date range: start must not be after end and require at least one report type
+    // Validate date range: start must not be after end
     function validateExportDates() {
  const fromVal = $('exportDateFrom').value;
  const toVal = $('exportDateTo').value;
  const errEl = $('exportError');
  const confirmBtn = $('exportConfirm');
- const chkRedeemed = $('chkExportRedeemed');
- const chkSummary = $('chkExportSummary');
-
- // Ensure at least one report type is selected
- if (!chkRedeemed.checked && !chkSummary.checked) {
- errEl.textContent = 'กรุณาเลือกประเภทรายงานอย่างน้อยหนึ่งรายการ';
- errEl.style.display = 'block';
- confirmBtn.disabled = true;
- return false;
- }
 
  if (!fromVal || !toVal) {
  errEl.style.display = 'none';
- confirmBtn.disabled = false; // allow, final confirm will enforce both
+ confirmBtn.disabled = false;
  return true;
  }
 
@@ -2126,33 +2372,20 @@
 
 function openExportDialog(type) {
  _exportType = type === 'pdf' ? 'pdf' : 'excel';
- // default both dates to today
+ // default to today
  const today = new Date();
  const isoDate = today.toISOString().slice(0,10); // yyyy-mm-dd
  $('exportDateFrom').value = isoDate;
  $('exportDateTo').value = isoDate;
- // default checkboxes
- $('chkExportRedeemed').checked = true;
- $('chkExportSummary').checked = false;
  // attach change handlers to validate
  $('exportDateFrom').addEventListener('change', validateExportDates);
  $('exportDateTo').addEventListener('change', validateExportDates);
- $('chkExportRedeemed').addEventListener('change', validateExportDates);
- $('chkExportSummary').addEventListener('change', validateExportDates);
  // initial validation
  validateExportDates();
  $('exportModal').style.display = 'flex';
 }
 
 function confirmExport() {
- // final validation
- const chkRedeemed = $('chkExportRedeemed');
- const chkSummary = $('chkExportSummary');
- if (!chkRedeemed.checked && !chkSummary.checked) {
- alert('กรุณาเลือกประเภทรายงานอย่างน้อยหนึ่งรายการ');
- return;
- }
-
  if (!validateExportDates()) {
  return; // invalid range
  }
@@ -2169,14 +2402,9 @@ function confirmExport() {
  params.append('createdFrom', fromLocal.toISOString());
  params.append('createdTo', toLocal.toISOString());
 
- // reportMode: 'detailed' | 'summary' | 'both'
- let mode = 'detailed';
- if (chkRedeemed.checked && chkSummary.checked) mode = 'both';
- else if (chkSummary.checked) mode = 'summary';
- params.append('reportMode', mode);
-
- // includeRetrievedDate flag when summary requested
- if (chkSummary.checked) params.append('includeRetrievedDate', 'true');
+ // Always export both detailed and summary data
+ params.append('reportMode', 'both');
+ params.append('includeRetrievedDate', 'true');
 
  const url = _exportType === 'pdf' ? '/api/CouponRedemption/export/pdf?' + params.toString() : '/api/CouponRedemption/export/excel?' + params.toString();
  // close modal then navigate

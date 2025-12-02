@@ -111,7 +111,6 @@
     <AppxBundle>Never</AppxBundle>
     <AppInstallerUri>https://github.com/Krom58/BootCoupon.git</AppInstallerUri>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
-    <PackageCertificateThumbprint>3E16EB3C8F59D642F54F77206573D944C4CAA693</PackageCertificateThumbprint>
   </PropertyGroup>
   <!-- BootCoupon\BootCoupon.csproj: make sure ProjectReference explicitly copies the referenced project output -->
   <ItemGroup>
