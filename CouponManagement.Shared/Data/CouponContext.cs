@@ -46,6 +46,7 @@ namespace CouponManagement.Shared
                 optionsBuilder.UseSqlServer(conn);
             }
         }
+        //"Server=(localdb)\\MSSQLLocalDB;Database=CouponDbV2;Integrated Security=True;TrustServerCertificate=True;"
         //"Server=KROM\\SQLEXPRESS;Database=CouponDbV2;Integrated Security=True;TrustServerCertificate=True;"
         //"Server=10.10.0.42\\SQLSET;Database=CouponDbV2;User Id=sa;Password=Wutt@1976;TrustServerCertificate=True;Trusted_Connection=False;"
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -267,6 +268,11 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.Prefix).IsRequired().HasMaxLength(10);
                 entity.Property(e => e.UpdatedBy).HasMaxLength(100);
                 entity.Property(e => e.LastUpdated).HasDefaultValueSql("GETDATE()");
+                
+                // *** เพิ่ม YearCode ***
+                entity.Property(e => e.YearCode)
+                      .IsRequired()
+                      .HasDefaultValue(DateTime.Now.Year % 100);
             });
 
             modelBuilder.Entity<CanceledReceiptNumber>(entity =>
@@ -277,6 +283,12 @@ namespace CouponManagement.Shared
                 entity.HasIndex(e => e.ReceiptCode).IsUnique();
                 entity.Property(e => e.Reason).HasMaxLength(255);
                 entity.Property(e => e.CanceledDate).HasDefaultValueSql("GETDATE()");
+                
+                // *** เพิ่ม Index สำหรับ OwnerMachineId ***
+                entity.HasIndex(e => new { e.OwnerMachineId, e.CanceledDate })
+                      .HasDatabaseName("IX_CanceledReceiptNumbers_OwnerMachineId_CanceledDate");
+                
+                entity.Property(e => e.OwnerMachineId).HasMaxLength(255);
             });
 
             modelBuilder.Entity<PaymentMethod>(entity =>

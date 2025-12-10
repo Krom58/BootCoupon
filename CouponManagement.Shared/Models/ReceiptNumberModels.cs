@@ -6,9 +6,12 @@ namespace CouponManagement.Shared.Models
     {
         public int Id { get; set; }
         public string Prefix { get; set; } = "INV";
-        public int CurrentNumber { get; set; } = 5001;
+        public int CurrentNumber { get; set; } = 1; // เริ่มจาก 1 แทน 5001
         public DateTime LastUpdated { get; set; } = DateTime.Now;
         public string? UpdatedBy { get; set; }
+        
+        // *** เพิ่มฟิลด์ YearCode สำหรับเก็บปี ค.ศ. 2 หลัก ***
+        public int YearCode { get; set; } = DateTime.Now.Year % 100; // เช่น 25 สำหรับ 2025
     }
 
     public class CanceledReceiptNumber
@@ -17,8 +20,6 @@ namespace CouponManagement.Shared.Models
         public string ReceiptCode { get; set; } = string.Empty;
         public DateTime CanceledDate { get; set; } = DateTime.Now;
         public string? Reason { get; set; }
-
-        // Owner machine/session id so only that machine can reclaim the canceled number
         public string? OwnerMachineId { get; set; }
     }
 }

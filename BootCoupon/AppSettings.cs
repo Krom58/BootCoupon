@@ -1,56 +1,85 @@
 ﻿using System;
-using System.Collections.Generic; // เพิ่มบรรทัดนี้สำหรับ List<>
-
-using System.Diagnostics; // เพิ่มบรรทัดนี้สำหรับ Debug.WriteLine
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Windows.Storage;
 using System.Data;
 using Microsoft.Data.SqlClient;
+using System.Linq;
 
 namespace BootCoupon
 {
     public class AppSettings
     {
         public string ReceiptCodePrefix { get; set; } = "INV";
-        public int CurrentReceiptNumber { get; set; } =5001;
+        public int CurrentReceiptNumber { get; set; } = 1;
+        
+        // *** เพิ่ม YearCode ***
+        public int YearCode { get; set; } = DateTime.Now.Year % 100;
 
-        // เพิ่มรายการหมายเลขใบเสร็จที่ถูกยกเลิก
         public List<string> CanceledReceiptNumbers { get; set; } = new List<string>();
 
-        // ไฟล์เก็บการตั้งค่า
         private static readonly string SettingsFilePath = Path.Combine(
             ApplicationData.Current.LocalFolder.Path, "settings.json");
 
-        // ดึงหมายเลขใบเสร็จถัดไป (ใช้หมายเลขที่ถูกยกเลิกก่อนถ้ามี)
+        /// <summary>
+        /// ดึงหมายเลขใบเสร็จถัดไป รูปแบบ: {Prefix}{YY}{NNN}
+        /// เช่น INV25001, INV25002 (3 หลัก)
+        /// </summary>
         public string GetNextReceiptCode()
         {
-            // ถ้ามีหมายเลขที่ถูกยกเลิก ใช้หมายเลขแรกในรายการ
-            if (CanceledReceiptNumbers.Count >0)
+            // ตรวจสอบว่าขึ้นปีใหม่หรือไม่
+            var currentYearCode = DateTime.Now.Year % 100;
+            if (YearCode != currentYearCode)
             {
-                string recycledCode = CanceledReceiptNumbers[0];
-                CanceledReceiptNumbers.RemoveAt(0);
-                return recycledCode;
+                Debug.WriteLine($"Year changed: {YearCode} → {currentYearCode} - Resetting number");
+                YearCode = currentYearCode;
+                CurrentReceiptNumber = 1;
             }
 
-            // ถ้าไม่มี ใช้หมายเลขถัดไป
-            string nextCode = $"{ReceiptCodePrefix}{CurrentReceiptNumber}";
-            CurrentReceiptNumber++;
+            // ถ้ามีหมายเลขที่ถูกยกเลิก (ของปีเดียวกัน) ใช้ก่อน
+            if (CanceledReceiptNumbers.Count > 0)
+            {
+                var matchingYear = CanceledReceiptNumbers
+                    .FirstOrDefault(code => GetYearCodeFromReceiptCode(code) == currentYearCode);
+                
+                if (matchingYear != null)
+                {
+                    CanceledReceiptNumbers.Remove(matchingYear);
+                    Debug.WriteLine($"♻️ Recycled: {matchingYear}");
+                    return matchingYear;
+                }
+            }
 
+            // *** สร้างรหัสใหม่: Prefix + YY + NNN (3 หลัก) ***
+            string nextCode = $"{ReceiptCodePrefix}{YearCode:D2}{CurrentReceiptNumber:D3}";
             return nextCode;
         }
 
-        // เพิ่มหมายเลขที่ถูกยกเลิกเพื่อนำมาใช้ใหม่ (local)
         public void RecycleReceiptCode(string receiptCode)
         {
             if (!string.IsNullOrEmpty(receiptCode) && !CanceledReceiptNumbers.Contains(receiptCode))
             {
                 CanceledReceiptNumbers.Add(receiptCode);
+                Debug.WriteLine($"📝 Added to recycle list: {receiptCode}");
             }
         }
 
-        // โหลดการตั้งค่าจากไฟล์
+        /// <summary>
+        /// ดึงปี (ค.ศ. 2 หลัก) จากรหัสใบเสร็จ
+        /// เช่น INV25001 → 25
+        /// </summary>
+        private int GetYearCodeFromReceiptCode(string receiptCode)
+        {
+            if (string.IsNullOrEmpty(receiptCode) || receiptCode.Length < ReceiptCodePrefix.Length + 2)
+                return 0;
+
+            var yearPart = receiptCode.Substring(ReceiptCodePrefix.Length, 2);
+            return int.TryParse(yearPart, out var year) ? year : 0;
+        }
+
         public static async Task<AppSettings> GetSettingsAsync()
         {
             try
@@ -58,7 +87,17 @@ namespace BootCoupon
                 if (File.Exists(SettingsFilePath))
                 {
                     string json = await File.ReadAllTextAsync(SettingsFilePath);
-                    return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                    var settings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                    
+                    var currentYearCode = DateTime.Now.Year % 100;
+                    if (settings.YearCode != currentYearCode)
+                    {
+                        settings.YearCode = currentYearCode;
+                        settings.CurrentReceiptNumber = 1;
+                        await SaveSettingsAsync(settings);
+                    }
+                    
+                    return settings;
                 }
             }
             catch (Exception ex)
@@ -69,7 +108,6 @@ namespace BootCoupon
             return new AppSettings();
         }
 
-        // บันทึกการตั้งค่าลงไฟล์
         public static async Task SaveSettingsAsync(AppSettings settings)
         {
             try
@@ -83,96 +121,27 @@ namespace BootCoupon
             }
         }
 
-        // เพิ่มเมธอดสแตติกเพื่อสร้างรหัสใบเสร็จ
-        // เวอร์ชันเดิมเพื่อความเข้ากันได้
+        [Obsolete("Use ReceiptNumberService.GenerateNextReceiptCodeAsync() instead")]
         public static async Task<string> GenerateReceiptCodeAsync()
         {
             return await GenerateReceiptCodeAsync(null);
         }
 
-        // เวอร์ชันใหม่: พยายามใช้ shared DB ก่อน (ถ้ามี connection string)
-        // หากไม่สามารถใช้ DB ได้ จะ fallback เป็น local file-based generator
+        [Obsolete("Use ReceiptNumberService.GenerateNextReceiptCodeAsync() instead")]
         public static async Task<string> GenerateReceiptCodeAsync(string? dbConnectionString)
         {
-            // พยายามใช้ DB ถ้ามี connection string
-            if (!string.IsNullOrWhiteSpace(dbConnectionString))
-            {
-                try
-                {
-                    var settings = await GetSettingsAsync();
-                    string prefix = settings.ReceiptCodePrefix ?? "INV";
-
-                    await using var conn = new SqlConnection(dbConnectionString);
-                    await conn.OpenAsync();
-
-                    await using var tx = await conn.BeginTransactionAsync(IsolationLevel.Serializable);
-
-                    //1) พยายามดึงหมายเลขที่รีไซเคิล (pop)
-                    using (var pick = new SqlCommand(
-                        "SELECT TOP (1) Number FROM dbo.CanceledReceiptNumbers WITH (UPDLOCK, READPAST) ORDER BY Id",
-                        conn, (SqlTransaction)tx))
-                    {
-                        var canceledObj = await pick.ExecuteScalarAsync();
-                        if (canceledObj != null && canceledObj != DBNull.Value)
-                        {
-                            string canceledNumber = canceledObj.ToString() ?? string.Empty;
-
-                            using var del = new SqlCommand("DELETE FROM dbo.CanceledReceiptNumbers WHERE Number = @num", conn, (SqlTransaction)tx);
-                            del.Parameters.AddWithValue("@num", canceledNumber);
-                            await del.ExecuteNonQueryAsync();
-
-                            await tx.CommitAsync();
-                            return canceledNumber;
-                        }
-                    }
-
-                    //2) ถ้าไม่มี รีบใช้ SEQUENCE (ต้องสร้าง SEQUENCE ใน DB ก่อน)
-                    using (var seq = new SqlCommand("SELECT NEXT VALUE FOR dbo.ReceiptNumbers", conn, (SqlTransaction)tx))
-                    {
-                        var nextObj = await seq.ExecuteScalarAsync();
-                        long nextVal = Convert.ToInt64(nextObj);
-                        await tx.CommitAsync();
-                        return $"{prefix}{nextVal}";
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"DB receipt generation failed: {ex.Message} -- falling back to local");
-                    // fallthrough -> local fallback
-                }
-            }
-
-            // Fallback: local-only generator (เดิม)
-            var localSettings = await GetSettingsAsync();
-            string localCode = localSettings.GetNextReceiptCode();
-            await SaveSettingsAsync(localSettings);
-            return localCode;
+            Debug.WriteLine("⚠️ Warning: Using deprecated AppSettings. Use ReceiptNumberService instead.");
+            
+            var settings = await GetSettingsAsync();
+            var code = settings.GetNextReceiptCode();
+            settings.CurrentReceiptNumber++;
+            await SaveSettingsAsync(settings);
+            return code;
         }
 
-        // ส่งหมายเลขที่ยกเลิกไปเก็บยัง DB (ถ้ามี connection string)
-        // ถ้าไม่สำเร็จ ให้เก็บ local
+        [Obsolete("Use ReceiptNumberService.RecycleReceiptCodeAsync() instead")]
         public static async Task RecycleReceiptCodeToDbAsync(string receiptCode, string? dbConnectionString = null)
         {
-            if (string.IsNullOrWhiteSpace(receiptCode)) return;
-
-            if (!string.IsNullOrWhiteSpace(dbConnectionString))
-            {
-                try
-                {
-                    await using var conn = new SqlConnection(dbConnectionString);
-                    await conn.OpenAsync();
-                    await using var cmd = new SqlCommand("INSERT INTO dbo.CanceledReceiptNumbers (Number) VALUES (@num)", conn);
-                    cmd.Parameters.AddWithValue("@num", receiptCode);
-                    await cmd.ExecuteNonQueryAsync();
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Recycle to DB failed: {ex.Message} -- storing locally instead");
-                }
-            }
-
-            // ถ้าไม่สามารถส่งไป DB ได้ ให้เก็บไว้ local (จะถูกใช้เมื่อต่อ DB ไม่ได้)
             var settings = await GetSettingsAsync();
             settings.RecycleReceiptCode(receiptCode);
             await SaveSettingsAsync(settings);

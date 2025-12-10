@@ -487,6 +487,32 @@
     .btn-cancel-redeem:hover {
         background: #c82333;
     }
+        .redeemed-badge {
+            display: inline-block;
+            background: #6c757d;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        /* เพิ่มส่วนนี้ */
+        .redeemed-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 0 0 auto;
+        }
+
+        .redeemed-date {
+            font-size: 9px;
+            color: #6c757d;
+            font-style: italic;
+            white-space: nowrap;
+        }
 
     .btn-cancel-redeem:disabled {
         background: #6c757d;
@@ -1235,82 +1261,104 @@
         }
     }
 
-    // ฟังก์ชันตรวจสอบว่าคูปองถูกตัดแล้วหรือไม่
-    async function checkCouponRedeemed(generatedCodes) {
-        if (!generatedCodes || generatedCodes.length === 0) {
-            return {
-                allRedeemed: false,
-                redeemedCodes: [],
-                complimentaryCodes: [],
-                totalCodes: 0
-            };
-        }
+        // ฟังก์ชันตรวจสอบว่าคูปองถูกตัดแล้วหรือไม่ (พร้อมข้อมูลวันที่)
+        async function checkCouponRedeemed(generatedCodes) {
+            if (!generatedCodes || generatedCodes.length === 0) {
+                return {
+                    allRedeemed: false,
+                    redeemedCodes: [],
+                    redeemedDetails: {},
+                    complimentaryCodes: [],
+                    totalCodes: 0
+                };
+            }
 
-        try {
-            // เรียก API เพื่อเช็คสถานะของแต่ละ code
-            const checks = await Promise.all(
-                generatedCodes.map(async (code) => {
-                    try {
-                        const resp = await fetch(`/api/GeneratedCoupons/bycode/${encodeURIComponent(code)}`);
-                        if (resp.ok) {
-                            try {
-                                const text = await resp.text();
-                                if (!text) return {
-                                    code,
-                                    isUsed: false,
-                                    isComplimentary: false
-                                };
-                                const parsed = JSON.parse(text);
-                                // Normalize: server returns 'generatedCode' field
-                                return {
-                                    code: parsed.generatedCode ?? code,
-                                    isUsed: parsed.isUsed || false,
-                                    isComplimentary: parsed.isComplimentary || false,
-                                    id: parsed.id ?? null
-                                };
-                            } catch {
-                                return {
-                                    code,
-                                    isUsed: false,
-                                    isComplimentary: false
+            try {
+                // เรียก API เพื่อเช็คสถานะของแต่ละ code
+                const checks = await Promise.all(
+                    generatedCodes.map(async (code) => {
+                        try {
+                            const resp = await fetch(`/api/GeneratedCoupons/bycode/${encodeURIComponent(code)}`);
+                            if (resp.ok) {
+                                try {
+                                    const text = await resp.text();
+                                    if (!text) return {
+                                        code,
+                                        isUsed: false,
+                                        isComplimentary: false,
+                                        usedDate: null,
+                                        usedBy: null
+                                    };
+                                    const parsed = JSON.parse(text);
+                                    // Normalize: server returns 'generatedCode' field
+                                    return {
+                                        code: parsed.generatedCode ?? code,
+                                        isUsed: parsed.isUsed || false,
+                                        isComplimentary: parsed.isComplimentary || false,
+                                        usedDate: parsed.usedDate || parsed.redeemedAt || null,
+                                        usedBy: parsed.usedBy || parsed.redeemedBy || null,
+                                        id: parsed.id ?? null
+                                    };
+                                } catch {
+                                    return {
+                                        code,
+                                        isUsed: false,
+                                        isComplimentary: false,
+                                        usedDate: null,
+                                        usedBy: null
+                                    }
                                 }
                             }
-                        }
-                        return {
-                            code,
-                            isUsed: false,
-                            isComplimentary: false
+                            return {
+                                code,
+                                isUsed: false,
+                                isComplimentary: false,
+                                usedDate: null,
+                                usedBy: null
+                            };
+                        } catch {
+                            return {
+                                code,
+                                isUsed: false,
+                                isComplimentary: false,
+                                usedDate: null,
+                                usedBy: null
+                            };
                         };
-                    } catch {
-                        return {
-                            code,
-                            isUsed: false,
-                            isComplimentary: false
-                        };
+                    })
+                );
+
+                const redeemedCodes = checks.filter(c => c && c.isUsed).map(c => c.code);
+                const complimentaryCodes = checks.filter(c => c && c.isComplimentary).map(c => c.code);
+                const allRedeemed = checks.length > 0 && checks.every(c => c && c.isUsed);
+
+                // สร้าง object เก็บข้อมูลวันที่ตัดของแต่ละ code
+                const redeemedDetails = {};
+                checks.filter(c => c && c.isUsed).forEach(c => {
+                    redeemedDetails[c.code] = {
+                        usedDate: c.usedDate,
+                        usedBy: c.usedBy
                     };
-                })
-            );
+                });
 
-            const redeemedCodes = checks.filter(c => c && c.isUsed).map(c => c.code);
-            const complimentaryCodes = checks.filter(c => c && c.isComplimentary).map(c => c.code);
-            const allRedeemed = checks.length > 0 && checks.every(c => c && c.isUsed);
-
-            return {
-                allRedeemed,
-                redeemedCodes,
-                complimentaryCodes,
-                totalCodes: generatedCodes.length
-            };
-        } catch (err) {
-            console.error('Error checking coupon redeemed:', err);
-            return {
-                allRedeemed: false,
-                redeemedCodes: [],
-                complimentaryCodes: [],
-                totalCodes: 0
-            };
+                return {
+                    allRedeemed,
+                    redeemedCodes,
+                    redeemedDetails,
+                    complimentaryCodes,
+                    totalCodes: generatedCodes.length
+                };
+            } catch (err) {
+                console.error('Error checking coupon redeemed:', err);
+                return {
+                    allRedeemed: false,
+                    redeemedCodes: [],
+                    redeemedDetails: {},
+                    complimentaryCodes: [],
+                    totalCodes: 0
+                };
+            }
         }
-    }
 
     async function showDetail(receiptId) {
         try {
@@ -1408,11 +1456,50 @@
                     const cardClass = isRedeemed ? 'item-card redeemed' : 'item-card';
 
                     // สร้างข้อความสถานะ
+                    // สร้างข้อความสถานะพร้อมวันที่ตัด
                     let statusBadge = '';
                     if (isRedeemed) {
-                        statusBadge = '<div class="redeemed-badge">✂️ คูปองใบนี้ถูกตัดไปแล้ว</div>';
+                        // หาวันที่ตัดล่าสุด
+                        let latestDate = null;
+                        let latestBy = null;
+                        redeemStatus.redeemedCodes.forEach(code => {
+                            if (redeemStatus.redeemedDetails[code]) {
+                                const detail = redeemStatus.redeemedDetails[code];
+                                if (detail.usedDate && (!latestDate || new Date(detail.usedDate) > new Date(latestDate))) {
+                                    latestDate = detail.usedDate;
+                                    latestBy = detail.usedBy;
+                                }
+                            }
+                        });
+
+                        statusBadge = `
+                            <div class="redeemed-info">
+                                <div class="redeemed-badge">✂️ คูปองใบนี้ถูกตัดไปแล้ว</div>
+                                ${latestDate ? `<div class="redeemed-date">⏰ ตัดเมื่อ: ${formatDate(latestDate)}</div>` : ''}
+                                ${latestBy ? `<div class="redeemed-date">👤 ตัดโดย: ${escapeHtml(latestBy)}</div>` : ''}
+                            </div>
+                        `;
                     } else if (redeemStatus.redeemedCodes && redeemStatus.redeemedCodes.length > 0) {
-                        statusBadge = `<div class="redeemed-badge">✂️ ตัดไปแล้ว ${redeemStatus.redeemedCodes.length}/${redeemStatus.totalCodes} ใบ</div>`;
+                        // หาวันที่ตัดล่าสุด
+                        let latestDate = null;
+                        let latestBy = null;
+                        redeemStatus.redeemedCodes.forEach(code => {
+                            if (redeemStatus.redeemedDetails[code]) {
+                                const detail = redeemStatus.redeemedDetails[code];
+                                if (detail.usedDate && (!latestDate || new Date(detail.usedDate) > new Date(latestDate))) {
+                                    latestDate = detail.usedDate;
+                                    latestBy = detail.usedBy;
+                                }
+                            }
+                        });
+
+                        statusBadge = `
+                            <div class="redeemed-info">
+                                <div class="redeemed-badge">✂️ ตัดไปแล้ว ${redeemStatus.redeemedCodes.length}/${redeemStatus.totalCodes} ใบ</div>
+                                ${latestDate ? `<div class="redeemed-date">⏰ ตัดล่าสุด: ${formatDate(latestDate)}</div>` : ''}
+                                ${latestBy ? `<div class="redeemed-date">👤 โดย: ${escapeHtml(latestBy)}</div>` : ''}
+                            </div>
+                        `;
                     }
 
                     // เพิ่ม COM badge ถ้ามีคูปองฟรี

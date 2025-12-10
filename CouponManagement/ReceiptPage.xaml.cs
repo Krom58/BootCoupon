@@ -169,17 +169,17 @@ namespace CouponManagement
                 }
 
                 // build confirmation content
-                var panel = new StackPanel { Spacing =10 };
+                var panel = new StackPanel { Spacing = 10 };
                 panel.Children.Add(new TextBlock { Text = "คุณแน่ใจหรือไม่ว่าต้องการยกเลิกใบเสร็จ?", TextWrapping = TextWrapping.Wrap });
 
                 // details
-                panel.Children.Add(new TextBlock { Text = $"รหัสใบเสร็จ: {receipt.ReceiptCode}", Margin = new Thickness(0,6,0,0) });
-                panel.Children.Add(new TextBlock { Text = $"ชื่อลูกค้า: {receipt.CustomerName}", Margin = new Thickness(0,2,0,0) });
-                panel.Children.Add(new TextBlock { Text = $"ยอดเงิน: {receipt.TotalAmount:N2} บาท", Margin = new Thickness(0,2,0,8) });
+                panel.Children.Add(new TextBlock { Text = $"รหัสใบเสร็จ: {receipt.ReceiptCode}", Margin = new Thickness(0, 6, 0, 0) });
+                panel.Children.Add(new TextBlock { Text = $"ชื่อลูกค้า: {receipt.CustomerName}", Margin = new Thickness(0, 2, 0, 0) });
+                panel.Children.Add(new TextBlock { Text = $"ยอดเงิน: {receipt.TotalAmount:N2} บาท", Margin = new Thickness(0, 2, 0, 8) });
 
                 // warning section
-                var warn = new StackPanel { Spacing =6 };
-                warn.Children.Add(new TextBlock { Text = "เมื่อยกเลิกแล้ว:", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0,6,0,4) });
+                var warn = new StackPanel { Spacing = 6 };
+                warn.Children.Add(new TextBlock { Text = "เมื่อยกเลิกแล้ว:", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0, 6, 0, 4) });
                 warn.Children.Add(new TextBlock { Text = "• ใบเสร็จจะถูกทำเครื่องหมายว่า \"ยกเลิก\"", TextWrapping = TextWrapping.Wrap });
                 warn.Children.Add(new TextBlock { Text = "• คูปองที่ถูกผูกกับใบเสร็จจะถูกคืนสถานะกลับเป็นยังไม่ได้ใช้", TextWrapping = TextWrapping.Wrap });
                 warn.Children.Add(new TextBlock { Text = "• คูปองที่มีรหัสจะสามารถนำไปใช้ใหม่ได้", TextWrapping = TextWrapping.Wrap });
@@ -197,10 +197,54 @@ namespace CouponManagement
                 var result = await dialog.ShowAsync();
                 if (result == ContentDialogResult.Primary)
                 {
-                    // perform cancellation - mark status and save
+                    // perform cancellation - mark status
                     receipt.Status = "Cancelled";
-                    // TODO: restore related coupons if needed
+
+                    // ==== restore generated coupons linked to this receipt ====
+                    try
+                    {
+                        // find receipt item ids for this receipt
+                        var receiptItemIds = await ctx.ReceiptItems
+                            .Where(ri => ri.ReceiptId == receipt.ReceiptID)
+                            .Select(ri => ri.ReceiptItemId)
+                            .ToListAsync();
+
+                        if (receiptItemIds != null && receiptItemIds.Count > 0)
+                        {
+                            var linkedGenerated = await ctx.GeneratedCoupons
+                                .Where(g => g.ReceiptItemId != null && receiptItemIds.Contains(g.ReceiptItemId.Value))
+                                .ToListAsync();
+
+                            if (linkedGenerated.Any())
+                            {
+                                foreach (var g in linkedGenerated)
+                                {
+                                    g.IsUsed = false;
+                                    g.UsedDate = null;
+                                    g.UsedBy = null;
+                                    g.ReceiptItemId = null;
+                                    ctx.GeneratedCoupons.Update(g);
+                                }
+                            }
+                        }
+
+                        // Optionally: keep ReceiptItems for audit, or remove them. Here we keep items but you may remove them:
+                        // var itemsToRemove = ctx.ReceiptItems.Where(ri => ri.ReceiptId == receipt.ReceiptID);
+                        // ctx.ReceiptItems.RemoveRange(itemsToRemove);
+
+                        await ctx.SaveChangesAsync();
+                    }
+                    catch (Exception exRestore)
+                    {
+                        // proceed anyway but inform user
+                        var err2 = new ContentDialog { Title = "เตือน", Content = $"ยกเลิกใบเสร็จสำเร็จ แต่คืนคูปองล้มเหลว: {exRestore.Message}", CloseButtonText = "ตกลง", XamlRoot = this.XamlRoot };
+                        await err2.ShowAsync();
+                    }
+
+                    // save receipt status
                     await ctx.SaveChangesAsync();
+
+                    // refresh list
                     await LoadReceiptsAsync();
                 }
             }

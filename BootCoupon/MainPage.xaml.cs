@@ -30,20 +30,24 @@ namespace BootCoupon
 {
     public sealed partial class MainPage : Page
     {
-        private ApplicationUser? _currentUser;
-
         public MainPage()
         {
             InitializeComponent();
-            // ลบการตั้งค่า EPPlus license ออก
-
-            // Show login when page is loaded
             this.Loaded += MainPage_Loaded;
         }
 
         private async void MainPage_Loaded(object? sender, RoutedEventArgs e)
         {
-            await PromptLoginAsync();
+            // ตรวจสอบว่า login แล้วหรือยัง
+            if (App.IsAuthenticated)
+            {
+                EnableMainFunctions();
+            }
+            else
+            {
+                // ถ้ายังไม่ได้ login ให้แสดง login dialog
+                await PromptLoginAsync();
+            }
         }
 
         private async Task PromptLoginAsync()
@@ -91,7 +95,6 @@ namespace BootCoupon
                         using (var logContext = new CouponContext())
                         {
                             string attemptedUser = usernameBox.Text?.Trim() ?? "(no user)";
-                            // Location = where in app this happened; OwnerMachineId = which machine performed it
                             string appName = GetAppName();
                             await LogLoginAttemptAsync(logContext, attemptedUser, "Login Cancelled", "LoginDialog - Cancel", Environment.MachineName, appName);
                         }
@@ -169,8 +172,8 @@ namespace BootCoupon
                             continue;
                         }
 
-                        // Success
-                        _currentUser = user;
+                        // Success - เก็บ session ไว้ที่ App level
+                        App.CurrentUser = user;
 
                         // Log success
                         string appSuccess = GetAppName();
@@ -204,13 +207,11 @@ namespace BootCoupon
             MainWindow.Instance.MainFrameControl.Navigate(typeof(Receipt));
         }
         
-        // เพิ่ม event handler สำหรับปุ่มสั่งพิมพ์ใหม่
         private void ReprintReceiptButton_Click(object sender, RoutedEventArgs e)
         {
             MainWindow.Instance.MainFrameControl.Navigate(typeof(ReprintReceiptPage));
         }
 
-        // อัปเดต event handler สำหรับปุ่มรายงานการขาย
         private void SalesReportButton_Click(object sender, RoutedEventArgs e)
         {
             MainWindow.Instance.MainFrameControl.Navigate(typeof(SalesReportPage));
@@ -222,12 +223,10 @@ namespace BootCoupon
             {
                 using (var context = new CouponContext())
                 {
-                    // ทดสอบการเชื่อมต่อก่อน
                     await context.Database.EnsureCreatedAsync();
                     
                     var numberManager = await context.ReceiptNumberManagers.FirstOrDefaultAsync();
 
-                    // Load canceled numbers robustly (DB schema may differ)
                     List<string> canceledNumbers = new List<string>();
                     try
                     {
@@ -236,7 +235,6 @@ namespace BootCoupon
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Failed to load canceled numbers via fallback reader: {ex.Message}");
-                        // final fallback to EF (may still throw) - swallow and continue with empty list
                         try
                         {
                             canceledNumbers = await context.CanceledReceiptNumbers
@@ -256,17 +254,16 @@ namespace BootCoupon
                         numberManager = new ReceiptNumberManager
                         {
                             Prefix = "INV",
-                            CurrentNumber = 5001,
+                            CurrentNumber = 1,
+                            YearCode = DateTime.Now.Year % 100, // เพิ่ม YearCode
                             UpdatedBy = Environment.MachineName
                         };
                         context.ReceiptNumberManagers.Add(numberManager);
                         await context.SaveChangesAsync();
                     }
 
-                    // สร้างหน้าต่างตั้งค่าที่สามารถแก้ไขได้
                     var settingsPanel = new StackPanel { Spacing = 10 };
 
-                    // หัวข้อ
                     settingsPanel.Children.Add(new TextBlock 
                     { 
                         Text = "การตั้งค่าหมายเลขใบเสร็จ", 
@@ -280,7 +277,7 @@ namespace BootCoupon
                     var prefixTextBox = new TextBox 
                     { 
                         Text = numberManager.Prefix,
-                        PlaceholderText = "เช่น INV, RC, หรือ ใบเสร็จ",
+                        PlaceholderText = "เช่น INV, RC",
                         Width = 200,
                         HorizontalAlignment = HorizontalAlignment.Left,
                         MaxLength = 10
@@ -290,42 +287,44 @@ namespace BootCoupon
                     // หมายเลขถัดไป
                     settingsPanel.Children.Add(new TextBlock 
                     { 
-                        Text = "หมายเลขถัดไป:",
+                        Text = "หมายเลขถัดไป (3 หลัก):",
                         Margin = new Thickness(0, 10, 0, 0)
                     });
                     var numberTextBox = new TextBox 
                     { 
                         Text = numberManager.CurrentNumber.ToString(),
-                        PlaceholderText = "เช่น 5001",
+                        PlaceholderText = "เช่น 1, 2, 999",
                         Width = 200,
                         HorizontalAlignment = HorizontalAlignment.Left
                     };
                     settingsPanel.Children.Add(numberTextBox);
 
-                    // ตัวอย่างรหัสใบเสร็จ
+                    // *** ตัวอย่างรหัสใหม่: Prefix + YY + NNN ***
+                    var currentYearCode = DateTime.Now.Year % 100;
                     var previewTextBlock = new TextBlock 
                     { 
-                        Text = $"ตัวอย่าง: {numberManager.Prefix}{numberManager.CurrentNumber}",
+                        Text = $"ตัวอย่าง: {numberManager.Prefix}{currentYearCode:D2}{numberManager.CurrentNumber:D3}",
                         FontStyle = Windows.UI.Text.FontStyle.Italic,
                         Margin = new Thickness(0, 5, 0, 10),
-                        Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray)
+                        Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green),
+                        FontSize = 14,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                     };
                     settingsPanel.Children.Add(previewTextBlock);
 
-                    // อัปเดตตัวอย่างเมื่อมีการเปลี่ยนแปลง
+                    // อัปเดตตัวอย่างเมื่อเปลี่ยนค่า
                     prefixTextBox.TextChanged += (s, args) => {
                         var prefix = prefixTextBox.Text;
                         var number = int.TryParse(numberTextBox.Text, out int num) ? num : numberManager.CurrentNumber;
-                        previewTextBlock.Text = $"ตัวอย่าง: {prefix}{number}";
+                        previewTextBlock.Text = $"ตัวอย่าง: {prefix}{currentYearCode:D2}{number:D3}";
                     };
 
                     numberTextBox.TextChanged += (s, args) => {
                         var prefix = prefixTextBox.Text;
                         var number = int.TryParse(numberTextBox.Text, out int num) ? num : numberManager.CurrentNumber;
-                        previewTextBlock.Text = $"ตัวอย่าง: {prefix}{number}";
+                        previewTextBlock.Text = $"ตัวอย่าง: {prefix}{currentYearCode:D2}{number:D3}";
                     };
 
-                    // ข้อมูลปัจจุบัน
                     var separator = new Border
                     {
                         Height = 1,
@@ -334,6 +333,7 @@ namespace BootCoupon
                     };
                     settingsPanel.Children.Add(separator);
 
+                    // ข้อมูลปัจจุบัน
                     settingsPanel.Children.Add(new TextBlock 
                     { 
                         Text = "ข้อมูลปัจจุบัน:",
@@ -369,51 +369,61 @@ namespace BootCoupon
                         Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray)
                     });
 
-                    // แสดง dialog พร้อมปุ่มบันทึก
+                    // *** เพิ่มปุ่ม "กลับ" ***
                     var dialog = new ContentDialog
                     {
                         Title = "ตั้งค่าระบบ",
                         Content = settingsPanel,
                         PrimaryButtonText = "บันทึก",
+                        SecondaryButtonText = "กลับ", // ✅ เพิ่มปุ่มกลับ
                         DefaultButton = ContentDialogButton.Primary,
                         XamlRoot = this.XamlRoot
                     };
 
                     var result = await dialog.ShowAsync();
 
-                    // หากกดบันทึก
+                    // ✅ ถ้ากด "กลับ" ให้ return ทันที
+                    if (result == ContentDialogResult.Secondary)
+                    {
+                        return;
+                    }
+
                     if (result == ContentDialogResult.Primary)
                     {
-                        // ตรวจสอบข้อมูลที่กรอก
                         string newPrefix = prefixTextBox.Text.Trim();
                         string numberText = numberTextBox.Text.Trim();
 
-                        // ตรวจสอบคำนำหน้า
                         if (string.IsNullOrWhiteSpace(newPrefix))
                         {
                             await ShowErrorDialog("กรุณากรอกคำนำหน้ารหัสใบเสร็จ");
                             return;
                         }
 
-                        // ตรวจสอบหมายเลข
                         if (!int.TryParse(numberText, out int newNumber) || newNumber < 1)
                         {
-                            await ShowErrorDialog("กรุณากรอกหมายเลขที่ถูกต้อง (ต้องเป็นตัวเลขมากกว่า 0)");
+                            await ShowErrorDialog("กรุณากรอกหมายเลขที่ถูกต้อง (ต้องเป็นตัวเลข 1-999)");
+                            return;
+                        }
+
+                        if (newNumber > 999)
+                        {
+                            await ShowErrorDialog("หมายเลขต้องไม่เกิน 999 (เพื่อให้อยู่ใน 3 หลัก)");
                             return;
                         }
 
                         try
                         {
-                            // อัปเดตข้อมูลในฐานข้อมูล
                             numberManager.Prefix = newPrefix;
                             numberManager.CurrentNumber = newNumber;
+                            numberManager.YearCode = currentYearCode;
                             numberManager.LastUpdated = DateTime.Now;
                             numberManager.UpdatedBy = Environment.MachineName;
 
                             context.ReceiptNumberManagers.Update(numberManager);
                             await context.SaveChangesAsync();
 
-                            await ShowSuccessDialog($"บันทึกการตั้งค่าเรียบร้อยแล้ว\n\nรหัสใบเสร็จถัดไป: {newPrefix}{newNumber}");
+                            var exampleCode = $"{newPrefix}{currentYearCode:D2}{newNumber:D3}";
+                            await ShowSuccessDialog($"บันทึกการตั้งค่าเรียบร้อยแล้ว\n\nรหัสใบเสร็จถัดไป: {exampleCode}");
                         }
                         catch (Exception saveEx)
                         {
@@ -428,7 +438,6 @@ namespace BootCoupon
             }
         }
         
-        // Helper to read canceled receipt codes from DB handling different schema versions
         private async Task<List<string>> GetCanceledReceiptCodesAsync(CouponContext context)
         {
             var codes = new List<string>();
@@ -437,7 +446,6 @@ namespace BootCoupon
             {
                 if (conn.State != ConnectionState.Open) await conn.OpenAsync();
 
-                // determine columns present
                 var columns = new List<string>();
                 using (var colCmd = conn.CreateCommand())
                 {
@@ -452,7 +460,7 @@ namespace BootCoupon
                 bool hasReceiptCode = columns.Contains("ReceiptCode", StringComparer.OrdinalIgnoreCase);
                 bool hasCanceledDate = columns.Contains("CanceledDate", StringComparer.OrdinalIgnoreCase);
                 bool hasNumber = columns.Contains("Number", StringComparer.OrdinalIgnoreCase);
-                bool hasCreatedAt = columns.Contains("CreatedAt", StringComparer.OrdinalIgnoreCase) || columns.Contains("CreatedAtUtc", StringComparer.OrdinalIgnoreCase) || columns.Contains("CreatedAtUtc", StringComparer.OrdinalIgnoreCase);
+                bool hasCreatedAt = columns.Contains("CreatedAt", StringComparer.OrdinalIgnoreCase) || columns.Contains("CreatedAtUtc", StringComparer.OrdinalIgnoreCase);
 
                 string selectSql = null!;
                 if (hasReceiptCode && hasCanceledDate)
@@ -495,7 +503,6 @@ namespace BootCoupon
             }
         }
 
-        // Use System.Threading.Tasks.Task explicitly to avoid any ambiguity
         private async System.Threading.Tasks.Task ShowMessageDialog(string message, string title)
         {
             var dialog = new ContentDialog
@@ -519,12 +526,11 @@ namespace BootCoupon
             await ShowMessageDialog(message, "สำเร็จ");
         }
 
-        // New helper: log login attempts to dbo.Log table
-        private async Task LogLoginAttemptAsync(CouponContext context, string userName, string action, string? location = null, string? ownerMachineId = null, string? appName = null)
+        private async Task LogLoginAttemptAsync(CouponContext context, String userName, String action, String? location = null, String? ownerMachineId = null, String? appName = null)
         {
             try
             {
-                var loggedAt = DateTime.Now;
+                DateTime loggedAt = DateTime.Now;
                 await context.Database.ExecuteSqlRawAsync(
                     "INSERT INTO dbo.[Log] (LoggedAt, UserName, Action, Location, OwnerMachineId, App) VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
                     loggedAt, userName ?? string.Empty, action ?? string.Empty, location ?? string.Empty, ownerMachineId ?? string.Empty, appName ?? string.Empty);
@@ -535,7 +541,6 @@ namespace BootCoupon
             }
         }
 
-        // Helper to get current app/project name
         private static string GetAppName()
         {
             try

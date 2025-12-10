@@ -474,10 +474,12 @@ namespace BootCoupon
 
         private async Task LoadAllCouponDefinitions()
         {
-            await _context.Database.EnsureCreatedAsync();
+            // Use a short-lived context and AsNoTracking to avoid stale tracked entities
+            using var ctx = new CouponContext();
+            await ctx.Database.EnsureCreatedAsync();
 
-            // โหลด CouponDefinitions พร้อมกับข้อมูล GeneratedCoupons
-            var couponDefinitions = await _context.CouponDefinitions
+            var couponDefinitions = await ctx.CouponDefinitions
+                .AsNoTracking()
                 .Include(cd => cd.CouponType)
                 .Include(cd => cd.GeneratedCoupons)
                 .Where(cd => cd.IsActive && cd.ValidTo >= DateTime.Now)
@@ -486,11 +488,10 @@ namespace BootCoupon
             _couponDefinitionDisplays.Clear();
             foreach (var definition in couponDefinitions)
             {
-                var totalGenerated = definition.GeneratedCoupons?.Count ??0;
+                var totalGenerated = definition.GeneratedCoupons?.Count ?? 0;
                 // consider a coupon allocated to a receipt (ReceiptItemId != null) as already sold
-                var totalAllocatedOrUsed = definition.GeneratedCoupons?.Count(gc => gc.IsUsed || gc.ReceiptItemId != null) ??0;
-                
-                // เพิ่มเฉพาะคูปองที่ยังมีคงเหลือ หรือที่ยังไม่เคยสร้างเลย
+                var totalAllocatedOrUsed = definition.GeneratedCoupons?.Count(gc => gc.IsUsed || gc.ReceiptItemId != null) ?? 0;
+
                 var availableCount = totalGenerated - totalAllocatedOrUsed;
                 if (totalGenerated == 0 || availableCount > 0)
                 {
@@ -579,55 +580,47 @@ namespace BootCoupon
         {
             try
             {
-                // เก็บค่า offset ปัจจุบันของ ListView เพื่อคืนค่าเมื่อรีเฟรช
+                // Save current scroll position
                 try
                 {
                     var svBefore = FindScrollViewer(CouponDefinitionsListView);
                     _couponListVerticalOffset = svBefore?.VerticalOffset ?? 0;
                 }
-                catch { /* ignore errors in getting scrollviewer */ }
+                catch { }
 
                 string nameSearch = NameSearchTextBox.Text.Trim().ToLower();
                 string codeSearch = CodeSearchTextBox.Text.Trim().ToLower();
-
-                // ใช้แบบเดียวกับ CouponDefinitionPage - ดึง Tag จาก ComboBoxItem
                 var typeFilter = GetSelectedTag(CouponTypeComboBox);
 
-                await _context.Database.EnsureCreatedAsync();
+                // Use a new context instance and AsNoTracking to ensure fresh data from DB
+                using var ctx = new CouponContext();
+                await ctx.Database.EnsureCreatedAsync();
 
-                var query = _context.CouponDefinitions
+                var query = ctx.CouponDefinitions
+                    .AsNoTracking()
                     .Include(cd => cd.CouponType)
                     .Include(cd => cd.GeneratedCoupons)
                     .Where(cd => cd.IsActive && cd.ValidTo >= DateTime.Now)
                     .AsQueryable();
 
                 if (!string.IsNullOrEmpty(nameSearch))
-                {
                     query = query.Where(cd => cd.Name.ToLower().Contains(nameSearch));
-                }
 
                 if (!string.IsNullOrEmpty(codeSearch))
-                {
                     query = query.Where(cd => cd.Code.ToLower().Contains(codeSearch));
-                }
 
-                // Filter by CouponTypeId - ใช้ Tag จาก ComboBoxItem
                 if (typeFilter != "ALL" && int.TryParse(typeFilter, out int typeId))
-                {
                     query = query.Where(cd => cd.CouponTypeId == typeId);
-                }
 
                 var couponDefinitions = await query.ToListAsync();
 
                 _couponDefinitionDisplays.Clear();
                 foreach (var definition in couponDefinitions)
                 {
-                    var totalGenerated = definition.GeneratedCoupons?.Count ??0;
-                    // consider a coupon allocated to a receipt (ReceiptItemId != null) as already sold
-                    var totalAllocatedOrUsed = definition.GeneratedCoupons?.Count(gc => gc.IsUsed || gc.ReceiptItemId != null) ??0;
+                    var totalGenerated = definition.GeneratedCoupons?.Count ?? 0;
+                    var totalAllocatedOrUsed = definition.GeneratedCoupons?.Count(gc => gc.IsUsed || gc.ReceiptItemId != null) ?? 0;
                     var availableCount = totalGenerated - totalAllocatedOrUsed;
 
-                    // เพิ่มเฉพาะคูปองที่ยังมีคงเหลือ หรือที่ยังไม่เคยสร้างเลย
                     if (totalGenerated == 0 || availableCount > 0)
                     {
                         var display = new CouponDefinitionDisplay
@@ -640,7 +633,7 @@ namespace BootCoupon
                     }
                 }
 
-                // คืนค่าสถานะ Scroll position หลังจากรีเฟรช
+                // Restore scroll position
                 try
                 {
                     DispatcherQueue.TryEnqueue(() =>
@@ -652,12 +645,11 @@ namespace BootCoupon
                         }
                     });
                 }
-                catch { /* ignore restore errors */ }
+                catch { }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"ข้อผิดพลาดในการค้นหา: {ex.Message}");
-                // ไม่แสดง error dialog เพื่อไม่ให้รบกวนผู้ใช้ขณะพิมพ์
             }
         }
 
@@ -1424,6 +1416,7 @@ _context.Receipts.Update(receipt);
                     await ShowErrorDialog($"เกิดข้อผิดพลาด: {ex.Message}");
                 }
             }
+
         }
 
         private void ClearPaymentMethodSelection()
@@ -1553,6 +1546,13 @@ _context.Receipts.Update(receipt);
 
                         // เรียก handler สำหรับการยกเลิกใบเสร็จ (เหมือนปุ่มยกเลิกปกติ)
                         await ReceiptPrintService.HandleReceiptCancellationAsync(receiptId, this.XamlRoot);
+
+                        // ✅ เพิ่มการรีเฟรชข้อมูลคูปองทันทีหลังยกเลิก
+                        await PerformSearch();
+
+                        // ✅ อัปเดตราคารวมเผื่อมีรายการค้างอยู่
+                        UpdateTotalPrice();
+
                         return; // recycled -> exit
                     }
                     else
