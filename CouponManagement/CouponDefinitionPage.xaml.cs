@@ -120,6 +120,9 @@ namespace CouponManagement
         private double _savedScrollPosition = 0;
         private int? _selectedCouponDefinitionId = null;
 
+        // Suppress selection changed while populating the TypeFilterComboBox
+        private bool _suppressTypeFilterChanged = false;
+
         public CouponDefinitionPage()
         {
             this.InitializeComponent();
@@ -157,7 +160,7 @@ namespace CouponManagement
             {
                 // เพิ่ม row definition สำหรับ InfoBar
                 mainGrid.RowDefinitions.Insert(0, new RowDefinition { Height = GridLength.Auto });
-                
+
                 // ปรับ row index ของ element อื่นๆ
                 foreach (FrameworkElement child in mainGrid.Children)
                 {
@@ -214,7 +217,7 @@ namespace CouponManagement
         private async void CouponDefinitionPage_Loaded(object sender, RoutedEventArgs e)
         {
             // Load coupon types from database first, then data
-            await LoadCouponTypesAsync();
+            await LoadBranchesAsync();
             await LoadDataAsync();
         }
 
@@ -252,7 +255,7 @@ namespace CouponManagement
                             item.StatUsed = 0;
                         }
                     }
-     
+
                     CouponDefinitions.Add(item);
                 }
 
@@ -274,39 +277,52 @@ namespace CouponManagement
             return (comboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "ALL";
         }
 
-        private async Task LoadCouponTypesAsync()
+        private async Task LoadBranchesAsync()
         {
             try
             {
-                var types = await _couponService.GetAllCouponTypesAsync();
+                _suppressTypeFilterChanged = true;
+
+                var types = await _couponService.GetAllBranchesAsync();
 
                 TypeFilterComboBox.Items.Clear();
-                // Always keep "ทั้งหมด"
-                TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = "ทั้งหมด", Tag = "ALL", IsSelected = true });
+                // Add "ทั้งหมด" but do NOT set IsSelected here to avoid firing SelectionChanged
+                TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = "ทั้งหมด", Tag = "ALL" });
 
                 if (types.Count > 0)
                 {
                     foreach (var t in types)
                     {
-                        // Use CouponType.Id as Tag for filtering instead of behavior code
+                        // Use Branch.Id as Tag for filtering
                         TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = t.Name, Tag = t.Id.ToString() });
                     }
                 }
                 else
                 {
-                    // No types: do not create default in DB. Let UI indicate no types available.
-                    // Optionally add a disabled placeholder entry.
-                    TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = "(ไม่มีประเภท)", Tag = "ALL" });
+                    TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = "(ไม่มีสาขา)", Tag = "ALL" });
+                }
+
+                // Select the default item after population while selection-change is suppressed
+                if (TypeFilterComboBox.Items.Count > 0)
+                {
+                    TypeFilterComboBox.SelectedIndex = 0;
                 }
             }
             catch (Exception ex)
             {
-                ShowErrorMessage($"ไม่สามารถโหลดประเภทคูปองได้: {ex.Message}");
+                ShowErrorMessage($"ไม่สามารถโหลดสาขาคูปองได้: {ex.Message}");
+            }
+            finally
+            {
+                // allow selection changed to run again
+                _suppressTypeFilterChanged = false;
             }
         }
 
         private async void TypeFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_suppressTypeFilterChanged) return;
+
             if (IsLoaded)
                 await LoadDataAsync();
         }
@@ -347,7 +363,7 @@ namespace CouponManagement
                 dialog.XamlRoot = this.XamlRoot;
 
                 var result = await dialog.ShowAsync();
-                
+
                 if (dialog.WasSaved)
                 {
                     ShowSuccessMessage("สร้างคำนิยามคูปองเรียบร้อย");
@@ -484,7 +500,7 @@ namespace CouponManagement
                     // แสดงสถานะกำลังทำงาน
                     toggle.IsEnabled = false;
                     toggle.Content = "กำลังประมวลผล...";
-                    
+
                     ShowStatusMessage($"กำลัง{(newState ? "เปิด" : "ปิด")}การใช้งานคูปอง...", InfoBarSeverity.Informational);
 
                     var success = await _service.SetActiveAsync(definition.Id, newState, Environment.UserName);
@@ -612,21 +628,21 @@ namespace CouponManagement
         public static Task EnqueueAsync(this DispatcherQueue dispatcher, Action action)
         {
             var tcs = new TaskCompletionSource<bool>();
-     
-       dispatcher.TryEnqueue(() =>
-         {
-   try
-          {
-         action();
-        tcs.SetResult(true);
- }
-      catch (Exception ex)
-       {
-                 tcs.SetException(ex);
-    }
-        });
-     
-   return tcs.Task;
+
+            dispatcher.TryEnqueue(() =>
+              {
+                  try
+                  {
+                      action();
+                      tcs.SetResult(true);
+                  }
+                  catch (Exception ex)
+                  {
+                      tcs.SetException(ex);
+                  }
+              });
+
+            return tcs.Task;
         }
     }
 }

@@ -62,7 +62,7 @@
                     Style="{StaticResource MenuButtonStyle}"/>
             <!-- ปุ่มใหม่: จัดการผู้ใช้ -->
             <Button x:Name="ManageUsersButton"
-                    Content="จัดการผู้ใช้"
+                    Content="จัดการผู้ใช้/สาขา/งานที่ขาย"
                     Click="ManageUsersButton_Click"
                     Style="{StaticResource MenuButtonStyle}"/>
         </StackPanel>

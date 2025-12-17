@@ -36,7 +36,7 @@ namespace BootCoupon.Converters
      ? Visibility.Visible 
       : Visibility.Collapsed;
 
-           case "CouponType":
+           case "Branch":
         case "Coupon":
           // ?????????????
       return Visibility.Visible;

@@ -159,8 +159,8 @@ namespace CouponManagement.Web.Controllers
                 var wantedUpper = wantedTypes.Select(w => w.ToUpper()).ToList();
 
                 var matchingDefIds = await context.CouponDefinitions
-                    .Include(cd => cd.CouponType)
-                    .Where(cd => cd.CouponType != null && wantedUpper.Contains(cd.CouponType.Name.ToUpper()))
+                    .Include(cd => cd.Branch)
+                    .Where(cd => cd.Branch != null && wantedUpper.Contains(cd.Branch.Name.ToUpper()))
                     .Select(cd => cd.Id)
                     .ToListAsync();
 

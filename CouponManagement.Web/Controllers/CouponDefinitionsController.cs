@@ -58,7 +58,7 @@ namespace CouponManagement.Web.Controllers
                 using var context = new CouponContext();
    
                 var definition = await context.CouponDefinitions
-                    .Include(d => d.CouponType)
+                    .Include(d => d.Branch)
                     .Include(d => d.CodeGenerator)
                     .FirstOrDefaultAsync(d => d.Code == code);
 
@@ -97,7 +97,7 @@ namespace CouponManagement.Web.Controllers
                     name = definition.Name,
                     price = definition.Price,
                     description = description,
-                    couponType = definition.CouponType?.Name ?? "",
+                    branch = definition.Branch?.Name ?? "",
                     validFrom = definition.ValidFrom,
                     validTo = definition.ValidTo,
                     expiryDays = expiryDays,

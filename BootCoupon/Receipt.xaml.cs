@@ -303,7 +303,7 @@ namespace BootCoupon
             {
                 await LoadAllCouponDefinitions();
                 await LoadSalesPersons();
-                await LoadCouponTypes(); // เพิ่มการเรียกใช้ LoadCouponTypes กลับมา
+                await LoadBranchTypes(); // เพิ่มการเรียกใช้ LoadBranchTypes กลับมา
                 await LoadPaymentMethods();
             }
             catch (Exception ex)
@@ -480,7 +480,7 @@ namespace BootCoupon
 
             var couponDefinitions = await ctx.CouponDefinitions
                 .AsNoTracking()
-                .Include(cd => cd.CouponType)
+                .Include(cd => cd.Branch)
                 .Include(cd => cd.GeneratedCoupons)
                 .Where(cd => cd.IsActive && cd.ValidTo >= DateTime.Now)
                 .ToListAsync();
@@ -506,39 +506,39 @@ namespace BootCoupon
             }
         }
 
-        private async Task LoadCouponTypes()
+        private async Task LoadBranchTypes()
         {
             await _context.Database.EnsureCreatedAsync();
 
-            var couponTypes = await _context.CouponTypes
-                .OrderBy(ct => ct.Name)
+            var branches = await _context.Branches
+                .OrderBy(b => b.Name)
                 .ToListAsync();
 
             // Clear existing items
-            CouponTypeComboBox.Items.Clear();
+            BranchComboBox.Items.Clear();
             
             // Add "ทั้งหมด" option with Tag "ALL"
             var allItem = new ComboBoxItem { Content = "ทั้งหมด", Tag = "ALL", IsSelected = true };
-            CouponTypeComboBox.Items.Add(allItem);
+            BranchComboBox.Items.Add(allItem);
 
-            // Add coupon types from database using Id as Tag
-            foreach (var type in couponTypes)
+            // Add branches from database using Id as Tag
+            foreach (var branch in branches)
             {
-                var item = new ComboBoxItem { Content = type.Name, Tag = type.Id.ToString() };
-                CouponTypeComboBox.Items.Add(item);
+                var item = new ComboBoxItem { Content = branch.Name, Tag = branch.Id.ToString() };
+                BranchComboBox.Items.Add(item);
             }
 
             // Set default selection to "ทั้งหมด"
             try
             {
-                if (CouponTypeComboBox.Items.Count > 0)
+                if (BranchComboBox.Items.Count > 0)
                 {
-                    CouponTypeComboBox.SelectedIndex = 0; // เลือก "ทั้งหมด" (index 0)
+                    BranchComboBox.SelectedIndex = 0; // เลือก "ทั้งหมด" (index 0)
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to set default CouponType selection: {ex.Message}");
+                Debug.WriteLine($"Failed to set default Branch selection: {ex.Message}");
             }
         }
 
@@ -553,7 +553,7 @@ namespace BootCoupon
             PerformDelayedSearch();
         }
 
-        private void CouponTypeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void BranchComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             PerformDelayedSearch();
         }
@@ -575,7 +575,7 @@ namespace BootCoupon
             }
         }
 
-        // Method สำหรับค้นหาจริง - แก้ไขให้ใช้ CouponTypeId แบบเดียวกับ CouponDefinitionPage
+        // Method สำหรับค้นหาจริง - แก้ไขให้ใช้ BranchId แบบเดียวกับ CouponDefinitionPage
         private async Task PerformSearch()
         {
             try
@@ -590,7 +590,7 @@ namespace BootCoupon
 
                 string nameSearch = NameSearchTextBox.Text.Trim().ToLower();
                 string codeSearch = CodeSearchTextBox.Text.Trim().ToLower();
-                var typeFilter = GetSelectedTag(CouponTypeComboBox);
+                var branchFilter = GetSelectedTag(BranchComboBox);
 
                 // Use a new context instance and AsNoTracking to ensure fresh data from DB
                 using var ctx = new CouponContext();
@@ -598,7 +598,7 @@ namespace BootCoupon
 
                 var query = ctx.CouponDefinitions
                     .AsNoTracking()
-                    .Include(cd => cd.CouponType)
+                    .Include(cd => cd.Branch)
                     .Include(cd => cd.GeneratedCoupons)
                     .Where(cd => cd.IsActive && cd.ValidTo >= DateTime.Now)
                     .AsQueryable();
@@ -609,8 +609,8 @@ namespace BootCoupon
                 if (!string.IsNullOrEmpty(codeSearch))
                     query = query.Where(cd => cd.Code.ToLower().Contains(codeSearch));
 
-                if (typeFilter != "ALL" && int.TryParse(typeFilter, out int typeId))
-                    query = query.Where(cd => cd.CouponTypeId == typeId);
+                if (branchFilter != "ALL" && int.TryParse(branchFilter, out int branchId))
+                    query = query.Where(cd => cd.BranchId == branchId);
 
                 var couponDefinitions = await query.ToListAsync();
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore;
 using CouponManagement.Shared.Models;
 
@@ -15,7 +15,8 @@ namespace CouponManagement.Shared
         {
         }
 
-        public DbSet<CouponType> CouponTypes { get; set; } = null!;
+        // Renamed DbSet to Branches
+        public DbSet<Branch> Branches { get; set; } = null!;
         public DbSet<Coupon> Coupons { get; set; } = null!;
         public DbSet<ReceiptModel> Receipts { get; set; } = null!;
         public DbSet<DatabaseReceiptItem> ReceiptItems { get; set; } = null!;
@@ -36,13 +37,16 @@ namespace CouponManagement.Shared
         // Login logs (added so controllers can write login entries)
         public DbSet<LoginLog> LoginLogs { get; set; } = null!;
 
+        // แอดใหม่
+        public DbSet<SaleEvent> SaleEvents { get; set; } = null!;
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             // If not configured via DI, use fallback connection from environment or local default.
-            if (!optionsBuilder.IsConfigured)
+            if (!optionsBuilder.IsConfigured) 
             {
                 var conn = Environment.GetEnvironmentVariable("COUPONDB_CONNECTION")
-                           ?? "Server=10.10.0.42\\SQLSET;Database=CouponDbV2;User Id=sa;Password=Wutt@1976;TrustServerCertificate=True;Trusted_Connection=False;";
+                           ?? "Server=10.10.0.42\\SQLSET;Database=CouponTest;User Id=sa;Password=Wutt@1976;TrustServerCertificate=True;Trusted_Connection=False;";
                 optionsBuilder.UseSqlServer(conn);
             }
         }
@@ -53,15 +57,15 @@ namespace CouponManagement.Shared
         {
             base.OnModelCreating(modelBuilder);
 
-            // CouponType mapping
-            modelBuilder.Entity<CouponType>(entity =>
+            // Branch mapping (was Branch)
+            modelBuilder.Entity<Branch>(entity =>
             {
-                entity.ToTable("CouponTypes");
+                entity.ToTable("Branch");
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.CreatedBy).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
-                entity.HasIndex(e => e.Name).HasDatabaseName("IX_CouponTypes_Name");
+                entity.HasIndex(e => e.Name).HasDatabaseName("IX_Branch_Name");
             });
 
             // Coupon mapping
@@ -71,17 +75,19 @@ namespace CouponManagement.Shared
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Code).IsRequired().HasMaxLength(50);
-                entity.Property(e => e.CouponTypeId).IsRequired();
+
+                // map CLR property BranchId to DB column BranchId
+                entity.Property(e => e.BranchId).IsRequired();
                 entity.Property(e => e.Price).HasPrecision(18,2);
 
                 // Foreign key relationship
-                entity.HasOne(c => c.CouponType)
+                entity.HasOne(c => c.Branch)
                       .WithMany()
-                      .HasForeignKey(c => c.CouponTypeId)
+                      .HasForeignKey(c => c.BranchId)
                       .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasIndex(e => e.Code).IsUnique().HasDatabaseName("UK_Coupons_Code");
-                entity.HasIndex(e => e.CouponTypeId).HasDatabaseName("IX_Coupons_CouponTypeId");
+                entity.HasIndex(e => e.BranchId).HasDatabaseName("IX_Coupons_BranchId");
             });
 
             // ReceiptItems
@@ -108,12 +114,10 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.CustomerPhoneNumber).IsRequired();
                 entity.Property(e => e.Status).HasDefaultValue("Active");
                 entity.Property(e => e.TotalAmount).HasPrecision(18,2);
-                entity.Property(e => e.Discount).HasPrecision(18,2); // ????? precision ?????? Discount
+                entity.Property(e => e.Discount).HasPrecision(18,2);
                 entity.HasMany(r => r.Items)
                       .WithOne()
                       .HasForeignKey(ri => ri.ReceiptId);
-
-                // Note: CustomerId removed - customer info stored denormalized in ReceiptModel (CustomerName / CustomerPhoneNumber)
             });
 
             // CouponDefinition configuration
@@ -130,14 +134,15 @@ namespace CouponManagement.Shared
                       .IsRequired()
                       .HasMaxLength(200);
 
-                entity.Property(e => e.CouponTypeId)
+                // map CLR property BranchId to DB column BranchId
+                entity.Property(e => e.BranchId)
                       .IsRequired();
 
                 entity.Property(e => e.Price).HasPrecision(18,2);
 
-                entity.HasOne(d => d.CouponType)
+                entity.HasOne(d => d.Branch)
                       .WithMany()
-                      .HasForeignKey(d => d.CouponTypeId)
+                      .HasForeignKey(d => d.BranchId)
                       .OnDelete(DeleteBehavior.Restrict);
 
                 entity.Property(e => e.Params)
@@ -158,17 +163,26 @@ namespace CouponManagement.Shared
                       .IsUnique()
                       .HasDatabaseName("UK_CouponDefinitions_Code");
 
-                entity.HasIndex(e => e.CouponTypeId)
-                      .HasDatabaseName("IX_CouponDefinitions_Type");
+                entity.HasIndex(e => e.BranchId)
+                      .HasDatabaseName("IX_CouponDefinitions_BranchId");
 
                 entity.HasIndex(e => new { e.ValidFrom, e.ValidTo })
                       .HasDatabaseName("IX_CouponDefinitions_ValidDates");
 
                 entity.HasIndex(e => e.IsActive)
                       .HasDatabaseName("IX_CouponDefinitions_IsActive");
+
+                // แอดใหม่
+                entity.HasOne(d => d.SaleEvent)
+                      .WithMany()
+                      .HasForeignKey(d => d.SaleEventId)
+                      .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasIndex(e => e.SaleEventId)
+                      .HasDatabaseName("IX_CouponDefinitions_SaleEventId");
             });
 
-            // CouponCodeGenerator configuration
+            // CouponCodeGenerator configuration (unchanged)
             modelBuilder.Entity<CouponCodeGenerator>(entity =>
             {
                 entity.ToTable("CouponCodeGenerators");
@@ -204,7 +218,7 @@ namespace CouponManagement.Shared
                       .HasDatabaseName("UK_CouponCodeGenerators_CouponDefinitionId");
             });
 
-            // GeneratedCoupon configuration
+            // GeneratedCoupon configuration (unchanged)
             modelBuilder.Entity<GeneratedCoupon>(entity =>
             {
                 entity.ToTable("GeneratedCoupons");
@@ -269,7 +283,7 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.UpdatedBy).HasMaxLength(100);
                 entity.Property(e => e.LastUpdated).HasDefaultValueSql("GETDATE()");
                 
-                // *** ���� YearCode ***
+                // *** เพิ่ม YearCode ***
                 entity.Property(e => e.YearCode)
                       .IsRequired()
                       .HasDefaultValue(DateTime.Now.Year % 100);
@@ -284,7 +298,7 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.Reason).HasMaxLength(255);
                 entity.Property(e => e.CanceledDate).HasDefaultValueSql("GETDATE()");
                 
-                // *** ���� Index ����Ѻ OwnerMachineId ***
+                // *** เพิ่ม Index สำหรับ OwnerMachineId ***
                 entity.HasIndex(e => new { e.OwnerMachineId, e.CanceledDate })
                       .HasDatabaseName("IX_CanceledReceiptNumbers_OwnerMachineId_CanceledDate");
                 
@@ -324,6 +338,24 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.Location).HasMaxLength(100);
                 entity.Property(e => e.App).HasMaxLength(200);
                 entity.HasIndex(e => e.UserName).HasDatabaseName("IX_LoginLogs_UserName");
+            });
+
+            // แอดใหม่
+            modelBuilder.Entity<SaleEvent>(entity =>
+            {
+                entity.ToTable("SaleEvent");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.StartDate).IsRequired();
+                entity.Property(e => e.EndDate).IsRequired();
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.Property(e => e.CreatedBy).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.UpdatedBy).HasMaxLength(100);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+                
+                entity.HasIndex(e => e.Name).IsUnique().HasDatabaseName("UK_SaleEvent_Name");
+                entity.HasIndex(e => new { e.StartDate, e.EndDate }).HasDatabaseName("IX_SaleEvent_Dates");
+                entity.HasIndex(e => e.IsActive).HasDatabaseName("IX_SaleEvent_IsActive");
             });
         }
     }

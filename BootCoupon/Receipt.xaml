@@ -85,9 +85,9 @@
  Margin="4,0,8,0" TextChanged="CodeSearchTextBox_TextChanged" FontSize="14"/>
 
  <!-- Search by Coupon Type -->
- <ComboBox x:Name="CouponTypeComboBox" Grid.Column="2" PlaceholderText="ค้นหาตามประเภท" 
+ <ComboBox x:Name="BranchComboBox" Grid.Column="2" PlaceholderText="ค้นหาตามสาขา" 
  Margin="4,0,0,0" 
- SelectionChanged="CouponTypeComboBox_SelectionChanged" FontSize="14"/>
+ SelectionChanged="BranchComboBox_SelectionChanged" FontSize="14"/>
  </Grid>
 
  <!-- CouponDefinitions ListView -->

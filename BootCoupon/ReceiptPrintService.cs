@@ -16,6 +16,8 @@ using Microsoft.UI.Xaml.Printing;
 using BootCoupon.Services;
 using CouponManagement.Shared;
 using CouponManagement.Shared.Models;
+using Windows.Storage;
+using Windows.Storage.Streams;
 
 namespace BootCoupon
 {
@@ -30,7 +32,8 @@ namespace BootCoupon
         private static string salesPersonName = string.Empty;
         private static string salesPersonPhone = string.Empty;
         private static string selectedPaymentMethod = string.Empty; // เพิ่มในส่วนตัวแปร
-
+                                                                    // Add this static field (near other static fields)
+        private static BitmapImage? logoBitmap;
         // Dialog management
         private static readonly SemaphoreSlim dialogSemaphore = new(1,1);
         private static bool isPrintingInProgress = false;
@@ -295,6 +298,10 @@ namespace BootCoupon
 
                 // รอสักครู่ก่อนเริ่มพิมพ์
                 await Task.Delay(200);
+
+                // Preload logo on UI thread so preview and print can use the BitmapImage safely
+                await PreloadLogoAsync();
+                Debug.WriteLine($"PreloadLogoAsync completed. logoBitmap != null: {logoBitmap != null}");
 
                 // ทำความสะอาด resources เก่าก่อน
                 CleanupPrintResources();
@@ -619,11 +626,22 @@ namespace BootCoupon
                 {
                     var logoImage = new Image
                     {
-                        Source = new BitmapImage(new Uri("ms-appx:///Assets/AsiaHotelLogo.jpg")),
                         Height = 80,
                         HorizontalAlignment = HorizontalAlignment.Center,
                         Margin = new Thickness(0, 0, 0, 10)
                     };
+
+                    // Prefer the preloaded BitmapImage (loaded on UI thread)
+                    if (logoBitmap != null)
+                    {
+                        logoImage.Source = logoBitmap;
+                    }
+                    else
+                    {
+                        // fallback: try ms-appx URI (may fail on non-UI thread)
+                        logoImage.Source = new BitmapImage(new Uri("ms-appx:///Assets/AsiaHotelLogo.jpg"));
+                    }
+
                     Grid.SetRow(logoImage, 0);
                     Grid.SetColumn(logoImage, 0);
                     Grid.SetColumnSpan(logoImage, 2);
@@ -1705,6 +1723,48 @@ namespace BootCoupon
             {
                 Debug.WriteLine($"ข้อผิดพลาดในการแปลงตัวเลขเป็นภาษาไทย: {ex.Message}");
                 return $"รวม ({amount:N2} บาท)";
+            }
+        }
+
+        // New helper to preload the logo on the UI thread
+        private static async Task PreloadLogoAsync()
+        {
+            try
+            {
+                if (logoBitmap != null) return;
+                if (App.MainWindowInstance == null) return;
+
+                var tcs = new TaskCompletionSource<bool>();
+
+                // Run the file-open + SetSourceAsync on the UI thread and await it
+                App.MainWindowInstance.DispatcherQueue.TryEnqueue(async () =>
+                {
+                    try
+                    {
+                        var uri = new Uri("ms-appx:///Assets/AsiaHotelLogo.jpg");
+                        var file = await StorageFile.GetFileFromApplicationUriAsync(uri);
+                        using (IRandomAccessStream stream = await file.OpenReadAsync())
+                        {
+                            var bmp = new BitmapImage();
+                            await bmp.SetSourceAsync(stream);
+                            logoBitmap = bmp;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"PreloadLogoAsync failed: {ex.Message}");
+                    }
+                    finally
+                    {
+                        tcs.SetResult(true);
+                    }
+                });
+
+                await tcs.Task;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"PreloadLogoAsync top-level error: {ex.Message}");
             }
         }
     }

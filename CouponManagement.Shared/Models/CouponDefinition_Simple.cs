@@ -11,72 +11,82 @@ namespace CouponManagement.Shared.Models
     public class CouponDefinition
     {
         public int Id { get; set; }
-        
+
         [Required]
         [StringLength(50)]
         [Column(TypeName = "nvarchar(50)")]
         public string Code { get; set; } = string.Empty;
-        
+
         [Required]
         [StringLength(200)]
         [Column(TypeName = "nvarchar(200)")]
         public string Name { get; set; } = string.Empty;
-        
-        // ใช้ CouponTypeId โดยตรง - ง่ายและชัดเจน
-        public int CouponTypeId { get; set; }
 
-        [ForeignKey(nameof(CouponTypeId))]
-        public CouponType? CouponType { get; set; }
-        
+        // Use BranchId (was BranchId) for clarity with DB rename
+        public int BranchId { get; set; }
+
+        [ForeignKey(nameof(BranchId))]
+        public Branch? Branch { get; set; }
+
         [Range(0, double.MaxValue)]
         public decimal Price { get; set; }
-        
+
         [Required]
         [Column(TypeName = "nvarchar(max)")]
         public string Params { get; set; } = string.Empty;
-        
+
         public DateTime ValidFrom { get; set; }
-        
+
         public DateTime ValidTo { get; set; }
-        
+
         public bool IsActive { get; set; } = true;
-        
+
         [Required]
         [StringLength(100)]
         [Column(TypeName = "nvarchar(100)")]
         public string CreatedBy { get; set; } = string.Empty;
-        
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
-        
+
         [StringLength(100)]
         [Column(TypeName = "nvarchar(100)")]
         public string? UpdatedBy { get; set; }
-        
+
         public DateTime? UpdatedAt { get; set; }
-        
+
         // Navigation properties
-        public CouponCodeGenerator? CodeGenerator { get; set; }
+        public CouponCodeGenerator? CodeGenerator { get; set; }    
         public List<GeneratedCoupon> GeneratedCoupons { get; set; } = new();
 
         // New flag to indicate limited (has codes) vs unlimited
         public bool IsLimited { get; set; } = false;
-        
+
+        // Sale Event (Optional)
+        public int? SaleEventId { get; set; }
+
+        [ForeignKey(nameof(SaleEventId))]
+        public SaleEvent? SaleEvent { get; set; }
+
+        // ✅ Helper property สำหรับแสดงชื่องานขาย
+        [NotMapped]
+        public string SaleEventName => SaleEvent?.Name ?? "ไม่มีงาน";
+
         // Helper properties
         [NotMapped]
         public string StatusText => GetStatusText();
-        
+
         [NotMapped]
         public string TypeDisplayText => GetTypeDisplayText();
-        
+
         [NotMapped]
         public bool IsExpired => ValidTo < DateTime.Now;
-        
+
         [NotMapped]
         public bool IsUpcoming => ValidFrom > DateTime.Now;
-        
+
         [NotMapped]
         public bool IsCurrentlyValid => DateTime.Now >= ValidFrom && DateTime.Now <= ValidTo && IsActive;
-        
+
         [NotMapped]
         public CouponParameters? ParsedParams
         {
@@ -84,7 +94,6 @@ namespace CouponManagement.Shared.Models
             {
                 try
                 {
-                    // เนื่องจากตอนนี้ Type เป็น int แล้ว ให้ใช้ default เป็น COUPON
                     return JsonSerializer.Deserialize<CouponParams>(Params);
                 }
                 catch
@@ -116,7 +125,7 @@ namespace CouponManagement.Shared.Models
 
         [NotMapped]
         public int StatUsed { get; set; }
-        
+
         private string GetStatusText()
         {
             if (!IsActive) return "ไม่ใช้งาน";
@@ -124,67 +133,67 @@ namespace CouponManagement.Shared.Models
             if (IsUpcoming) return "ยังไม่เริ่ม";
             return "ใช้งานได้";
         }
-        
+
         private string GetTypeDisplayText()
         {
-            // ใช้ CouponType navigation property หรือแสดง Type ID
-            return CouponType?.Name ?? $"ประเภท {CouponTypeId}";
+            // Use Branch navigation property or fallback to ID
+            return Branch?.Name ?? $"สาขา {BranchId}";
         }
     }
-    
+
     // Code Generator Model
     public class CouponCodeGenerator
     {
         public int Id { get; set; }
         public int CouponDefinitionId { get; set; }
-        
+
         [Required]
         [StringLength(10)]
         [Column(TypeName = "nvarchar(10)")]
         public string Prefix { get; set; } = string.Empty;
-        
+
         [Required]
         [StringLength(10)]
         [Column(TypeName = "nvarchar(10)")]
         public string Suffix { get; set; } = string.Empty;
-        
+
         public int CurrentSequence { get; set; } = 0;
-        
+
         [Range(1, 10)]
         public int SequenceLength { get; set; } = 3;
-        
+
         public int GeneratedCount { get; set; } = 0;
-        
+
         [StringLength(100)]
         [Column(TypeName = "nvarchar(100)")]
         public string? UpdatedBy { get; set; }
-        
+
         public DateTime? UpdatedAt { get; set; }
-        
+
         // Navigation property
         public CouponDefinition? CouponDefinition { get; set; }
-        
+
         // Helper methods
         [NotMapped]
         public string NextCode => GenerateCode(CurrentSequence + 1);
-        
+
         public string PreviewCode(int quantity = 1)
         {
             if (quantity == 1)
                 return GenerateCode(CurrentSequence + 1);
-            
+
             var startCode = GenerateCode(CurrentSequence + 1);
             var endCode = GenerateCode(CurrentSequence + quantity);
             return $"{startCode} ถึง {endCode}";
         }
-        
+
         private string GenerateCode(int sequence)
         {
             var paddedSequence = sequence.ToString().PadLeft(SequenceLength, '0');
             return $"{Prefix}{paddedSequence}{Suffix}";
         }
     }
-    
+
     // Generated Coupon Model
     public class GeneratedCoupon
     {
@@ -224,77 +233,80 @@ namespace CouponManagement.Shared.Models
         // Navigation property
         public CouponDefinition? CouponDefinition { get; set; }
     }
-    
+
     // Parameter classes
     public abstract class CouponParameters
     {
         public abstract string GetDescription();
     }
-    
+
     // คูปองธรรมดา
     public class CouponParams : CouponParameters
     {
         // removed numeric value - project now uses Price for amount
         public string description { get; set; } = string.Empty;
-        
+
         public override string GetDescription()
         {
             // Return description only; Price is shown from CouponDefinition.Price elsewhere
             return description;
         }
     }
-    
+
     // Removed BuyXFreeYParams and BuyXPlusYParams - project now only supports simple COUPON
-    
+
     // Request/Response models
     public class CreateCouponRequest
     {
         [Required]
         [StringLength(50)]
         public string Code { get; set; } = string.Empty;
-        
+
         [Required]
         [StringLength(200)]
         public string Name { get; set; } = string.Empty;
-        
+
+        // Renamed from CouponTypeId -> BranchId
         [Required]
-        public int CouponTypeId { get; set; } 
+        public int BranchId { get; set; }
 
         [Required]
         [Range(0, double.MaxValue)]
         public decimal Price { get; set; }
-        
+
         [Required]
         public string Params { get; set; } = string.Empty;
-        
+
         public DateTime ValidFrom { get; set; }
         public DateTime ValidTo { get; set; }
 
         // Indicates whether this definition uses generated codes (limited quantity)
         public bool IsLimited { get; set; } = false;
-        
+
         // Code Generator settings (optional unless IsLimited == true)
         [StringLength(10)]
         public string Prefix { get; set; } = string.Empty;
-        
+
         [StringLength(10)]
         public string Suffix { get; set; } = string.Empty;
-        
-        [Range(1,10)]
-        public int SequenceLength { get; set; } =3;
+
+        [Range(1, 10)]
+        public int SequenceLength { get; set; } = 3;
+
+        public int? SaleEventId { get; set; }
     }
-    
+
     public class GenerateCouponsRequest
     {
         public int CouponDefinitionId { get; set; }
-        
+
         [Range(1, 10000)]
         public int Quantity { get; set; }
-        
+
         [Required]
         public string CreatedBy { get; set; } = string.Empty;
     }
-    
+
     public class GenerateCouponsResponse
     {
         public int CouponDefinitionId { get; set; }
@@ -303,27 +315,27 @@ namespace CouponManagement.Shared.Models
         public string Message { get; set; } = string.Empty;
         public List<string> GeneratedCodes { get; set; } = new();
     }
-    
+
     public class CouponPreviewRequest
     {
         public int Type { get; set; } // เปลี่ยนเป็น int
         public string Params { get; set; } = string.Empty;
         public decimal Price { get; set; }
     }
-    
+
     public class CouponPreviewResponse
     {
         public string Description { get; set; } = string.Empty;
         public bool IsValid { get; set; }
         public string? ErrorMessage { get; set; }
     }
-    
+
     public class CodePreviewRequest
     {
         public int CouponDefinitionId { get; set; }
         public int Quantity { get; set; } = 1;
     }
-    
+
     public class CodePreviewResponse
     {
         public string PreviewCode { get; set; } = string.Empty;

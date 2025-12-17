@@ -25,7 +25,7 @@ namespace CouponManagement
 
  // New properties to display in the edit-items dialog
  public string CouponCode { get; set; } = string.Empty;
- public string CouponTypeName { get; set; } = string.Empty;
+ public string BranchName { get; set; } = string.Empty;
 
  // Generated coupon codes associated with this receipt item (may be empty)
  public System.Collections.Generic.List<string> GeneratedCodes { get; set; } = new System.Collections.Generic.List<string>();

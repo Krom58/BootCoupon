@@ -37,9 +37,9 @@ namespace CouponManagement
             var statusCombo = this.FindName("StatusFilterComboBox") as ComboBox;
             if (statusCombo != null) statusCombo.SelectionChanged += StatusCombo_SelectionChanged;
 
-            // wire coupon type filter
-            var couponTypeCombo = this.FindName("CouponTypeFilterComboBox") as ComboBox;
-            if (couponTypeCombo != null) couponTypeCombo.SelectionChanged += CouponTypeCombo_SelectionChanged;
+            // wire branch filter
+            var branchCombo = this.FindName("BranchFilterComboBox") as ComboBox;
+            if (branchCombo != null) branchCombo.SelectionChanged += BranchComboBox_SelectionChanged;
 
             var editBtn = this.FindName("EditButton") as Button;
             if (editBtn != null) editBtn.Click += EditButton_Click;
@@ -59,8 +59,8 @@ namespace CouponManagement
 
         private async void ReceiptPage_Loaded(object sender, RoutedEventArgs e)
         {
-            // load coupon types first so filter is available
-            await LoadCouponTypesAsync();
+            // load branch types first so filter is available
+            await LoadBranchTypesAsync();
             await LoadReceiptsAsync();
         }
 
@@ -125,7 +125,7 @@ namespace CouponManagement
             await LoadReceiptsAsync();
         }
 
-        private async void CouponTypeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void BranchComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             await LoadReceiptsAsync();
         }
@@ -311,7 +311,7 @@ namespace CouponManagement
                 panel.Children.Add(payCombo);
 
                 panel.Children.Add(new TextBlock { Text = "ส่วนลด (บาท):" });
-                var discountBox = new Microsoft.UI.Xaml.Controls.NumberBox { Value = (double)(receipt.Discount), Minimum =0, Maximum =1000000 };
+                var discountBox = new Microsoft.UI.Xaml.Controls.NumberBox { Value = (double)(receipt.Discount), Minimum = 0, Maximum = 1000000 };
                 panel.Children.Add(discountBox);
 
                 decimal totalBeforeDiscount = receipt.TotalAmount + receipt.Discount;
@@ -323,7 +323,7 @@ namespace CouponManagement
 
                 discountBox.ValueChanged += (s, args) =>
                 {
-                    var val = double.IsNaN(discountBox.Value) ?0 : discountBox.Value;
+                    var val = double.IsNaN(discountBox.Value) ? 0 : discountBox.Value;
                     var net = totalBeforeDiscount - (decimal)val;
                     netText.Text = $"ยอดสุทธิ: {net:N2} บาท";
                 };
@@ -352,7 +352,7 @@ namespace CouponManagement
                     receipt.CustomerPhoneNumber = phoneBox.Text.Trim();
                     receipt.SalesPersonId = salesCombo.SelectedValue as int? ?? receipt.SalesPersonId;
                     receipt.PaymentMethodId = payCombo.SelectedValue as int? ?? receipt.PaymentMethodId;
-                    var newDiscount = (decimal)(double.IsNaN(discountBox.Value) ?0 : discountBox.Value);
+                    var newDiscount = (decimal)(double.IsNaN(discountBox.Value) ? 0 : discountBox.Value);
                     receipt.Discount = newDiscount;
                     receipt.TotalAmount = totalBeforeDiscount - newDiscount;
 
@@ -401,7 +401,7 @@ namespace CouponManagement
                 var itemRows = await (from ri in ctx.ReceiptItems
                                       join c in ctx.CouponDefinitions on ri.CouponId equals c.Id into gj
                                       from c in gj.DefaultIfEmpty()
-                                      join t in ctx.CouponTypes on (c != null ? c.CouponTypeId :0) equals t.Id into tj
+                                      join t in ctx.Branches on (c != null ? c.BranchId : 0) equals t.Id into tj
                                       from t in tj.DefaultIfEmpty()
                                       where ri.ReceiptId == receipt.ReceiptID
                                       select new ReceiptItemRow
@@ -413,12 +413,12 @@ namespace CouponManagement
                                           TotalPrice = ri.TotalPrice,
                                           IsComplimentary = false,
                                           CouponCode = c != null ? c.Code : string.Empty,
-                                          CouponTypeName = t != null ? t.Name : string.Empty
+                                          BranchName = t != null ? t.Name : string.Empty
                                       }).ToListAsync();
 
                 // determine complimentary status per receipt item by checking GeneratedCoupons linked to each ReceiptItem
                 var receiptItemIds = itemRows.Select(i => i.ReceiptItemId).ToList();
-                if (receiptItemIds.Count >0)
+                if (receiptItemIds.Count > 0)
                 {
                     var comps = await ctx.GeneratedCoupons
                     .Where(gc => gc.ReceiptItemId != null && receiptItemIds.Contains(gc.ReceiptItemId.Value) && gc.IsComplimentary)
@@ -448,395 +448,395 @@ namespace CouponManagement
                 }
 
                 // build dialog content with nicer layout and styling
-                var panel = new StackPanel { Spacing =8, Padding = new Thickness(6) };
+                var panel = new StackPanel { Spacing = 8, Padding = new Thickness(6) };
                 // constrain dialog width to make it slightly smaller
-                panel.MaxWidth =560;
-                panel.MinWidth =420;
+                panel.MaxWidth = 560;
+                panel.MinWidth = 420;
 
                 // Header bar: title + action buttons (Adjust COM, Close top-right)
-                var headerBar = new Grid { Margin = new Thickness(0,0,0,6) };
+                var headerBar = new Grid { Margin = new Thickness(0, 0, 0, 6) };
                 headerBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 headerBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                var titleTb = new TextBlock { Text = "แก้ไขรายการใบเสร็จ", FontSize =18, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
-                Grid.SetColumn(titleTb,0);
+                var titleTb = new TextBlock { Text = "แก้ไขรายการใบเสร็จ", FontSize = 18, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+                Grid.SetColumn(titleTb, 0);
                 headerBar.Children.Add(titleTb);
 
                 // Buttons on the right
-                var headerButtons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Spacing =6 };
-var adjustComBtn = new Button
-{
- Content = "ปรับเป็น COM",
- Padding = new Thickness(8,4,8,4),
- Margin = new Thickness(0,0,0,0),
- Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
- Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
- Height =28,
- IsEnabled = false // disabled until a row is selected
-};
+                var headerButtons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Spacing = 6 };
+                var adjustComBtn = new Button
+                {
+                    Content = "ปรับเป็น COM",
+                    Padding = new Thickness(8, 4, 8, 4),
+                    Margin = new Thickness(0, 0, 0, 0),
+                    Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+                    Height = 28,
+                    IsEnabled = false // disabled until a row is selected
+                };
                 // placeholder click - implemented below
 
-var closeTopBtn = new Button
-{
- Content = "✖",
- Padding = new Thickness(6,4,6,4),
- Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
- Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
- Height =28
-};
-Grid.SetColumn(headerButtons,1);
-headerButtons.Children.Add(adjustComBtn);
-headerButtons.Children.Add(closeTopBtn);
-headerBar.Children.Add(headerButtons);
+                var closeTopBtn = new Button
+                {
+                    Content = "✖",
+                    Padding = new Thickness(6, 4, 6, 4),
+                    Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+                    Height = 28
+                };
+                Grid.SetColumn(headerButtons, 1);
+                headerButtons.Children.Add(adjustComBtn);
+                headerButtons.Children.Add(closeTopBtn);
+                headerBar.Children.Add(headerButtons);
 
-panel.Children.Add(headerBar);
+                panel.Children.Add(headerBar);
 
-// Section header
-panel.Children.Add(new TextBlock { Text = "รายการคูปอง", Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0,6,0,6), FontSize =14 });
+                // Section header
+                panel.Children.Add(new TextBlock { Text = "รายการคูปอง", Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0, 6, 0, 6), FontSize = 14 });
 
-// Items header row (add COM column) with vertical separators and centered cells
-var headerGrid = new Grid { Margin = new Thickness(0,0,12,6) }; // reserve space for scrollbar
-// make all columns equal width
-headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // coupon type
+                // Items header row (add COM column) with vertical separators and centered cells
+                var headerGrid = new Grid { Margin = new Thickness(0, 0, 12, 6) }; // reserve space for scrollbar
+                                                                                   // make all columns equal width
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // coupon type
 
-SolidColorBrush sepBrush = new SolidColorBrush(Microsoft.UI.Colors.Gray);
-Thickness rightSep = new Thickness(0,0,1,0);
+                SolidColorBrush sepBrush = new SolidColorBrush(Microsoft.UI.Colors.Gray);
+                Thickness rightSep = new Thickness(0, 0, 1, 0);
 
-// Use identical cell padding for header and rows so columns align visually
-var cellPadding = new Thickness(4,6,4,6);
+                // Use identical cell padding for header and rows so columns align visually
+                var cellPadding = new Thickness(4, 6, 4, 6);
 
-Border MakeHeaderCell(string text, int col, bool hasRight = true)
-{
- var tb = new TextBlock { Text = text, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, FontSize =12 };
- var b = new Border { Child = tb, Padding = cellPadding, BorderBrush = sepBrush, BorderThickness = hasRight ? rightSep : new Thickness(0) };
- Grid.SetColumn(b, col);
- return b;
-}
+                Border MakeHeaderCell(string text, int col, bool hasRight = true)
+                {
+                    var tb = new TextBlock { Text = text, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+                    var b = new Border { Child = tb, Padding = cellPadding, BorderBrush = sepBrush, BorderThickness = hasRight ? rightSep : new Thickness(0) };
+                    Grid.SetColumn(b, col);
+                    return b;
+                }
 
-headerGrid.Children.Add(MakeHeaderCell("ชื่อคูปอง",0));
-headerGrid.Children.Add(MakeHeaderCell("COM",1));
-headerGrid.Children.Add(MakeHeaderCell("จำนวน",2));
-headerGrid.Children.Add(MakeHeaderCell("รหัสคูปอง",3));
-headerGrid.Children.Add(MakeHeaderCell("ประเภทคูปอง",4, hasRight: false));
-panel.Children.Add(headerGrid);
+                headerGrid.Children.Add(MakeHeaderCell("ชื่อคูปอง", 0));
+                headerGrid.Children.Add(MakeHeaderCell("COM", 1));
+                headerGrid.Children.Add(MakeHeaderCell("จำนวน", 2));
+                headerGrid.Children.Add(MakeHeaderCell("รหัสคูปอง", 3));
+                headerGrid.Children.Add(MakeHeaderCell("สาขา", 4, hasRight: false));
+                panel.Children.Add(headerGrid);
 
-// Items list as selectable ListView to allow row selection
-var itemsListView = new ListView
-{
- MaxHeight =220,
- SelectionMode = ListViewSelectionMode.Single,
- Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
- Padding = new Thickness(0,0,12,0) // reserve same right padding so columns align with header
-};
+                // Items list as selectable ListView to allow row selection
+                var itemsListView = new ListView
+                {
+                    MaxHeight = 220,
+                    SelectionMode = ListViewSelectionMode.Single,
+                    Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                    Padding = new Thickness(0, 0, 12, 0) // reserve same right padding so columns align with header
+                };
 
-// remove item padding/margin so row content aligns exactly under header cells
-itemsListView.ItemContainerStyle = new Style(typeof(ListViewItem));
-itemsListView.ItemContainerStyle.Setters.Add(new Setter(ListViewItem.PaddingProperty, new Thickness(0)));
-itemsListView.ItemContainerStyle.Setters.Add(new Setter(ListViewItem.MarginProperty, new Thickness(0)));
-itemsListView.ItemContainerStyle.Setters.Add(new Setter(ListViewItem.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
-itemsListView.ItemContainerStyle.Setters.Add(new Setter(ListViewItem.MinHeightProperty,28.0));
+                // remove item padding/margin so row content aligns exactly under header cells
+                itemsListView.ItemContainerStyle = new Style(typeof(ListViewItem));
+                itemsListView.ItemContainerStyle.Setters.Add(new Setter(ListViewItem.PaddingProperty, new Thickness(0)));
+                itemsListView.ItemContainerStyle.Setters.Add(new Setter(ListViewItem.MarginProperty, new Thickness(0)));
+                itemsListView.ItemContainerStyle.Setters.Add(new Setter(ListViewItem.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
+                itemsListView.ItemContainerStyle.Setters.Add(new Setter(ListViewItem.MinHeightProperty, 28.0));
 
-// build visual rows and add as ListViewItem so they can be selected
-var comMap = new System.Collections.Generic.Dictionary<int, TextBlock>();
-foreach (var ir in itemRows)
-{
- var g = new Grid { Padding = new Thickness(0) };
- // make row columns equal to header
- g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
- g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
- g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
- g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
- g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                // build visual rows and add as ListViewItem so they can be selected
+                var comMap = new System.Collections.Generic.Dictionary<int, TextBlock>();
+                foreach (var ir in itemRows)
+                {
+                    var g = new Grid { Padding = new Thickness(0) };
+                    // make row columns equal to header
+                    g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
- Border MakeCell(UIElement child, int col, bool hasRight = true)
- {
- var b = new Border { Child = child, Padding = cellPadding, BorderBrush = sepBrush, BorderThickness = hasRight ? rightSep : new Thickness(0), HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Center };
- Grid.SetColumn(b, col);
- return b;
- }
+                    Border MakeCell(UIElement child, int col, bool hasRight = true)
+                    {
+                        var b = new Border { Child = child, Padding = cellPadding, BorderBrush = sepBrush, BorderThickness = hasRight ? rightSep : new Thickness(0), HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Center };
+                        Grid.SetColumn(b, col);
+                        return b;
+                    }
 
- // name (show tooltip with full text on hover)
- var nameTb = new TextBlock { Text = ir.CouponName, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, FontSize =12 };
- ToolTipService.SetToolTip(nameTb, ir.CouponName);
- g.Children.Add(MakeCell(nameTb,0));
+                    // name (show tooltip with full text on hover)
+                    var nameTb = new TextBlock { Text = ir.CouponName, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+                    ToolTipService.SetToolTip(nameTb, ir.CouponName);
+                    g.Children.Add(MakeCell(nameTb, 0));
 
- // COM marker
- var comTb = new TextBlock { Text = ir.IsComplimentary ? "COM" : string.Empty, HorizontalAlignment = HorizontalAlignment.Center, Foreground = ir.IsComplimentary ? new SolidColorBrush(Microsoft.UI.Colors.Gold) : new SolidColorBrush(Microsoft.UI.Colors.Gray), FontWeight = ir.IsComplimentary ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal, VerticalAlignment = VerticalAlignment.Center, FontSize =12 };
- g.Children.Add(MakeCell(comTb,1));
+                    // COM marker
+                    var comTb = new TextBlock { Text = ir.IsComplimentary ? "COM" : string.Empty, HorizontalAlignment = HorizontalAlignment.Center, Foreground = ir.IsComplimentary ? new SolidColorBrush(Microsoft.UI.Colors.Gold) : new SolidColorBrush(Microsoft.UI.Colors.Gray), FontWeight = ir.IsComplimentary ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+                    g.Children.Add(MakeCell(comTb, 1));
 
- // qty
- var qtyTb = new TextBlock { Text = ir.Quantity.ToString(), HorizontalAlignment = HorizontalAlignment.Center, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), VerticalAlignment = VerticalAlignment.Center, FontSize =12 };
- g.Children.Add(MakeCell(qtyTb,2));
+                    // qty
+                    var qtyTb = new TextBlock { Text = ir.Quantity.ToString(), HorizontalAlignment = HorizontalAlignment.Center, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+                    g.Children.Add(MakeCell(qtyTb, 2));
 
- // coupon code
- var displayCodes = (ir.GeneratedCodes != null && ir.GeneratedCodes.Count >0) ? string.Join(", ", ir.GeneratedCodes) : ir.CouponCode;
- var codeTb = new TextBlock { Text = displayCodes, TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = HorizontalAlignment.Center, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), VerticalAlignment = VerticalAlignment.Center, FontSize =12 };
- ToolTipService.SetToolTip(codeTb, displayCodes);
- g.Children.Add(MakeCell(codeTb,3));
+                    // coupon code
+                    var displayCodes = (ir.GeneratedCodes != null && ir.GeneratedCodes.Count > 0) ? string.Join(", ", ir.GeneratedCodes) : ir.CouponCode;
+                    var codeTb = new TextBlock { Text = displayCodes, TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = HorizontalAlignment.Center, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+                    ToolTipService.SetToolTip(codeTb, displayCodes);
+                    g.Children.Add(MakeCell(codeTb, 3));
 
- // coupon type
- var typeTb = new TextBlock { Text = ir.CouponTypeName, TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = HorizontalAlignment.Center, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), VerticalAlignment = VerticalAlignment.Center, FontSize =12 };
- ToolTipService.SetToolTip(typeTb, ir.CouponTypeName);
- g.Children.Add(MakeCell(typeTb,4, hasRight: false));
+                    // branch
+                    var typeTb = new TextBlock { Text = ir.BranchName, TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = HorizontalAlignment.Center, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+                    ToolTipService.SetToolTip(typeTb, ir.BranchName);
+                    g.Children.Add(MakeCell(typeTb, 4, hasRight: false));
 
- // wrap row with border for nicer selection visual and bottom separator
- var rowBorder = new Border { Child = g, Padding = new Thickness(0), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) , BorderBrush = sepBrush, BorderThickness = new Thickness(0,0,0,1) };
- // store id on border and map com TextBlock for updates
- rowBorder.Tag = ir.ReceiptItemId;
- comMap[ir.ReceiptItemId] = comTb;
+                    // wrap row with border for nicer selection visual and bottom separator
+                    var rowBorder = new Border { Child = g, Padding = new Thickness(0), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderBrush = sepBrush, BorderThickness = new Thickness(0, 0, 0, 1) };
+                    // store id on border and map com TextBlock for updates
+                    rowBorder.Tag = ir.ReceiptItemId;
+                    comMap[ir.ReceiptItemId] = comTb;
 
- var lvi = new ListViewItem { Content = rowBorder, Tag = ir.ReceiptItemId };
- itemsListView.Items.Add(lvi);
-}
+                    var lvi = new ListViewItem { Content = rowBorder, Tag = ir.ReceiptItemId };
+                    itemsListView.Items.Add(lvi);
+                }
 
-// implement adjust COM button: toggle IsComplimentary and persist to DB for selected items
-adjustComBtn.Click += async (s, ev) =>
-{
- try
- {
- // handle single selection only
- if (itemsListView.SelectedItem is not ListViewItem sel || sel.Tag is not int rid)
- {
- var info = new ContentDialog { Title = "ข้อมูล", Content = "โปรดเลือกรายการคูปองก่อน", CloseButtonText = "ตกลง", XamlRoot = this.XamlRoot };
- await info.ShowAsync();
- return;
- }
+                // implement adjust COM button: toggle IsComplimentary and persist to DB for selected items
+                adjustComBtn.Click += async (s, ev) =>
+                {
+                    try
+                    {
+                        // handle single selection only
+                        if (itemsListView.SelectedItem is not ListViewItem sel || sel.Tag is not int rid)
+                        {
+                            var info = new ContentDialog { Title = "ข้อมูล", Content = "โปรดเลือกรายการคูปองก่อน", CloseButtonText = "ตกลง", XamlRoot = this.XamlRoot };
+                            await info.ShowAsync();
+                            return;
+                        }
 
- // find the corresponding row model from the in-memory list
- var rowModelSingle = itemRows.FirstOrDefault(x => x.ReceiptItemId == rid);
- if (rowModelSingle == null)
- {
- var info = new ContentDialog { Title = "ข้อมูล", Content = "ไม่พบรายการที่เลือก", CloseButtonText = "ตกลง", XamlRoot = this.XamlRoot };
- await info.ShowAsync();
- return;
- }
+                        // find the corresponding row model from the in-memory list
+                        var rowModelSingle = itemRows.FirstOrDefault(x => x.ReceiptItemId == rid);
+                        if (rowModelSingle == null)
+                        {
+                            var info = new ContentDialog { Title = "ข้อมูล", Content = "ไม่พบรายการที่เลือก", CloseButtonText = "ตกลง", XamlRoot = this.XamlRoot };
+                            await info.ShowAsync();
+                            return;
+                        }
 
- // toggle flag
- rowModelSingle.IsComplimentary = !rowModelSingle.IsComplimentary;
+                        // toggle flag
+                        rowModelSingle.IsComplimentary = !rowModelSingle.IsComplimentary;
 
- // update DB: set IsComplimentary on generated coupons linked to this receipt item
- using var updateCtx = new CouponContext();
- var linkedSingle = await updateCtx.GeneratedCoupons.Where(gc => gc.ReceiptItemId == rid).ToListAsync();
- if (linkedSingle.Count >0)
- {
- foreach (var g in linkedSingle)
- {
- g.IsComplimentary = rowModelSingle.IsComplimentary;
- updateCtx.GeneratedCoupons.Update(g);
- }
- await updateCtx.SaveChangesAsync();
- }
+                        // update DB: set IsComplimentary on generated coupons linked to this receipt item
+                        using var updateCtx = new CouponContext();
+                        var linkedSingle = await updateCtx.GeneratedCoupons.Where(gc => gc.ReceiptItemId == rid).ToListAsync();
+                        if (linkedSingle.Count > 0)
+                        {
+                            foreach (var g in linkedSingle)
+                            {
+                                g.IsComplimentary = rowModelSingle.IsComplimentary;
+                                updateCtx.GeneratedCoupons.Update(g);
+                            }
+                            await updateCtx.SaveChangesAsync();
+                        }
 
- // update UI marker
- if (comMap.TryGetValue(rid, out var tbSingle))
- {
- tbSingle.Text = rowModelSingle.IsComplimentary ? "COM" : string.Empty;
- tbSingle.Foreground = rowModelSingle.IsComplimentary ? new SolidColorBrush(Microsoft.UI.Colors.Gold) : new SolidColorBrush(Microsoft.UI.Colors.Gray);
- tbSingle.FontWeight = rowModelSingle.IsComplimentary ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
- }
- }
- catch (Exception ex)
- {
- var err = new ContentDialog { Title = "ข้อผิดพลาด", Content = ex.Message, CloseButtonText = "ตกลง", XamlRoot = this.XamlRoot };
- await err.ShowAsync();
- }
-};
+                        // update UI marker
+                        if (comMap.TryGetValue(rid, out var tbSingle))
+                        {
+                            tbSingle.Text = rowModelSingle.IsComplimentary ? "COM" : string.Empty;
+                            tbSingle.Foreground = rowModelSingle.IsComplimentary ? new SolidColorBrush(Microsoft.UI.Colors.Gold) : new SolidColorBrush(Microsoft.UI.Colors.Gray);
+                            tbSingle.FontWeight = rowModelSingle.IsComplimentary ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        var err = new ContentDialog { Title = "ข้อผิดพลาด", Content = ex.Message, CloseButtonText = "ตกลง", XamlRoot = this.XamlRoot };
+                        await err.ShowAsync();
+                    }
+                };
 
-// highlight selected row by changing the inner Border background
-itemsListView.SelectionChanged += (s, ev) =>
-{
- // enable/disable COM button based on selection
- adjustComBtn.IsEnabled = itemsListView.SelectedItem != null;
+                // highlight selected row by changing the inner Border background
+                itemsListView.SelectionChanged += (s, ev) =>
+                {
+                    // enable/disable COM button based on selection
+                    adjustComBtn.IsEnabled = itemsListView.SelectedItem != null;
 
- foreach (var obj in itemsListView.Items)
- {
- if (obj is ListViewItem item)
- {
- if (item.Content is Border b)
- {
- b.Background = item.IsSelected ? new SolidColorBrush(Microsoft.UI.Colors.DimGray) : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
- }
- }
- }
-};
+                    foreach (var obj in itemsListView.Items)
+                    {
+                        if (obj is ListViewItem item)
+                        {
+                            if (item.Content is Border b)
+                            {
+                                b.Background = item.IsSelected ? new SolidColorBrush(Microsoft.UI.Colors.DimGray) : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+                            }
+                        }
+                    }
+                };
 
-panel.Children.Add(itemsListView);
+                panel.Children.Add(itemsListView);
 
-// wrap panel in an outer border for a dialog card look
-var outer = new Border { Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255,44,44,44)), CornerRadius = new CornerRadius(10), Padding = new Thickness(12) };
-outer.Child = panel;
+                // wrap panel in an outer border for a dialog card look
+                var outer = new Border { Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 44, 44, 44)), CornerRadius = new CornerRadius(10), Padding = new Thickness(12) };
+                outer.Child = panel;
 
-var dialog = new ContentDialog
-{
- Title = string.Empty,
- Content = outer,
- CloseButtonText = string.Empty,
- XamlRoot = this.XamlRoot
-};
+                var dialog = new ContentDialog
+                {
+                    Title = string.Empty,
+                    Content = outer,
+                    CloseButtonText = string.Empty,
+                    XamlRoot = this.XamlRoot
+                };
 
-// wire top close button
-closeTopBtn.Click += (s, ev) => dialog.Hide();
+                // wire top close button
+                closeTopBtn.Click += (s, ev) => dialog.Hide();
 
-await dialog.ShowAsync();
- }
- catch (Exception ex)
- {
- var err = new ContentDialog { Title = "ข้อผิดพลาด", Content = ex.Message, CloseButtonText = "ตกลง", XamlRoot = this.XamlRoot };
- await err.ShowAsync();
- }
- }
+                await dialog.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                var err = new ContentDialog { Title = "ข้อผิดพลาด", Content = ex.Message, CloseButtonText = "ตกลง", XamlRoot = this.XamlRoot };
+                await err.ShowAsync();
+            }
+        }
 
- private async Task LoadReceiptsAsync()
- {
- TextBlock? statusTextBlock = this.FindName("StatusText") as TextBlock;
- try
- {
- if (statusTextBlock != null) statusTextBlock.Text = "กำลังโหลด...";
- using var ctx = new CouponContext();
+        private async Task LoadReceiptsAsync()
+        {
+            TextBlock? statusTextBlock = this.FindName("StatusText") as TextBlock;
+            try
+            {
+                if (statusTextBlock != null) statusTextBlock.Text = "กำลังโหลด...";
+                using var ctx = new CouponContext();
 
- // apply filters
- string? search = null;
- var searchBox = this.FindName("SearchTextBox") as TextBox;
- if (searchBox != null && !string.IsNullOrWhiteSpace(searchBox.Text)) search = searchBox.Text.Trim();
+                // apply filters
+                string? search = null;
+                var searchBox = this.FindName("SearchTextBox") as TextBox;
+                if (searchBox != null && !string.IsNullOrWhiteSpace(searchBox.Text)) search = searchBox.Text.Trim();
 
- string? statusFilter = null;
- var statusCombo = this.FindName("StatusFilterComboBox") as ComboBox;
- if (statusCombo != null && statusCombo.SelectedItem is ComboBoxItem cbi && cbi.Tag != null)
- {
- var tag = cbi.Tag.ToString();
- if (!string.IsNullOrEmpty(tag)) statusFilter = tag;
- }
+                string? statusFilter = null;
+                var statusCombo = this.FindName("StatusFilterComboBox") as ComboBox;
+                if (statusCombo != null && statusCombo.SelectedItem is ComboBoxItem cbi && cbi.Tag != null)
+                {
+                    var tag = cbi.Tag.ToString();
+                    if (!string.IsNullOrEmpty(tag)) statusFilter = tag;
+                }
 
- // coupon type filter
- string? couponTypeFilter = null;
- var couponTypeCombo = this.FindName("CouponTypeFilterComboBox") as ComboBox;
- if (couponTypeCombo != null && couponTypeCombo.SelectedItem is ComboBoxItem ctbi && ctbi.Tag != null)
- {
- var tag = ctbi.Tag.ToString();
- if (!string.IsNullOrEmpty(tag)) couponTypeFilter = tag;
- }
+                // Branch type filter
+                string? BranchTypeFilter = null;
+                var BranchTypeCombo = this.FindName("BranchFilterComboBox") as ComboBox;
+                if (BranchTypeCombo != null && BranchTypeCombo.SelectedItem is ComboBoxItem ctbi && ctbi.Tag != null)
+                {
+                    var tag = ctbi.Tag.ToString();
+                    if (!string.IsNullOrEmpty(tag)) BranchTypeFilter = tag;
+                }
 
- var query = ctx.Receipts.AsQueryable();
+                var query = ctx.Receipts.AsQueryable();
 
- if (!string.IsNullOrEmpty(statusFilter))
- {
- query = query.Where(r => r.Status == statusFilter);
- }
+                if (!string.IsNullOrEmpty(statusFilter))
+                {
+                    query = query.Where(r => r.Status == statusFilter);
+                }
 
- if (!string.IsNullOrEmpty(search))
- {
- var s = search.ToLower();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    var s = search.ToLower();
 
- // also search receipts by coupon code (either CouponDefinitions.Code or GeneratedCoupons.GeneratedCode)
- var receiptIdsByCode = await (from ri in ctx.ReceiptItems
- join cd in ctx.CouponDefinitions on ri.CouponId equals cd.Id into cdg
- from cd in cdg.DefaultIfEmpty()
- join gc in ctx.GeneratedCoupons on ri.ReceiptItemId equals gc.ReceiptItemId into gcg
- from gc in gcg.DefaultIfEmpty()
- where (cd != null && (cd.Code ?? "").ToLower().Contains(s)) || (gc != null && (gc.GeneratedCode ?? "").ToLower().Contains(s))
- select ri.ReceiptId).Distinct().ToListAsync();
+                    // also search receipts by coupon code (either CouponDefinitions.Code or GeneratedCoupons.GeneratedCode)
+                    var receiptIdsByCode = await (from ri in ctx.ReceiptItems
+                                                  join cd in ctx.CouponDefinitions on ri.CouponId equals cd.Id into cdg
+                                                  from cd in cdg.DefaultIfEmpty()
+                                                  join gc in ctx.GeneratedCoupons on ri.ReceiptItemId equals gc.ReceiptItemId into gcg
+                                                  from gc in gcg.DefaultIfEmpty()
+                                                  where (cd != null && (cd.Code ?? "").ToLower().Contains(s)) || (gc != null && (gc.GeneratedCode ?? "").ToLower().Contains(s))
+                                                  select ri.ReceiptId).Distinct().ToListAsync();
 
- query = query.Where(r => (r.CustomerName ?? "").ToLower().Contains(s) || (r.ReceiptCode ?? "").ToLower().Contains(s) || (r.CustomerPhoneNumber ?? "").ToLower().Contains(s) || receiptIdsByCode.Contains(r.ReceiptID));
- }
+                    query = query.Where(r => (r.CustomerName ?? "").ToLower().Contains(s) || (r.ReceiptCode ?? "").ToLower().Contains(s) || (r.CustomerPhoneNumber ?? "").ToLower().Contains(s) || receiptIdsByCode.Contains(r.ReceiptID));
+                }
 
- // apply coupon type filter by finding receipts that contain receipt items whose coupon definition has the selected type
- if (!string.IsNullOrEmpty(couponTypeFilter))
- {
- if (int.TryParse(couponTypeFilter, out var typeId))
- {
- var matchingReceiptIds = await (from ri in ctx.ReceiptItems
- join cd in ctx.CouponDefinitions on ri.CouponId equals cd.Id
- where cd.CouponTypeId == typeId
- select ri.ReceiptId).Distinct().ToListAsync();
+                // apply coupon type filter by finding receipts that contain receipt items whose coupon definition has the selected type
+                if (!string.IsNullOrEmpty(BranchTypeFilter))
+                {
+                    if (int.TryParse(BranchTypeFilter, out var typeId))
+                    {
+                        var matchingReceiptIds = await (from ri in ctx.ReceiptItems
+                                                        join cd in ctx.CouponDefinitions on ri.CouponId equals cd.Id
+                                                        where cd.BranchId == typeId
+                                                        select ri.ReceiptId).Distinct().ToListAsync();
 
- if (!matchingReceiptIds.Any())
- {
- // no receipts match -> clear rows and return
- _rows.Clear();
- if (statusTextBlock != null) statusTextBlock.Text = "โหลดข้อมูลเรียบร้อย :0 รายการ";
- return;
- }
+                        if (!matchingReceiptIds.Any())
+                        {
+                            // no receipts match -> clear rows and return
+                            _rows.Clear();
+                            if (statusTextBlock != null) statusTextBlock.Text = "โหลดข้อมูลเรียบร้อย :0 รายการ";
+                            return;
+                        }
 
- query = query.Where(r => matchingReceiptIds.Contains(r.ReceiptID));
- }
- }
+                        query = query.Where(r => matchingReceiptIds.Contains(r.ReceiptID));
+                    }
+                }
 
- var receipts = await query.OrderByDescending(r => r.ReceiptID).ToListAsync();
+                var receipts = await query.OrderByDescending(r => r.ReceiptID).ToListAsync();
 
- _rows.Clear();
- foreach (var r in receipts)
- {
- // Load related names safely
- string salesName = string.Empty;
- if (r.SalesPersonId.HasValue)
- {
- var sp = await ctx.SalesPerson.FindAsync(r.SalesPersonId.Value);
- salesName = sp?.Name ?? string.Empty;
- }
+                _rows.Clear();
+                foreach (var r in receipts)
+                {
+                    // Load related names safely
+                    string salesName = string.Empty;
+                    if (r.SalesPersonId.HasValue)
+                    {
+                        var sp = await ctx.SalesPerson.FindAsync(r.SalesPersonId.Value);
+                        salesName = sp?.Name ?? string.Empty;
+                    }
 
- string paymentName = string.Empty;
- if (r.PaymentMethodId.HasValue)
- {
- var pm = await ctx.PaymentMethods.FindAsync(r.PaymentMethodId.Value);
- paymentName = pm?.Name ?? string.Empty;
- }
+                    string paymentName = string.Empty;
+                    if (r.PaymentMethodId.HasValue)
+                    {
+                        var pm = await ctx.PaymentMethods.FindAsync(r.PaymentMethodId.Value);
+                        paymentName = pm?.Name ?? string.Empty;
+                    }
 
- _rows.Add(new ReceiptRow
- {
- Id = r.ReceiptID,
- ReceiptCode = r.ReceiptCode ?? string.Empty,
- CustomerName = r.CustomerName ?? string.Empty,
- CustomerPhone = r.CustomerPhoneNumber ?? string.Empty,
- ReceiptDate = r.ReceiptDate,
- ReceiptDateString = r.ReceiptDate.ToString("dd/MM/yyyy HH:mm"),
- SalesPersonName = salesName,
- PaymentMethodName = paymentName,
- Status = r.Status ?? string.Empty
- });
- }
+                    _rows.Add(new ReceiptRow
+                    {
+                        Id = r.ReceiptID,
+                        ReceiptCode = r.ReceiptCode ?? string.Empty,
+                        CustomerName = r.CustomerName ?? string.Empty,
+                        CustomerPhone = r.CustomerPhoneNumber ?? string.Empty,
+                        ReceiptDate = r.ReceiptDate,
+                        ReceiptDateString = r.ReceiptDate.ToString("dd/MM/yyyy HH:mm"),
+                        SalesPersonName = salesName,
+                        PaymentMethodName = paymentName,
+                        Status = r.Status ?? string.Empty
+                    });
+                }
 
- if (statusTextBlock != null) statusTextBlock.Text = $"โหลดข้อมูลเรียบร้อย : {_rows.Count} รายการ";
- }
- catch (Exception)
- {
- if (statusTextBlock != null) statusTextBlock.Text = "เกิดข้อผิดพลาดในการโหลด";
- }
- }
+                if (statusTextBlock != null) statusTextBlock.Text = $"โหลดข้อมูลเรียบร้อย : {_rows.Count} รายการ";
+            }
+            catch (Exception)
+            {
+                if (statusTextBlock != null) statusTextBlock.Text = "เกิดข้อผิดพลาดในการโหลด";
+            }
+        }
 
- private async Task LoadCouponTypesAsync()
- {
- try
- {
- var combo = this.FindName("CouponTypeFilterComboBox") as ComboBox;
- if (combo == null) return;
+        private async Task LoadBranchTypesAsync()
+        {
+            try
+            {
+                // Use the same ComboBox name that the rest of the code references.
+                // Previously this method populated "BranchTypeFilterComboBox" while event wiring/reads use "BranchFilterComboBox".
+                var combo = this.FindName("BranchFilterComboBox") as ComboBox;
+                if (combo == null) return;
 
- using var ctx = new CouponContext();
- var types = await ctx.CouponTypes.OrderBy(ct => ct.Name).ToListAsync();
+                using var ctx = new CouponContext();
+                var types = await ctx.Branches.OrderBy(ct => ct.Name).ToListAsync();
 
- // Clear existing items except the default first item
- combo.Items.Clear();
+                combo.Items.Clear();
 
- // Add default All item
- var allItem = new ComboBoxItem { Tag = string.Empty, Content = "-- ทั้งหมด --" };
- combo.Items.Add(allItem);
+                // Add default All item
+                var allItem = new ComboBoxItem { Tag = string.Empty, Content = "-- ทั้งหมด --" };
+                combo.Items.Add(allItem);
 
- foreach (var t in types)
- {
- var item = new ComboBoxItem { Tag = t.Id.ToString(), Content = t.Name };
- combo.Items.Add(item);
- }
+                foreach (var t in types)
+                {
+                    var item = new ComboBoxItem { Tag = t.Id.ToString(), Content = t.Name };
+                    combo.Items.Add(item);
+                }
 
- // select default
- combo.SelectedIndex =0;
- }
- catch
- {
- // ignore errors silently
- }
- }
- }
+                combo.SelectedIndex = 0;
+            }
+            catch
+            {
+                // keep silent so UI still loads
+            }
+        }
+    }
 }

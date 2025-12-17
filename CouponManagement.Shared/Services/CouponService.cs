@@ -20,47 +20,47 @@ namespace CouponManagement.Shared.Services
         {
         }
 
-        // CouponType Methods
-        public async Task<List<CouponType>> GetAllCouponTypesAsync()
+        // Branch (was CouponType) Methods
+        public async Task<List<Branch>> GetAllBranchesAsync()
         {
-            return await _context.CouponTypes.ToListAsync();
+            return await _context.Branches.ToListAsync();
         }
 
         // New overload to accept createdBy
-        public async Task<CouponType> AddCouponTypeAsync(string name, string createdBy)
+        public async Task<Branch> AddBranchAsync(string name, string createdBy)
         {
-            var couponType = new CouponType { Name = name, CreatedBy = createdBy, CreatedAt = DateTime.Now };
-            _context.CouponTypes.Add(couponType);
+            var branch = new Branch { Name = name, CreatedBy = createdBy, CreatedAt = DateTime.Now };
+            _context.Branches.Add(branch);
             await _context.SaveChangesAsync();
-            return couponType;
+            return branch;
         }
 
-        // Backward compatible method
-        public async Task<CouponType> AddCouponTypeAsync(string name)
+        // Backward compatible method (keeps old name for internal convenience)
+        public async Task<Branch> AddBranchAsync(string name)
         {
-            return await AddCouponTypeAsync(name, Environment.UserName);
+            return await AddBranchAsync(name, Environment.UserName);
         }
 
-        public async Task<bool> UpdateCouponTypeAsync(int id, string name)
+        public async Task<bool> UpdateBranchAsync(int id, string name)
         {
-            var couponType = await _context.CouponTypes.FindAsync(id);
-            if (couponType == null) return false;
+            var branch = await _context.Branches.FindAsync(id);
+            if (branch == null) return false;
 
-            couponType.Name = name;
+            branch.Name = name;
             await _context.SaveChangesAsync();
             return true;
         }
 
-        public async Task<bool> DeleteCouponTypeAsync(int id)
+        public async Task<bool> DeleteBranchAsync(int id)
         {
-            var couponType = await _context.CouponTypes.FindAsync(id);
-            if (couponType == null) return false;
+            var branch = await _context.Branches.FindAsync(id);
+            if (branch == null) return false;
 
-            // ตรวจสอบว่ามีคูปองใช้ประเภทนี้อยู่หรือไม่
-            var hasUsage = await _context.Coupons.AnyAsync(c => c.CouponTypeId == id);
+            // ตรวจสอบว่ามีคูปองใช้สาขานี้อยู่หรือไม่
+            var hasUsage = await _context.Coupons.AnyAsync(c => c.BranchId == id);
             if (hasUsage) return false;
 
-            _context.CouponTypes.Remove(couponType);
+            _context.Branches.Remove(branch);
             await _context.SaveChangesAsync();
             return true;
         }
@@ -68,28 +68,28 @@ namespace CouponManagement.Shared.Services
         // Coupon Methods
         public async Task<List<Coupon>> GetAllCouponsAsync()
         {
-            // Do not include CouponType navigation; consumers should use CouponTypeId or call CouponService.GetAllCouponTypesAsync
+            // Do not include Branch navigation; consumers should use BranchId or call CouponService.GetAllBranchesAsync
             return await _context.Coupons.ToListAsync();
         }
 
-        public async Task<Coupon> AddCouponAsync(string name, decimal price, string code, int couponTypeId)
+        public async Task<Coupon> AddCouponAsync(string name, decimal price, string code, int branchId)
         {
             var coupon = new Coupon
             {
                 Name = name,
                 Price = price,
                 Code = code,
-                CouponTypeId = couponTypeId
+                BranchId = branchId
             };
 
             _context.Coupons.Add(coupon);
             await _context.SaveChangesAsync();
 
-            // Do not load CouponType navigation here
+            // Do not load Branch navigation here
             return coupon;
         }
 
-        public async Task<bool> UpdateCouponAsync(int id, string name, decimal price, string code, int couponTypeId)
+        public async Task<bool> UpdateCouponAsync(int id, string name, decimal price, string code, int branchId)
         {
             var coupon = await _context.Coupons.FindAsync(id);
             if (coupon == null) return false;
@@ -97,7 +97,7 @@ namespace CouponManagement.Shared.Services
             coupon.Name = name;
             coupon.Price = price;
             coupon.Code = code;
-            coupon.CouponTypeId = couponTypeId;
+            coupon.BranchId = branchId;
 
             await _context.SaveChangesAsync();
             return true;

@@ -8,15 +8,19 @@ namespace CouponManagement.Shared.Models
         public string Name { get; set; } = string.Empty;
         public decimal Price { get; set; }
         public string Code { get; set; } = string.Empty;
-        public int CouponTypeId { get; set; }
-        
-        public CouponType CouponType { get; set; } = null!;
-        
+
+        // Renamed to BranchId to match DB column and domain terminology
+        public int BranchId { get; set; }
+
+        // Navigation property renamed
+        public Branch Branch { get; set; } = null!;
+
         public Coupon() { }
-        
-        public Coupon(CouponType couponType)
+
+        public Coupon(Branch branch)
         {
-            CouponType = couponType;
+            Branch = branch;
+            BranchId = branch?.Id ?? 0;
         }
     }
 }

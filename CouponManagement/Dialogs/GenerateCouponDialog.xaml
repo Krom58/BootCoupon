@@ -55,7 +55,7 @@
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="ชื่อ:" FontWeight="SemiBold"/>
                         <TextBlock Grid.Row="1" Grid.Column="1" x:Name="DefinitionNameTextBlock" Text="-" TextWrapping="Wrap"/>
                         
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="ประเภท:" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="สาขา:" FontWeight="SemiBold"/>
                         <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DefinitionTypeTextBlock" Text="-"/>
                         
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="ราคา:" FontWeight="SemiBold"/>

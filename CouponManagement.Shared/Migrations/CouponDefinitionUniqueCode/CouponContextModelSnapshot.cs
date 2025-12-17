@@ -94,7 +94,7 @@ namespace CouponManagement.Shared.Migrations.CouponDefinitionUniqueCode
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<int>("CouponTypeId")
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<string>("Name")
@@ -111,8 +111,8 @@ namespace CouponManagement.Shared.Migrations.CouponDefinitionUniqueCode
                         .IsUnique()
                         .HasDatabaseName("UK_Coupons_Code");
 
-                    b.HasIndex("CouponTypeId")
-                        .HasDatabaseName("IX_Coupons_CouponTypeId");
+                    b.HasIndex("BranchId")
+                        .HasDatabaseName("IX_Coupons_BranchId");
 
                     b.ToTable("Coupons", (string)null);
                 });
@@ -182,7 +182,7 @@ namespace CouponManagement.Shared.Migrations.CouponDefinitionUniqueCode
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<int>("CouponTypeId")
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
@@ -232,8 +232,8 @@ namespace CouponManagement.Shared.Migrations.CouponDefinitionUniqueCode
                         .IsUnique()
                         .HasDatabaseName("UK_CouponDefinitions_Code");
 
-                    b.HasIndex("CouponTypeId")
-                        .HasDatabaseName("IX_CouponDefinitions_Type");
+                    b.HasIndex("BranchId")
+                        .HasDatabaseName("IX_CouponDefinitions_BranchId");
 
                     b.HasIndex("IsActive")
                         .HasDatabaseName("IX_CouponDefinitions_IsActive");
@@ -244,7 +244,7 @@ namespace CouponManagement.Shared.Migrations.CouponDefinitionUniqueCode
                     b.ToTable("CouponDefinitions", (string)null);
                 });
 
-            modelBuilder.Entity("CouponManagement.Shared.Models.CouponType", b =>
+            modelBuilder.Entity("CouponManagement.Shared.Models.Branch", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -270,9 +270,9 @@ namespace CouponManagement.Shared.Migrations.CouponDefinitionUniqueCode
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
-                        .HasDatabaseName("IX_CouponTypes_Name");
+                        .HasDatabaseName("IX_Branch_Name");
 
-                    b.ToTable("CouponTypes", (string)null);
+                    b.ToTable("Branch", (string)null);
                 });
 
             modelBuilder.Entity("CouponManagement.Shared.Models.DatabaseReceiptItem", b =>
@@ -504,13 +504,13 @@ namespace CouponManagement.Shared.Migrations.CouponDefinitionUniqueCode
 
             modelBuilder.Entity("CouponManagement.Shared.Models.Coupon", b =>
                 {
-                    b.HasOne("CouponManagement.Shared.Models.CouponType", "CouponType")
+                    b.HasOne("CouponManagement.Shared.Models.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("CouponTypeId")
+                        .HasForeignKey("BranchId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("CouponType");
+                    b.Navigation("Branch");
                 });
 
             modelBuilder.Entity("CouponManagement.Shared.Models.CouponCodeGenerator", b =>
@@ -526,13 +526,13 @@ namespace CouponManagement.Shared.Migrations.CouponDefinitionUniqueCode
 
             modelBuilder.Entity("CouponManagement.Shared.Models.CouponDefinition", b =>
                 {
-                    b.HasOne("CouponManagement.Shared.Models.CouponType", "CouponType")
+                    b.HasOne("CouponManagement.Shared.Models.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("CouponTypeId")
+                        .HasForeignKey("BranchId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("CouponType");
+                    b.Navigation("Branch");
                 });
 
             modelBuilder.Entity("CouponManagement.Shared.Models.DatabaseReceiptItem", b =>

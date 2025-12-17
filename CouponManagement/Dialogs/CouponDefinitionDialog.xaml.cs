@@ -1,18 +1,23 @@
-﻿using CouponManagement.Shared.Models;
+﻿using System.Globalization;
+using CouponManagement.Shared;
+using CouponManagement.Shared.Models;
 using CouponManagement.Shared.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace CouponManagement.Dialogs
 {
-    public sealed partial class CouponDefinitionDialog : ContentDialog
+    public sealed partial class CouponDefinitionDialog : ContentDialog, INotifyPropertyChanged
     {
         private readonly CouponDefinitionService _service;
         private readonly CouponService _couponService;
@@ -24,6 +29,27 @@ namespace CouponManagement.Dialogs
         public bool OperationSuccess => _operationSuccess;
         public bool WasSaved => _operationSuccess;
 
+        // INotifyPropertyChanged
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        // เพิ่ม property ใหม่ด้านบนของคลาส
+        private bool _isEventSelected;
+        public bool IsEventSelected
+        {
+            get => _isEventSelected;
+            set
+            {
+                if (_isEventSelected != value)
+                {
+                    _isEventSelected = value;
+                    // Trigger binding update ถ้าใช้ x:Bind
+                    OnPropertyChanged(nameof(IsEventSelected));
+                }
+            }
+        }
+
         public CouponDefinitionDialog()
         {
             this.InitializeComponent();
@@ -34,7 +60,10 @@ namespace CouponManagement.Dialogs
             InitializeForm();
 
             // Load coupon types from database
-            _ = LoadCouponTypesAsync();
+            _ = LoadBranchTypesAsync();
+            
+            // **เพิ่ม: โหลดงานที่ออกขาย**
+            _ = LoadSaleEventsAsync();
         }
 
         public CouponDefinitionDialog(CouponDefinition editingDefinition)
@@ -47,7 +76,7 @@ namespace CouponManagement.Dialogs
             InitializeForm();
 
             // Load coupon types from database
-            _ = LoadCouponTypesAsync();
+            _ = LoadBranchTypesAsync();
             
             Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().TryEnqueue(async () =>
             {
@@ -55,15 +84,15 @@ namespace CouponManagement.Dialogs
             });
         }
 
-        private async Task LoadCouponTypesAsync()
+        private async Task LoadBranchTypesAsync()
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("LoadCouponTypesAsync started");
-                
-                var types = await _couponService.GetAllCouponTypesAsync();
-                System.Diagnostics.Debug.WriteLine($"Retrieved {types.Count} coupon types");
-                
+                System.Diagnostics.Debug.WriteLine("LoadBranchTypesAsync started");
+
+                var types = await _coupon_service_get_all_types_async();
+                System.Diagnostics.Debug.WriteLine($"Retrieved {types.Count} branch types");
+
                 if (TypeComboBox != null)
                 {
                     TypeComboBox.Items.Clear();
@@ -71,9 +100,9 @@ namespace CouponManagement.Dialogs
                     // If there are no types, add a placeholder 'ไม่ระบุ' so that the dialog shows a clear state
                     // but does not create any DB records. The placeholder has no Tag (or Tag != CouponType)
                     // so BuildCreateCouponRequest will leave CouponTypeId as0 and validation will prevent saving.
-                    if (types.Count ==0)
+                    if (types.Count == 0)
                     {
-                        System.Diagnostics.Debug.WriteLine("No coupon types found - adding placeholder 'ไม่ระบุ'");
+                        System.Diagnostics.Debug.WriteLine("No Branch types found - adding placeholder 'ไม่ระบุ'");
                         TypeComboBox.Items.Add(new ComboBoxItem { Content = "ไม่ระบุ", Tag = null, IsSelected = true });
                     }
 
@@ -82,12 +111,12 @@ namespace CouponManagement.Dialogs
                     {
                         var item = new ComboBoxItem { Content = t.Name, Tag = t };
                         TypeComboBox.Items.Add(item);
-                        System.Diagnostics.Debug.WriteLine($"Added CouponType: {t.Name} (ID: {t.Id})");
+                        System.Diagnostics.Debug.WriteLine($"Added BranchType: {t.Name} (ID: {t.Id})");
                     }
 
-                    if (TypeComboBox.Items.Count >0 && TypeComboBox.SelectedIndex <0)
+                    if (TypeComboBox.Items.Count > 0 && TypeComboBox.SelectedIndex < 0)
                     {
-                        TypeComboBox.SelectedIndex =0;
+                        TypeComboBox.SelectedIndex = 0;
                         System.Diagnostics.Debug.WriteLine($"Selected default item: {TypeComboBox.SelectedIndex}");
                     }
                 }
@@ -98,22 +127,73 @@ namespace CouponManagement.Dialogs
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error loading coupon types: {ex}");
+                System.Diagnostics.Debug.WriteLine($"Error loading Branch types: {ex}");
             }
         }
 
         // wrapper to call service and guard exceptions when DB is unavailable
-        private async Task<List<CouponType>> _coupon_service_get_all_types_async()
+        private async Task<List<Branch>> _coupon_service_get_all_types_async()
         {
             try
             {
-                return await _couponService.GetAllCouponTypesAsync();
+                return await _couponService.GetAllBranchesAsync();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error fetching coupon types from DB: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error fetching Branch types from DB: {ex.Message}");
                 // return empty list to avoid crashing UI
-                return new List<CouponType>();
+                return new List<Branch>();
+            }
+        }
+
+        private async Task LoadSaleEventsAsync()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("LoadSaleEventsAsync started");
+
+                using var context = new CouponContext();
+                var events = await context.SaleEvents
+                    .Where(e => e.IsActive)
+                    .OrderByDescending(e => e.StartDate)
+                    .ToListAsync();
+
+                System.Diagnostics.Debug.WriteLine($"Retrieved {events.Count} sale events");
+
+                if (SaleEventComboBox != null)
+                {
+                    SaleEventComboBox.Items.Clear();
+
+                    // เพิ่มตัวเลือก "ไม่ระบุ" (null)
+                    var noEventItem = new ComboBoxItem
+                    {
+                        Content = "ไม่ระบุงาน",
+                        Tag = null
+                    };
+                    SaleEventComboBox.Items.Add(noEventItem);
+
+                    // เพิ่มรายการงาน
+                    foreach (var evt in events)
+                    {
+                        var item = new ComboBoxItem
+                        {
+                            Content = $"{evt.Name} ({evt.DateRangeText})",
+                            Tag = evt
+                        };
+                        SaleEventComboBox.Items.Add(item);
+                        System.Diagnostics.Debug.WriteLine($"Added SaleEvent: {evt.Name} (ID: {evt.Id})");
+                    }
+
+                    // เลือกรายการแรก (ไม่ระบุ) เป็น default
+                    if (SaleEventComboBox.Items.Count > 0)
+                    {
+                        SaleEventComboBox.SelectedIndex = 0;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading sale events: {ex}");
             }
         }
 
@@ -158,14 +238,31 @@ namespace CouponManagement.Dialogs
                         LoadParametersForEdit();
 
                         // Select coupon type by matching Type field (which is now CouponTypeId)
-                        await LoadCouponTypesAsync();
+                        await LoadBranchTypesAsync();
                         
                         foreach (ComboBoxItem it in TypeComboBox.Items)
                         {
-                            if (it.Tag is CouponType ct && ct.Id == fresh.CouponTypeId)
+                            if (it.Tag is Branch ct && ct.Id == fresh.BranchId)
                             {
                                 TypeComboBox.SelectedItem = it;
                                 break;
+                            }
+                        }
+
+                        // **เพิ่ม: เลือก SaleEvent ที่ถูกบันทึกไว้**
+                        if (fresh.SaleEventId.HasValue)
+                        {
+                            await LoadSaleEventsAsync();
+
+                            foreach (ComboBoxItem it in SaleEventComboBox.Items)
+                            {
+                                if (it.Tag is SaleEvent evt && evt.Id == fresh.SaleEventId.Value)
+                                {
+                                    SaleEventComboBox.SelectedItem = it;
+                                    // ensure UI reflects read-only formatted dates
+                                    UpdateEventDateDisplay(evt);
+                                    break;
+                                }
                             }
                         }
 
@@ -340,7 +437,7 @@ namespace CouponManagement.Dialogs
                 request.Code = (request.Code ?? string.Empty).Trim().ToUpperInvariant();
                 
                 // Debug: Log the request details
-                System.Diagnostics.Debug.WriteLine($"Creating coupon with CouponTypeId: {request.CouponTypeId}");
+                System.Diagnostics.Debug.WriteLine($"Creating coupon with BranchId: {request.BranchId}");
                 
                 // New: check duplicate code early to provide inline validation
                 try
@@ -483,18 +580,18 @@ namespace CouponManagement.Dialogs
         private CreateCouponRequest BuildCreateCouponRequest()
         {
             // Get selected CouponType
-            int selectedTypeId =0;
-            
+            int selectedTypeId = 0;
+
             if (TypeComboBox?.SelectedItem is ComboBoxItem selectedItem)
             {
-                if (selectedItem.Tag is CouponType ct)
+                if (selectedItem.Tag is Branch ct)
                 {
                     selectedTypeId = ct.Id;
-                    System.Diagnostics.Debug.WriteLine($"Selected CouponType: {ct.Name} (ID: {ct.Id})");
+                    System.Diagnostics.Debug.WriteLine($"Selected Branch: {ct.Name} (ID: {ct.Id})");
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine($"Selected item Tag is not CouponType: {selectedItem.Tag?.GetType()}");
+                    System.Diagnostics.Debug.WriteLine($"Selected item Tag is not Branch: {selectedItem.Tag?.GetType()}");
                 }
             }
             else
@@ -502,15 +599,25 @@ namespace CouponManagement.Dialogs
                 System.Diagnostics.Debug.WriteLine("No item selected in TypeComboBox or TypeComboBox is null");
             }
 
+            // **เพิ่ม: ดึง SaleEventId**
+            int? selectedEventId = null;
+            if (SaleEventComboBox?.SelectedItem is ComboBoxItem eventItem && 
+                eventItem.Tag is SaleEvent evt)
+            {
+                selectedEventId = evt.Id;
+                System.Diagnostics.Debug.WriteLine($"Selected SaleEvent: {evt.Name} (ID: {evt.Id})");
+            }
+
             var request = new CreateCouponRequest
             {
                 Code = (CodeTextBox?.Text ?? string.Empty).Trim(),
                 Name = (NameTextBox?.Text ?? string.Empty).Trim(),
-                CouponTypeId = selectedTypeId, // เปลี่ยนเป็น CouponTypeId
-                Price = SafeDecimalFromDouble(PriceNumberBox?.Value ??0),
+                BranchId = selectedTypeId,
+                Price = SafeDecimalFromDouble(PriceNumberBox?.Value ?? 0),
                 ValidFrom = ValidFromDatePicker?.Date.DateTime ?? DateTime.Today,
                 ValidTo = ValidToDatePicker?.Date.DateTime ?? DateTime.Today.AddYears(1),
-                SequenceLength = Math.Clamp(SafeIntFromDouble(SequenceLengthNumberBox?.Value ??3),1,10)
+                SequenceLength = Math.Clamp(SafeIntFromDouble(SequenceLengthNumberBox?.Value ?? 3), 1, 10),
+                SaleEventId = selectedEventId // **เพิ่มบรรทัดนี้**
             };
 
             // Set IsLimited based on radio button
@@ -536,7 +643,7 @@ namespace CouponManagement.Dialogs
             };
             request.Params = JsonSerializer.Serialize(couponParams, jsonOptions);
 
-            System.Diagnostics.Debug.WriteLine($"BuildCreateCouponRequest - CouponTypeId: {request.CouponTypeId}, Code: {request.Code}, IsLimited: {request.IsLimited}");
+            System.Diagnostics.Debug.WriteLine($"BuildCreateCouponRequest - BranchId: {request.BranchId}, Code: {request.Code}, IsLimited: {request.IsLimited}");
 
             return request;
         }
@@ -556,7 +663,7 @@ namespace CouponManagement.Dialogs
                 if (request.SequenceLength <1 || request.SequenceLength >10) return (false, "ความยาวตัวเลขต้องอยู่ระหว่าง1-10");
             }
 
-            if (request.CouponTypeId <=0) return (false, "กรุณาเลือกประเภทคูปอง");
+            if (request.BranchId <=0) return (false, "กรุณาเลือกสาขาคูปอง");
 
             try
             {
@@ -620,7 +727,7 @@ namespace CouponManagement.Dialogs
         {
             try
             {
-                var input = new TextBox { PlaceholderText = "ชื่อประเภทคูปองใหม่", Width =240, Margin = new Thickness(0,0,0,8) };
+                var input = new TextBox { PlaceholderText = "ชื่อสาขาคูปองใหม่", Width =240, Margin = new Thickness(0,0,0,8) };
                 var addBtn = new Button { Content = "เพิ่ม", Margin = new Thickness(0,0,8,0) };
                 var cancelBtn = new Button { Content = "ยกเลิก" };
 
@@ -642,7 +749,7 @@ namespace CouponManagement.Dialogs
 
                     try
                     {
-                        var created = await _couponService.AddCouponTypeAsync(name, Environment.UserName);
+                        var created = await _couponService.AddBranchAsync(name, Environment.UserName);
                         // Update combo box on UI thread; store CouponType in Tag
                         Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().TryEnqueue(() =>
                         {
@@ -699,6 +806,203 @@ namespace CouponManagement.Dialogs
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"UnlimitedRadioButton_Checked error: {ex.Message}");
+            }
+        }
+
+        // **Event Handler สำหรับเลือก Sale Event**
+        private void SaleEventComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (SaleEventComboBox.SelectedItem is ComboBoxItem item && item.Tag is SaleEvent evt)
+                {
+                    // mark event selected and show read-only formatted dates
+                    IsEventSelected = true;
+                    UpdateEventDateDisplay(evt);
+                }
+                else
+                {
+                    IsEventSelected = false;
+                    UpdateEventDateDisplay(null);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"SaleEventComboBox_SelectionChanged error: {ex.Message}");
+            }
+        }
+
+        // **Event Handler สำหรับเพิ่มงานใหม่**
+        private void AddSaleEventButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var inputStack = new StackPanel { Spacing = 8, Padding = new Thickness(12) };
+
+                var nameInput = new TextBox 
+                { 
+                    PlaceholderText = "ชื่องาน เช่น งานแฟร์สิงหาคม", 
+                    Width = 300 
+                };
+                inputStack.Children.Add(new TextBlock { Text = "ชื่องาน:", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+                inputStack.Children.Add(nameInput);
+
+                var startDatePicker = new Microsoft.UI.Xaml.Controls.DatePicker 
+                { 
+                    Header = "วันที่เริ่มงาน", 
+                    Date = DateTime.Today 
+                };
+                inputStack.Children.Add(startDatePicker);
+
+                var endDatePicker = new Microsoft.UI.Xaml.Controls.DatePicker 
+                { 
+                    Header = "วันที่จบงาน", 
+                    Date = DateTime.Today.AddDays(7) 
+                };
+                inputStack.Children.Add(endDatePicker);
+
+                var buttonsPanel = new StackPanel 
+                { 
+                    Orientation = Orientation.Horizontal, 
+                    HorizontalAlignment = HorizontalAlignment.Right, 
+                    Spacing = 8, 
+                    Margin = new Thickness(0, 8, 0, 0) 
+                };
+
+                var addBtn = new Button { Content = "เพิ่ม" };
+                var cancelBtn = new Button { Content = "ยกเลิก" };
+
+                buttonsPanel.Children.Add(addBtn);
+                buttonsPanel.Children.Add(cancelBtn);
+                inputStack.Children.Add(buttonsPanel);
+
+                var flyout = new Flyout { Content = inputStack };
+
+                addBtn.Click += async (s, args) =>
+                {
+                    var name = nameInput.Text?.Trim();
+                    if (string.IsNullOrEmpty(name))
+                    {
+                        nameInput.PlaceholderText = "กรุณากรอกชื่องาน!";
+                        return;
+                    }
+
+                    var startDate = startDatePicker.Date.DateTime;
+                    var endDate = endDatePicker.Date.DateTime;
+
+                    if (endDate < startDate)
+                    {
+                        // แสดงข้อผิดพลาด
+                        await ShowErrorMessageAsync("วันที่จบงานต้องมากกว่าหรือเท่ากับวันที่เริ่มงาน");
+                        return;
+                    }
+
+                    try
+                    {
+                        using var context = new CouponContext();
+                        var newEvent = new SaleEvent
+                        {
+                            Name = name,
+                            StartDate = startDate,
+                            EndDate = endDate,
+                            IsActive = true,
+                            CreatedBy = Environment.UserName,
+                            CreatedAt = DateTime.Now
+                        };
+
+                        context.SaleEvents.Add(newEvent);
+                        await context.SaveChangesAsync();
+
+                        // อัปเดต ComboBox
+                        Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().TryEnqueue(() =>
+                        {
+                            var item = new ComboBoxItem 
+                            { 
+                                Content = $"{newEvent.Name} ({newEvent.DateRangeText})", 
+                                Tag = newEvent 
+                            };
+                            SaleEventComboBox.Items.Add(item);
+                            SaleEventComboBox.SelectedItem = item;
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error creating sale event: {ex.Message}");
+                        await ShowErrorMessageAsync($"ไม่สามารถสร้างงานได้: {ex.Message}");
+                    }
+                    finally
+                    {
+                        flyout.Hide();
+                    }
+                };
+
+                cancelBtn.Click += (s, args) => flyout.Hide();
+
+                flyout.ShowAt(AddSaleEventButton);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error showing add sale event flyout: {ex.Message}");
+            }
+        }
+
+        // **Helper Method แสดง Error**
+        private async Task ShowErrorMessageAsync(string message)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "แจ้งเตือน",
+                Content = message,
+                CloseButtonText = "ตกลง",
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+
+        // Add helper to update the UI for event dates (read-only view with good formatting)
+        private void UpdateEventDateDisplay(SaleEvent? evt)
+        {
+            try
+            {
+                // Prepare Thai culture with Thai Buddhist calendar (matches app elsewhere)
+                var thai = new CultureInfo("th-TH");
+                thai.DateTimeFormat.Calendar = new ThaiBuddhistCalendar();
+
+                if (evt != null)
+                {
+                    // show read-only TextBlocks with full date (day month year)
+                    if (EventStartDatePicker != null) EventStartDatePicker.Visibility = Visibility.Collapsed;
+                    if (EventEndDatePicker != null) EventEndDatePicker.Visibility = Visibility.Collapsed;
+
+                    if (EventStartDateTextBlock != null)
+                    {
+                        EventStartDateTextBlock.Visibility = Visibility.Visible;
+                        EventStartDateTextBlock.Text = evt.StartDate.ToString("dd MMMM yyyy", thai); // e.g. 16 ธันวาคม 2568
+                    }
+
+                    if (EventEndDateTextBlock != null)
+                    {
+                        EventEndDateTextBlock.Visibility = Visibility.Visible;
+                        EventEndDateTextBlock.Text = evt.EndDate.ToString("dd MMMM yyyy", thai);
+                    }
+
+                    // keep underlying DatePickers values synced (useful for serialization)
+                    if (EventStartDatePicker != null) EventStartDatePicker.Date = evt.StartDate;
+                    if (EventEndDatePicker != null) EventEndDatePicker.Date = evt.EndDate;
+                }
+                else
+                {
+                    // no event selected -> show editable DatePickers, hide read-only TextBlocks
+                    if (EventStartDatePicker != null) EventStartDatePicker.Visibility = Visibility.Visible;
+                    if (EventEndDatePicker != null) EventEndDatePicker.Visibility = Visibility.Visible;
+
+                    if (EventStartDateTextBlock != null) { EventStartDateTextBlock.Visibility = Visibility.Collapsed; EventStartDateTextBlock.Text = string.Empty; }
+                    if (EventEndDateTextBlock != null) { EventEndDateTextBlock.Visibility = Visibility.Collapsed; EventEndDateTextBlock.Text = string.Empty; }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"UpdateEventDateDisplay error: {ex.Message}");
             }
         }
     }

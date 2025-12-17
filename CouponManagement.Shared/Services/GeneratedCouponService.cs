@@ -456,7 +456,7 @@ namespace CouponManagement.Shared.Services
         {
             var query = _context.GeneratedCoupons
                 .Include(gc => gc.CouponDefinition)
-                    .ThenInclude(cd => cd!.CouponType)
+                    .ThenInclude(cd => cd!.Branch)
                 .Include(gc => gc.ReceiptItem)
                 .AsQueryable();
 
@@ -493,7 +493,7 @@ namespace CouponManagement.Shared.Services
                     CouponDefinitionName = gc.CouponDefinition != null ? gc.CouponDefinition.Name : "",
                     CouponDefinitionParams = gc.CouponDefinition != null ? gc.CouponDefinition.Params : "",
                     CouponDefinitionPrice = gc.CouponDefinition != null ? gc.CouponDefinition.Price : 0m,
-                    CouponTypeName = gc.CouponDefinition != null && gc.CouponDefinition.CouponType != null ? gc.CouponDefinition.CouponType.Name : "",
+                    BranchName = gc.CouponDefinition != null && gc.CouponDefinition.Branch != null ? gc.CouponDefinition.Branch.Name : "",
                     BatchNumber = gc.BatchNumber,
                     IsUsed = gc.IsUsed,
                     UsedDate = gc.UsedDate,
@@ -577,7 +577,7 @@ namespace CouponManagement.Shared.Services
         public string CouponDefinitionName { get; set; } = string.Empty;
         public string CouponDefinitionParams { get; set; } = string.Empty;
         public decimal CouponDefinitionPrice { get; set; }
-        public string CouponTypeName { get; set; } = string.Empty; // เพิ่มชื่อประเภทคูปอง
+        public string BranchName { get; set; } = string.Empty;
         public int BatchNumber { get; set; }
         public bool IsUsed { get; set; }
         public DateTime? UsedDate { get; set; }

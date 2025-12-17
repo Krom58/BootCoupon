@@ -3,8 +3,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CouponManagement.Shared.Models
 {
-    [Table("CouponTypes")]
-    public class CouponType
+    // File kept as Branch.cs for minimal file changes.
+    // The CLR type is renamed to Branch to match DB table and new naming.
+    [Table("Branch")]
+    public class Branch
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;

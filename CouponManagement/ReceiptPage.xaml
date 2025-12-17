@@ -52,8 +52,8 @@
  <Button x:Name="RefreshButton" Grid.Column="4" Content="รีเฟรช" Margin="10,0,0,0" Padding="8,4" VerticalAlignment="Center" Background="#e7aef6" Height="28" />
 
  <!-- second row: coupon type selector -->
- <TextBlock Grid.Row="1" Text="ประเภทคูปอง:" VerticalAlignment="Center" Foreground="White" Margin="6,6,0,0" FontSize="13" />
- <ComboBox x:Name="CouponTypeFilterComboBox" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Margin="8,6,0,0" Height="28">
+ <TextBlock Grid.Row="1" Text="สาขาคูปอง:" VerticalAlignment="Center" Foreground="White" Margin="6,6,0,0" FontSize="13" />
+ <ComboBox x:Name="BranchFilterComboBox" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Margin="8,6,0,0" Height="28">
  <!-- items will be populated from code-behind -->
  <ComboBoxItem Tag="">-- ทั้งหมด --</ComboBoxItem>
  </ComboBox>

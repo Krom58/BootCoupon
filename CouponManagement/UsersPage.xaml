@@ -8,137 +8,341 @@
  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
  mc:Ignorable="d">
 
- <Grid Padding="12">
- <Grid.RowDefinitions>
- <RowDefinition Height="Auto" />
- <RowDefinition Height="Auto" />
- <RowDefinition Height="*" />
- </Grid.RowDefinitions>
+    <Grid Padding="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
- <!-- App bar style header -->
- <Border Grid.Row="0" Background="#A64DBA" CornerRadius="4" Padding="12" Height="64">
- <Grid>
- <Grid.ColumnDefinitions>
- <ColumnDefinition Width="Auto" />
- <ColumnDefinition Width="*" />
- </Grid.ColumnDefinitions>
+        <!-- App bar style header -->
+        <Border Grid.Row="0" Background="#A64DBA" CornerRadius="4" Padding="12" Height="64">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
- <!-- Back button with rounded white border and icon -->
- <Button x:Name="BackButton" Click="BackButton_Click" HorizontalAlignment="Left" VerticalAlignment="Center"
+                <!-- Back button with rounded white border and icon -->
+                <Button x:Name="BackButton" Click="BackButton_Click" HorizontalAlignment="Left" VerticalAlignment="Center"
  Background="Transparent" BorderThickness="0" Padding="0">
- <Border BorderBrush="White" BorderThickness="1" Background="#30FFFFFF" CornerRadius="8" Padding="6" HorizontalAlignment="Center" VerticalAlignment="Center">
- <StackPanel Orientation="Horizontal">
- <SymbolIcon Symbol="Back" Foreground="White" />
- </StackPanel>
- </Border>
- </Button>
+                    <Border BorderBrush="White" BorderThickness="1" Background="#30FFFFFF" CornerRadius="8" Padding="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <SymbolIcon Symbol="Back" Foreground="White" />
+                        </StackPanel>
+                    </Border>
+                </Button>
 
- <!-- Title -->
- <TextBlock Grid.Column="1" Text="จัดการผู้ใช้" Foreground="White" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0" />
- </Grid>
- </Border>
+                <!-- Title -->
+                <TextBlock Grid.Column="1" Text="จัดการผู้ใช้/สาขา/งานที่ขาย" Foreground="White" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0" />
+            </Grid>
+        </Border>
 
- <!-- Buttons row: above the ListView, aligned to the right (no Back button here) -->
- <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="12" Margin="0,8,0,0">
- <Button x:Name="RefreshButton" Content="รีเฟรช" Click="RefreshButton_Click" />
- <Button x:Name="CreateButton" Content="สร้างผู้ใช้" Click="CreateButton_Click" />
- </StackPanel>
+        <!-- Dropdown for selecting management type -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Spacing="12" Margin="0,12,0,0">
+            <TextBlock Text="เลือกประเภทข้อมูล:" VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold" />
+            <ComboBox x:Name="ManagementTypeComboBox" 
+                      SelectionChanged="ManagementTypeComboBox_SelectionChanged"
+                      MinWidth="200"
+                      SelectedIndex="0">
+                <ComboBoxItem Content="จัดการผู้ใช้" Tag="Users" />
+                <ComboBoxItem Content="จัดการสาขา" Tag="Branches" />
+                <ComboBoxItem Content="จัดการชื่องานที่ออกขาย" Tag="Events" />
+            </ComboBox>
+        </StackPanel>
 
- <!-- Table-style ListView: wrap with a border to look like a single table -->
- <Border Grid.Row="2" Margin="0,12,0,0" BorderThickness="1" CornerRadius="6" BorderBrush="#3A3F41" Background="#1B1F21" Padding="0">
- <Grid>
- <Grid.RowDefinitions>
- <RowDefinition Height="Auto" />
- <RowDefinition Height="*" />
- </Grid.RowDefinitions>
+        <!-- Buttons row: above the ListView, aligned to the right -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="12" Margin="0,8,0,0">
+            <Button x:Name="RefreshButton" Content="รีเฟรช" Click="RefreshButton_Click" />
+            <Button x:Name="CreateButton" Content="สร้าง" Click="CreateButton_Click" />
+        </StackPanel>
 
- <!-- Header row for the table (5 columns: Username, Type, Status, CreatedAt, Actions) -->
- <Grid Grid.Row="0" Background="#232628" Padding="0" Height="56">
- <Grid.ColumnDefinitions>
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="120" />
- </Grid.ColumnDefinitions>
+        <!-- Table-style ListView: wrap with a border to look like a single table -->
+        <Border Grid.Row="3" Margin="0,12,0,0" BorderThickness="1" CornerRadius="6" BorderBrush="#3A3F41" Background="#1B1F21" Padding="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
- <Border Grid.Column="0" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
- <TextBlock Text="ชื่อผู้ใช้" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
- </Border>
- <Border Grid.Column="1" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
- <TextBlock Text="ประเภท" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
- </Border>
- <Border Grid.Column="2" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
- <TextBlock Text="สถานะ" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
- </Border>
- <Border Grid.Column="3" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
- <TextBlock Text="สร้างเมื่อ" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
- </Border>
- <Border Grid.Column="4" Padding="18,0" VerticalAlignment="Center">
- <TextBlock Text="" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
- </Border>
- </Grid>
+                <!-- Users Table -->
+                <Grid x:Name="UsersTableContainer" Visibility="Visible">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
- <!-- List of users -->
- <ListView x:Name="UsersListView" Grid.Row="1" Margin="0" IsItemClickEnabled="False" Background="Transparent" SelectionMode="None" HorizontalContentAlignment="Stretch">
- <ListView.ItemContainerStyle>
- <Style TargetType="ListViewItem">
- <Setter Property="HorizontalContentAlignment" Value="Stretch" />
- <Setter Property="Padding" Value="0" />
- <Setter Property="Margin" Value="0" />
- <Setter Property="Background" Value="Transparent" />
- </Style>
- </ListView.ItemContainerStyle>
- <ListView.ItemTemplate>
- <DataTemplate>
- <Grid Padding="0" HorizontalAlignment="Stretch" MinHeight="56">
- <Grid.ColumnDefinitions>
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="120" />
- </Grid.ColumnDefinitions>
+                    <!-- Header row for Users table -->
+                    <Grid Grid.Row="0" Background="#232628" Padding="0" Height="56">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="120" />
+                        </Grid.ColumnDefinitions>
 
- <Border Grid.Column="0" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
- <StackPanel Orientation="Vertical" VerticalAlignment="Center">
- <TextBlock Text="{Binding Username}" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="16" />
- <TextBlock Text="{Binding DisplayName}" Foreground="#BFBFBFBF" />
- </StackPanel>
- </Border>
+                        <Border Grid.Column="0" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="ชื่อผู้ใช้" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <Border Grid.Column="1" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="สาขา" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <Border Grid.Column="2" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="สถานะ" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <Border Grid.Column="3" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="สร้างเมื่อ" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <Border Grid.Column="4" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                    </Grid>
 
- <Border Grid.Column="1" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
- <StackPanel Orientation="Vertical" VerticalAlignment="Center">
- <TextBlock Text="{Binding UserType}" Foreground="#FFFFFF" />
- </StackPanel>
- </Border>
+                    <!-- List of users -->
+                    <ListView x:Name="UsersListView" Grid.Row="1" Margin="0" IsItemClickEnabled="False" Background="Transparent" SelectionMode="None" HorizontalContentAlignment="Stretch">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                                <Setter Property="Background" Value="Transparent" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="0" HorizontalAlignment="Stretch" MinHeight="56">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="120" />
+                                    </Grid.ColumnDefinitions>
 
- <Border Grid.Column="2" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
- <StackPanel Orientation="Vertical" VerticalAlignment="Center">
- <TextBlock Text="{Binding IsActiveText}" Foreground="#FFFFFF" />
- </StackPanel>
- </Border>
+                                    <Border Grid.Column="0" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Username}" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="16" />
+                                            <TextBlock Text="{Binding DisplayName}" Foreground="#BFBFBFBF" />
+                                        </StackPanel>
+                                    </Border>
 
- <Border Grid.Column="3" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
- <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
- <TextBlock Text="{Binding CreatedAtText}" Foreground="#FFFFFF" />
- </StackPanel>
- </Border>
+                                    <Border Grid.Column="1" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding UserType}" Foreground="#FFFFFF" />
+                                        </StackPanel>
+                                    </Border>
 
- <!-- Actions column -->
- <Border Grid.Column="4" Padding="12" Background="Transparent" VerticalAlignment="Center">
- <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
- <Button Content="แก้ไข" Click="EditButton_Click" MinWidth="72" DataContext="{Binding}" />
- </StackPanel>
- </Border>
+                                    <Border Grid.Column="2" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding IsActiveText}" Foreground="#FFFFFF" />
+                                        </StackPanel>
+                                    </Border>
 
- <!-- Separator line at bottom of each item -->
- <Rectangle Grid.ColumnSpan="5" Height="1" Fill="#2F3436" VerticalAlignment="Bottom" Margin="0,0,0,0" />
- </Grid>
- </DataTemplate>
- </ListView.ItemTemplate>
- </ListView>
- </Grid>
- </Border>
- </Grid>
+                                    <Border Grid.Column="3" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding CreatedAtText}" Foreground="#FFFFFF" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Actions column -->
+                                    <Border Grid.Column="4" Padding="12" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                            <Button Content="แก้ไข" Click="EditButton_Click" MinWidth="72" DataContext="{Binding}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Separator line at bottom of each item -->
+                                    <Rectangle Grid.ColumnSpan="5" Height="1" Fill="#2F3436" VerticalAlignment="Bottom" Margin="0,0,0,0" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+
+                <!-- Branches Table -->
+                <Grid x:Name="BranchesTableContainer" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Header row for Branches table -->
+                    <Grid Grid.Row="0" Background="#232628" Padding="0" Height="56">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="120" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="รหัสสาขา" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <Border Grid.Column="1" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="ชื่อสาขา" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <Border Grid.Column="2" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="สร้างเมื่อ" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <Border Grid.Column="3" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                    </Grid>
+
+                    <!-- List of branches -->
+                    <ListView x:Name="BranchesListView" Grid.Row="1" Margin="0" IsItemClickEnabled="False" Background="Transparent" SelectionMode="None" HorizontalContentAlignment="Stretch">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                                <Setter Property="Background" Value="Transparent" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="0" HorizontalAlignment="Stretch" MinHeight="56">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="120" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding Code}" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="16" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="1" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" Foreground="#FFFFFF" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="2" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding CreatedAtText}" Foreground="#FFFFFF" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Actions column -->
+                                    <Border Grid.Column="3" Padding="12" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                            <Button Content="แก้ไข" Click="EditBranchButton_Click" MinWidth="72" DataContext="{Binding}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Separator line at bottom of each item -->
+                                    <Rectangle Grid.ColumnSpan="4" Height="1" Fill="#2F3436" VerticalAlignment="Bottom" Margin="0,0,0,0" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+
+                <!-- Events Table -->
+                <Grid x:Name="EventsTableContainer" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Header row for Events table -->
+                    <Grid Grid.Row="0" Background="#232628" Padding="0" Height="56">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="120" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Sequence -->
+                        <Border Grid.Column="0" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="12,0" VerticalAlignment="Center">
+                            <TextBlock Text="ลำดับ" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+
+                        <Border Grid.Column="1" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="ชื่องาน" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+
+                        <Border Grid.Column="2" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="วันที่เริ่ม" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+
+                        <Border Grid.Column="3" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="วันที่สิ้นสุด" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+
+                        <Border Grid.Column="4" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                    </Grid>
+
+                    <!-- List of events -->
+                    <ListView x:Name="EventsListView" Grid.Row="1" Margin="0" IsItemClickEnabled="False" Background="Transparent" SelectionMode="None" HorizontalContentAlignment="Stretch">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                                <Setter Property="Background" Value="Transparent" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="0" HorizontalAlignment="Stretch" MinHeight="56">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="120" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding Sequence}" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="16" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="1" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" Foreground="#FFFFFF" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="2" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding StartDateText}" Foreground="#FFFFFF" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="3" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding EndDateText}" Foreground="#FFFFFF" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Actions column -->
+                                    <Border Grid.Column="4" Padding="12" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                            <Button Content="แก้ไข" Click="EditEventButton_Click" MinWidth="72" DataContext="{Binding}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Separator line at bottom of each item -->
+                                    <Rectangle Grid.ColumnSpan="4" Height="1" Fill="#2F3436" VerticalAlignment="Bottom" Margin="0,0,0,0" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
 </Page>

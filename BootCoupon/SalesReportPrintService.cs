@@ -339,8 +339,8 @@ namespace BootCoupon
          var filterParts = new List<string>();
  if (currentViewModel.SelectedSalesPerson != null && currentViewModel.SelectedSalesPerson.ID !=0)
       filterParts.Add($"เซล: {currentViewModel.SelectedSalesPerson.Name}");
-   if (currentViewModel.SelectedCouponType != null && currentViewModel.SelectedCouponType.Id !=0)
-                filterParts.Add($"ประเภท: {currentViewModel.SelectedCouponType.Name}");
+   if (currentViewModel.SelectedBranch != null && currentViewModel.SelectedBranch.Id !=0)
+                filterParts.Add($"สาขา: {currentViewModel.SelectedBranch.Name}");
             if (currentViewModel.SelectedCoupon != null && currentViewModel.SelectedCoupon.Id !=0)
        filterParts.Add($"คูปอง: {currentViewModel.SelectedCoupon.Name}");
           if (currentViewModel.SelectedPaymentMethod != null && currentViewModel.SelectedPaymentMethod.Id !=0)
@@ -539,7 +539,7 @@ var endIndex = Math.Min(startIndex + itemsPerPage, currentViewModel.ReportData.C
                 Width = double.NaN
             };
 
-      // 5 columns: คูปอง, ประเภท, จำกัด/ไม่จำกัด, จำนวนขายรวม, ยอดรวม (บาท)
+      // 5 columns: คูปอง, สาขา, จำกัด/ไม่จำกัด, จำนวนขายรวม, ยอดรวม (บาท)
             var columnWidths = new[] { 3.0, 1.5, 1.5, 1.0, 1.5 }; // relative widths
             foreach (var width in columnWidths)
  {
@@ -547,7 +547,7 @@ var endIndex = Math.Min(startIndex + itemsPerPage, currentViewModel.ReportData.C
   }
 
             // Header row
-            var headers = new[] { "คูปอง", "ประเภท", "จำกัด/ไม่จำกัด", "จำนวนขายรวม", "ยอดรวม (บาท)" };
+            var headers = new[] { "คูปอง", "สาขา", "จำกัด/ไม่จำกัด", "จำนวนขายรวม", "ยอดรวม (บาท)" };
             table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
  
       for (int i =0; i < headers.Length; i++)
@@ -587,7 +587,7 @@ var endIndex = Math.Min(startIndex + itemsPerPage, currentViewModel.ReportData.C
  var rowData = new[]
            {
    item.CouponName ?? "",
-      item.CouponTypeName ?? "",
+      item.BranchTypeName ?? "",
          item.IsLimitedDisplay,
   item.Quantity.ToString(),
         item.TotalPrice.ToString("N2")
@@ -643,7 +643,7 @@ table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width,
      }
 
         // Header row
-  var headers = new[] { "รหัส", "ชื่อคูปอง", "ประเภท", "จำนวนรวม", "ขายแล้ว", "คงเหลือ", "ราคา/ใบ" };
+  var headers = new[] { "รหัส", "ชื่อคูปอง", "สาขา", "จำนวนรวม", "ขายแล้ว", "คงเหลือ", "ราคา/ใบ" };
             table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
   
     for (int i =0; i < headers.Length; i++)
@@ -684,7 +684,7 @@ table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width,
    {
    item.CouponCode ?? "",
          item.CouponName ?? "",
-    item.CouponTypeName ?? "",
+    item.BranchTypeName ?? "",
    item.TotalQuantity.ToString(),
      item.SoldQuantity.ToString(),
  item.RemainingQuantity.ToString(),

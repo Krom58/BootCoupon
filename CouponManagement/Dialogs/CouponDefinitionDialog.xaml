@@ -73,7 +73,7 @@
                         </Grid.ColumnDefinitions>
                         
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="ประเภทคูปอง *" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBlock Text="สาคาคูปอง *" Style="{StaticResource FieldLabelStyle}"/>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -92,6 +92,68 @@
                                        PlaceholderText="0.00"
                                        SpinButtonPlacementMode="Inline"
                                        ValueChanged="PriceNumberBox_ValueChanged"/>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- Event ComboBox with Add Button -->
+                    <StackPanel>
+                        <TextBlock Text="ชื่องานที่ออกขาย" Style="{StaticResource FieldLabelStyle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <ComboBox x:Name="SaleEventComboBox" 
+                                      Grid.Column="0" 
+                                      HorizontalAlignment="Stretch"
+                                      PlaceholderText="เลือกงานที่ออกขาย (ถ้ามี)"
+                                      SelectionChanged="SaleEventComboBox_SelectionChanged"
+                                      DisplayMemberPath="Name"/>
+                            <Button x:Name="AddSaleEventButton" 
+                                    Grid.Column="1" 
+                                    Content="เพิ่มงาน" 
+                                    Margin="8,0,0,0" 
+                                    Click="AddSaleEventButton_Click"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Event Dates -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="วันที่เริ่มงาน" Style="{StaticResource FieldLabelStyle}"/>
+                            <Grid>
+                                <!-- DatePicker (editable only when no SaleEvent selected) -->
+                                <muxc:DatePicker x:Name="EventStartDatePicker" Visibility="Visible"/>
+                                <!-- Read-only formatted text shown when an event is selected -->
+                                <TextBlock x:Name="EventStartDateTextBlock"
+                                           Visibility="Collapsed"
+                                           VerticalAlignment="Center"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Padding="8,6,8,6"
+                                           TextWrapping="NoWrap"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="วันที่จบงาน" Style="{StaticResource FieldLabelStyle}"/>
+                            <Grid>
+                                <muxc:DatePicker x:Name="EventEndDatePicker" Visibility="Visible"/>
+                                <TextBlock x:Name="EventEndDateTextBlock"
+                                           Visibility="Collapsed"
+                                           VerticalAlignment="Center"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Padding="8,6,8,6"
+                                           TextWrapping="NoWrap"/>
+                            </Grid>
                         </StackPanel>
                     </Grid>
                     

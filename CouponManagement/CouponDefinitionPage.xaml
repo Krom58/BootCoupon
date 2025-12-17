@@ -91,7 +91,7 @@
 
                 <!-- Filter Type -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,15,0">
-                    <TextBlock Text="ประเภท:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBlock Text="สาขา:" VerticalAlignment="Center" Margin="0,0,5,0"/>
                     <ComboBox x:Name="TypeFilterComboBox" Width="150" SelectionChanged="TypeFilterComboBox_SelectionChanged">
                         <ComboBoxItem Content="ทั้งหมด" Tag="ALL" IsSelected="True"/>
                         <ComboBoxItem Content="คูปอง" Tag="COUPON"/>
@@ -177,11 +177,16 @@
                                             <TextBlock Text="{x:Bind Price, Converter={StaticResource CurrencyConverter}}"/>
                                         </StackPanel>
 
-                                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,20,0">
                                             <TextBlock Text="วันหมดอายุ: " FontWeight="SemiBold"/>
                                             <TextBlock Text="{x:Bind ValidTo, Converter={StaticResource DateConverter}}"/>
                                         </StackPanel>
 
+                                        <!-- NEW: Sale event display -->
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <TextBlock Text="ชื่องานที่ออกขาย: " FontWeight="SemiBold" Margin="0,0,8,0"/>
+                                            <TextBlock Text="{x:Bind SaleEventName}" />
+                                        </StackPanel>
                                     </Grid>
 
                                     <StackPanel Orientation="Horizontal" Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}">

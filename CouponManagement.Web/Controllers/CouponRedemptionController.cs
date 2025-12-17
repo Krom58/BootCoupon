@@ -247,7 +247,7 @@ namespace CouponManagement.Web.Controllers
 worksheet.Cell(row,1).Value = item.GeneratedCode;
  worksheet.Cell(row,2).Value = item.CouponDefinitionCode;
  worksheet.Cell(row,3).Value = item.CouponDefinitionName;
- worksheet.Cell(row,4).Value = item.CouponTypeName;
+ worksheet.Cell(row,4).Value = item.BranchName;
  worksheet.Cell(row,5).Value = item.CouponDefinitionPrice;
  worksheet.Cell(row,6).Value = item.StatusText;
  worksheet.Cell(row,7).Value = item.UsageText;
@@ -278,7 +278,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
  DefinitionId = x.CouponDefinitionId,
  DefinitionCode = x.CouponDefinitionCode,
  DefinitionName = x.CouponDefinitionName,
- CouponTypeName = x.CouponTypeName
+ BranchName = x.BranchName
  })
  .OrderBy(g => g.Key.UsedDate)
  .ThenBy(g => g.Key.DefinitionName)
@@ -316,7 +316,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
  var definitionId = group.Key.DefinitionId;
  var definitionCode = group.Key.DefinitionCode;
  var definitionName = group.Key.DefinitionName;
- var couponTypeName = group.Key.CouponTypeName;
+ var branchName = group.Key.BranchName;
 
  // จำนวนที่ขายทั้งหมด (คูปองที่มี ReceiptItemId)
  var totalSold = await ctx.GeneratedCoupons
@@ -341,7 +341,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
  worksheet.Cell(row, 1).Value = usedDate.ToString("dd/MM/yyyy");
  worksheet.Cell(row, 2).Value = definitionCode;
  worksheet.Cell(row, 3).Value = definitionName;
- worksheet.Cell(row, 4).Value = couponTypeName;
+ worksheet.Cell(row, 4).Value = branchName;
  worksheet.Cell(row, 5).Value = totalSold;
  worksheet.Cell(row, 6).Value = usedBeforeToday;
  worksheet.Cell(row, 7).Value = remainingBeforeToday;
@@ -367,8 +367,8 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
 
  // ดึง CouponDefinition IDs ที่ตรงตามเงื่อนไข
  var matchingDefinitionIds = await ctx.CouponDefinitions
- .Include(cd => cd.CouponType)
- .Where(cd => cd.IsLimited && cd.CouponType != null && wantedTypesUpper.Contains(cd.CouponType.Name.ToUpper()))
+ .Include(cd => cd.Branch)
+ .Where(cd => cd.IsLimited && cd.Branch != null && wantedTypesUpper.Contains(cd.Branch.Name.ToUpper()))
  .Select(cd => cd.Id)
  .ToListAsync();
 
@@ -376,14 +376,14 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
  {
  // ดึงข้อมูลคำนิยามทั้งหมดที่ตรงเงื่อนไข
  var allMatchingDefinitions = await ctx.CouponDefinitions
- .Include(cd => cd.CouponType)
+ .Include(cd => cd.Branch)
  .Where(cd => matchingDefinitionIds.Contains(cd.Id))
  .Select(cd => new
  {
  cd.Id,
  cd.Code,
  cd.Name,
- CouponTypeName = cd.CouponType != null ? cd.CouponType.Name : ""
+ BranchName = cd.Branch != null ? cd.Branch.Name : ""
  })
  .ToListAsync();
 
@@ -415,7 +415,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
  var definitionId = definition.Id;
  var definitionCode = definition.Code;
  var definitionName = definition.Name;
- var couponTypeName = definition.CouponTypeName;
+ var branchName = definition.BranchName;
 
  // จำนวนที่ขายทั้งหมด (คูปองที่มี ReceiptItemId)
  var totalSold = await ctx.GeneratedCoupons
@@ -467,7 +467,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
 
  worksheet.Cell(row, 1).Value = definitionCode;
  worksheet.Cell(row, 2).Value = definitionName;
- worksheet.Cell(row, 3).Value = couponTypeName;
+ worksheet.Cell(row, 3).Value = branchName;
  worksheet.Cell(row, 4).Value = totalSold;
  worksheet.Cell(row, 5).Value = usedBeforePeriod;
  worksheet.Cell(row, 6).Value = remainingBeforePeriod;
@@ -669,7 +669,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
  table.AddCell(CreateCell(item.GeneratedCode, thaiFont));
  table.AddCell(CreateCell(item.CouponDefinitionCode, thaiFont));
  table.AddCell(CreateCell(item.CouponDefinitionName, thaiFont));
- table.AddCell(CreateCell(item.CouponTypeName, thaiFont));
+ table.AddCell(CreateCell(item.BranchName, thaiFont));
  table.AddCell(CreateCell(item.CouponDefinitionPrice.ToString("N0"), thaiFont));
  table.AddCell(CreateCell(item.StatusText, thaiFont));
  table.AddCell(CreateCell(item.UsedBy ?? "-", thaiFont));
@@ -693,7 +693,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
  DefinitionId = x.CouponDefinitionId,
  DefinitionCode = x.CouponDefinitionCode,
  DefinitionName = x.CouponDefinitionName,
- CouponTypeName = x.CouponTypeName
+ BranchName = x.BranchName
  })
  .OrderBy(g => g.Key.UsedDate)
  .ThenBy(g => g.Key.DefinitionName)
@@ -734,7 +734,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
                         var definitionId = group.Key.DefinitionId;
                         var definitionCode = group.Key.DefinitionCode;
                         var definitionName = group.Key.DefinitionName;
-                        var couponTypeName = group.Key.CouponTypeName;
+                        var branchName = group.Key.BranchName;
 
                         // จำนวนที่ขายทั้งหมด (คูปองที่มี ReceiptItemId)
                         var totalSold = await ctx.GeneratedCoupons
@@ -753,7 +753,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
                         summaryTable.AddCell(CreateCell(usedDate.ToString("dd/MM/yyyy"), thaiFont));
                         summaryTable.AddCell(CreateCell(definitionCode, thaiFont));
                         summaryTable.AddCell(CreateCell(definitionName, thaiFont));
-                        summaryTable.AddCell(CreateCell(couponTypeName, thaiFont));
+                        summaryTable.AddCell(CreateCell(branchName, thaiFont));
                         summaryTable.AddCell(CreateCell(totalSold.ToString("N0"), thaiFont));
                         summaryTable.AddCell(CreateCell(usedBeforeToday.ToString("N0"), thaiFont));
                         summaryTable.AddCell(CreateCell(remainingBeforeToday.ToString("N0"), thaiFont));
@@ -771,8 +771,8 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
 
                 // ดึง CouponDefinition IDs ที่ตรงตามเงื่อนไข
                 var matchingDefinitionIds = await ctx.CouponDefinitions
-                    .Include(cd => cd.CouponType)
-                    .Where(cd => cd.IsLimited && cd.CouponType != null && wantedTypesUpper.Contains(cd.CouponType.Name.ToUpper()))
+                    .Include(cd => cd.Branch)
+                    .Where(cd => cd.IsLimited && cd.Branch != null && wantedTypesUpper.Contains(cd.Branch.Name.ToUpper()))
                     .Select(cd => cd.Id)
                     .ToListAsync();
 
@@ -780,14 +780,14 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
                 {
                     // ดึงข้อมูลคำนิยามทั้งหมดที่ตรงเงื่อนไข
                     var allMatchingDefinitions = await ctx.CouponDefinitions
-                        .Include(cd => cd.CouponType)
+                        .Include(cd => cd.Branch)
                         .Where(cd => matchingDefinitionIds.Contains(cd.Id))
                         .Select(cd => new
                         {
                             cd.Id,
                             cd.Code,
                             cd.Name,
-                            CouponTypeName = cd.CouponType != null ? cd.CouponType.Name : ""
+                            BranchName = cd.Branch != null ? cd.Branch.Name : ""
                         })
                         .ToListAsync();
 
@@ -822,7 +822,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
                         var definitionId = definition.Id;
                         var definitionCode = definition.Code;
                         var definitionName = definition.Name;
-                        var couponTypeName = definition.CouponTypeName;
+                        var branchName = definition.BranchName;
 
                         // จำนวนที่ขายทั้งหมด (คูปองที่มี ReceiptItemId)
                         var totalSold = await ctx.GeneratedCoupons
@@ -874,7 +874,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
 
                         defSummaryTable.AddCell(CreateCell(definitionCode, thaiFont));
                         defSummaryTable.AddCell(CreateCell(definitionName, thaiFont));
-                        defSummaryTable.AddCell(CreateCell(couponTypeName, thaiFont));
+                        defSummaryTable.AddCell(CreateCell(branchName, thaiFont));
                         defSummaryTable.AddCell(CreateCell(totalSold.ToString("N0"), thaiFont));
                         defSummaryTable.AddCell(CreateCell(usedBeforePeriod.ToString("N0"), thaiFont));
                         defSummaryTable.AddCell(CreateCell(remainingBeforePeriod.ToString("N0"), thaiFont));
