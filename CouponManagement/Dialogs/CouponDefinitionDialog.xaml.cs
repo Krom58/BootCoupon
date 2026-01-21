@@ -249,20 +249,45 @@ namespace CouponManagement.Dialogs
                             }
                         }
 
-                        // **เพิ่ม: เลือก SaleEvent ที่ถูกบันทึกไว้**
+                        // **แก้ไข: เลือก SaleEvent ให้ชัดเจน ไม่ให้หายไปเมื่อเป็น "ไม่ระบุ"**
+                        // โหลดรายการงานก่อนเสมอ
+                        await LoadSaleEventsAsync();
+
                         if (fresh.SaleEventId.HasValue)
                         {
-                            await LoadSaleEventsAsync();
-
+                            // ถ้ามี SaleEventId ให้หาตัวที่ตรงกันและเลือก
+                            bool found = false;
                             foreach (ComboBoxItem it in SaleEventComboBox.Items)
                             {
                                 if (it.Tag is SaleEvent evt && evt.Id == fresh.SaleEventId.Value)
                                 {
                                     SaleEventComboBox.SelectedItem = it;
-                                    // ensure UI reflects read-only formatted dates
                                     UpdateEventDateDisplay(evt);
+                                    IsEventSelected = true;
+                                    found = true;
                                     break;
                                 }
+                            }
+
+                            if (!found)
+                            {
+                                // ถ้าหาไม่เจอ ให้เลือก "ไม่ระบุ"
+                                if (SaleEventComboBox.Items.Count > 0)
+                                {
+                                    SaleEventComboBox.SelectedIndex = 0;
+                                    UpdateEventDateDisplay(null);
+                                    IsEventSelected = false;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // ไม่มี SaleEventId -> ให้แน่ใจว่า ComboBox เลือก "ไม่ระบุ" (index 0)
+                            if (SaleEventComboBox.Items.Count > 0)
+                            {
+                                SaleEventComboBox.SelectedIndex = 0;
+                                UpdateEventDateDisplay(null);
+                                IsEventSelected = false;
                             }
                         }
 
@@ -599,13 +624,26 @@ namespace CouponManagement.Dialogs
                 System.Diagnostics.Debug.WriteLine("No item selected in TypeComboBox or TypeComboBox is null");
             }
 
-            // **เพิ่ม: ดึง SaleEventId**
+            // **ปรับปรุง: ดึง SaleEventId ให้รองรับทั้งกรณี SelectedItem เป็น ComboBoxItem หรือเป็น SaleEvent โดยตรง**
             int? selectedEventId = null;
-            if (SaleEventComboBox?.SelectedItem is ComboBoxItem eventItem && 
-                eventItem.Tag is SaleEvent evt)
+            if (SaleEventComboBox?.SelectedItem != null)
             {
-                selectedEventId = evt.Id;
-                System.Diagnostics.Debug.WriteLine($"Selected SaleEvent: {evt.Name} (ID: {evt.Id})");
+                // Case 1: SelectedItem is ComboBoxItem with Tag = SaleEvent
+                if (SaleEventComboBox.SelectedItem is ComboBoxItem eventItem && eventItem.Tag is SaleEvent evt)
+                {
+                    selectedEventId = evt.Id;
+                    System.Diagnostics.Debug.WriteLine($"Selected SaleEvent (from ComboBoxItem.Tag): {evt.Name} (ID: {evt.Id})");
+                }
+                // Case 2: SelectedItem is SaleEvent directly (in case ItemsSource or binding used elsewhere)
+                else if (SaleEventComboBox.SelectedItem is SaleEvent evtDirect)
+                {
+                    selectedEventId = evtDirect.Id;
+                    System.Diagnostics.Debug.WriteLine($"Selected SaleEvent (direct item): {evtDirect.Name} (ID: {evtDirect.Id})");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"SaleEventComboBox.SelectedItem type: {SaleEventComboBox.SelectedItem.GetType()}");
+                }
             }
 
             var request = new CreateCouponRequest
@@ -617,7 +655,7 @@ namespace CouponManagement.Dialogs
                 ValidFrom = ValidFromDatePicker?.Date.DateTime ?? DateTime.Today,
                 ValidTo = ValidToDatePicker?.Date.DateTime ?? DateTime.Today.AddYears(1),
                 SequenceLength = Math.Clamp(SafeIntFromDouble(SequenceLengthNumberBox?.Value ?? 3), 1, 10),
-                SaleEventId = selectedEventId // **เพิ่มบรรทัดนี้**
+                SaleEventId = selectedEventId // **ยังคงเก็บค่า null เมื่อเลือก "ไม่ระบุ"**
             };
 
             // Set IsLimited based on radio button
@@ -643,7 +681,7 @@ namespace CouponManagement.Dialogs
             };
             request.Params = JsonSerializer.Serialize(couponParams, jsonOptions);
 
-            System.Diagnostics.Debug.WriteLine($"BuildCreateCouponRequest - BranchId: {request.BranchId}, Code: {request.Code}, IsLimited: {request.IsLimited}");
+            System.Diagnostics.Debug.WriteLine($"BuildCreateCouponRequest - BranchId: {request.BranchId}, Code: {request.Code}, IsLimited: {request.IsLimited}, SaleEventId: {request.SaleEventId}");
 
             return request;
         }
@@ -819,6 +857,12 @@ namespace CouponManagement.Dialogs
                     // mark event selected and show read-only formatted dates
                     IsEventSelected = true;
                     UpdateEventDateDisplay(evt);
+                }
+                else if (SaleEventComboBox.SelectedItem is SaleEvent evtDirect)
+                {
+                    // handle case where selected item is SaleEvent directly
+                    IsEventSelected = true;
+                    UpdateEventDateDisplay(evtDirect);
                 }
                 else
                 {

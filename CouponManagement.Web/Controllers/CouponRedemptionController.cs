@@ -146,375 +146,385 @@ namespace CouponManagement.Web.Controllers
        [FromQuery] DateTime? createdFrom = null,
         [FromQuery] DateTime? createdTo = null)
         {
-           var result = await _couponService.GetSoldCouponsAsync(page, pageSize, couponDefinitionId, searchCode, receiptItemId, receiptId, soldBy, couponDefinitionCode, couponDefinitionName, createdFrom, createdTo);
-           return Ok(result);
-}
+            var result = await _couponService.GetSoldCouponsAsync(page, pageSize, couponDefinitionId, searchCode, receiptItemId, receiptId, soldBy, couponDefinitionCode, couponDefinitionName, createdFrom, createdTo);
+            return Ok(result);
+        }
 
         /// <summary>
-     /// Export sold coupons to Excel format.
+        /// Export sold coupons to Excel format.
         /// </summary>
         /// <param name="couponDefinitionId">Optional coupon definition id to filter.</param>
-     /// <param name="searchCode">Optional generated code search text.</param>
+        /// <param name="searchCode">Optional generated code search text.</param>
         /// <param name="receiptItemId">Optional receipt item id to filter.</param>
         /// <param name="receiptId">Optional receipt id to filter.</param>
         /// <param name="soldBy">Optional soldBy/UsedBy filter.</param>
-      /// <param name="couponDefinitionCode">Optional coupon definition code filter.</param>
+        /// <param name="couponDefinitionCode">Optional coupon definition code filter.</param>
         /// <param name="couponDefinitionName">Optional coupon definition name filter.</param>
         /// <param name="createdFrom">Optional created from datetime filter.</param>
         /// <param name="createdTo">Optional created to datetime filter.</param>
         /// <param name="reportMode">"detailed" | "summary" | "both"</param>
         /// <param name="includeRetrievedDate">When true, include the retrieved/used date column label as 'วันที่ใช้/ขาย' in outputs.</param>
+        /// <param name="branchId">Optional branch id to filter.</param>
+        /// <param name="saleEventId">Optional sale event id to filter.</param>
         /// <returns>Excel file containing sold coupons report or summary.</returns>
- [HttpGet("export/excel")]
+        [HttpGet("export/excel")]
         public async Task<IActionResult> ExportToExcel(
-[FromQuery] int? couponDefinitionId = null,
-        [FromQuery] string? searchCode = null,
-            [FromQuery] int? receiptItemId = null,
-  [FromQuery] int? receiptId = null,
-     [FromQuery] string? soldBy = null,
-        [FromQuery] string? couponDefinitionCode = null,
-     [FromQuery] string? couponDefinitionName = null,
-       [FromQuery] string? createdFrom = null,
-       [FromQuery] string? createdTo = null,
-       [FromQuery] string? reportMode = "detailed",
-       [FromQuery] bool includeRetrievedDate = false)
+       [FromQuery] int? couponDefinitionId = null,
+               [FromQuery] string? searchCode = null,
+                   [FromQuery] int? receiptItemId = null,
+         [FromQuery] int? receiptId = null,
+            [FromQuery] string? soldBy = null,
+               [FromQuery] string? couponDefinitionCode = null,
+            [FromQuery] string? couponDefinitionName = null,
+              [FromQuery] string? createdFrom = null,
+              [FromQuery] string? createdTo = null,
+              [FromQuery] string? reportMode = "detailed",
+              [FromQuery] bool includeRetrievedDate = false,
+              [FromQuery] int? branchId = null,
+              [FromQuery] int? saleEventId = null)
         {
             try
-          {
- // Parse client-supplied createdFrom/createdTo which are expected as naive local strings (yyyy-MM-ddTHH:mm:ss) or ISO with offset
- DateTime? usedFrom = null;
- DateTime? usedTo = null;
- if(!string.IsNullOrWhiteSpace(createdFrom))
- {
- if(DateTime.TryParseExact(createdFrom, "yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedFrom))
- {
- usedFrom = DateTime.SpecifyKind(parsedFrom, DateTimeKind.Unspecified);
- }
- else if(DateTime.TryParse(createdFrom, out var parsedGenericFrom))
- {
- // if parsed as UTC, convert to local naive; otherwise treat as unspecified/local
- if(parsedGenericFrom.Kind == DateTimeKind.Utc)
- usedFrom = DateTime.SpecifyKind(parsedGenericFrom.ToLocalTime(), DateTimeKind.Unspecified);
- else
- usedFrom = DateTime.SpecifyKind(parsedGenericFrom, DateTimeKind.Unspecified);
- }
- }
- if(!string.IsNullOrWhiteSpace(createdTo))
- {
- if(DateTime.TryParseExact(createdTo, "yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedTo))
- {
- usedTo = DateTime.SpecifyKind(parsedTo, DateTimeKind.Unspecified);
- }
- else if(DateTime.TryParse(createdTo, out var parsedGenericTo))
- {
- if(parsedGenericTo.Kind == DateTimeKind.Utc)
- usedTo = DateTime.SpecifyKind(parsedGenericTo.ToLocalTime(), DateTimeKind.Unspecified);
- else
- usedTo = DateTime.SpecifyKind(parsedGenericTo, DateTimeKind.Unspecified);
- }
- }
+            {
+                // Parse client-supplied createdFrom/createdTo which are expected as naive local strings (yyyy-MM-ddTHH:mm:ss) or ISO with offset
+                DateTime? usedFrom = null;
+                DateTime? usedTo = null;
+                if (!string.IsNullOrWhiteSpace(createdFrom))
+                {
+                    if (DateTime.TryParseExact(createdFrom, "yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedFrom))
+                    {
+                        usedFrom = DateTime.SpecifyKind(parsedFrom, DateTimeKind.Unspecified);
+                    }
+                    else if (DateTime.TryParse(createdFrom, out var parsedGenericFrom))
+                    {
+                        // if parsed as UTC, convert to local naive; otherwise treat as unspecified/local
+                        if (parsedGenericFrom.Kind == DateTimeKind.Utc)
+                            usedFrom = DateTime.SpecifyKind(parsedGenericFrom.ToLocalTime(), DateTimeKind.Unspecified);
+                        else
+                            usedFrom = DateTime.SpecifyKind(parsedGenericFrom, DateTimeKind.Unspecified);
+                    }
+                }
+                if (!string.IsNullOrWhiteSpace(createdTo))
+                {
+                    if (DateTime.TryParseExact(createdTo, "yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedTo))
+                    {
+                        usedTo = DateTime.SpecifyKind(parsedTo, DateTimeKind.Unspecified);
+                    }
+                    else if (DateTime.TryParse(createdTo, out var parsedGenericTo))
+                    {
+                        if (parsedGenericTo.Kind == DateTimeKind.Utc)
+                            usedTo = DateTime.SpecifyKind(parsedGenericTo.ToLocalTime(), DateTimeKind.Unspecified);
+                        else
+                            usedTo = DateTime.SpecifyKind(parsedGenericTo, DateTimeKind.Unspecified);
+                    }
+                }
 
- // Use redeemed coupons (IsUsed == true) filtered by UsedDate (createdFrom/createdTo represent UsedDate range from client)
- var result = await _couponService.GetRedeemedCouponsAsync(
-1, int.MaxValue, usedFrom, usedTo, soldBy, couponDefinitionCode, couponDefinitionName);
+                // Use redeemed coupons (IsUsed == true) filtered by UsedDate (createdFrom/createdTo represent UsedDate range from client)
+                var result = await _couponService.GetRedeemedCouponsAsync(
+               1, int.MaxValue, usedFrom, usedTo, soldBy, couponDefinitionCode, couponDefinitionName);
 
- using var workbook = new XLWorkbook();
- var worksheet = workbook.Worksheets.Add("รายละเอียดคูปอง");
+                using var workbook = new XLWorkbook();
+                var worksheet = workbook.Worksheets.Add("รายละเอียดคูปอง");
 
- worksheet.Cell(1,1).Value = "รหัสคูปอง";
- worksheet.Cell(1,2).Value = "รหัสคำนิยาม";
- worksheet.Cell(1,3).Value = "ชื่อคำนิยาม";
- worksheet.Cell(1,4).Value = "สาขา";
- worksheet.Cell(1,5).Value = "ราคา";
- worksheet.Cell(1,6).Value = "สถานะ";
- worksheet.Cell(1,7).Value = "การใช้งาน";
- worksheet.Cell(1,8).Value = "ผู้ใช้";
- worksheet.Cell(1,9).Value = includeRetrievedDate ? "วันที่ใช้/ขาย" : "วันที่ใช้";
- worksheet.Cell(1,10).Value = "สร้างเมื่อ";
- worksheet.Cell(1,11).Value = "วันหมดอายุ";
+                worksheet.Cell(1, 1).Value = "รหัสคูปอง";
+                worksheet.Cell(1, 2).Value = "รหัสคำนิยาม";
+                worksheet.Cell(1, 3).Value = "ชื่อคำนิยาม";
+                worksheet.Cell(1, 4).Value = "สาขา";
+                worksheet.Cell(1, 5).Value = "ราคา";
+                worksheet.Cell(1, 6).Value = "สถานะ";
+                worksheet.Cell(1, 7).Value = "การใช้งาน";
+                worksheet.Cell(1, 8).Value = "ผู้ใช้";
+                worksheet.Cell(1, 9).Value = includeRetrievedDate ? "วันที่ใช้/ขาย" : "วันที่ใช้";
+                worksheet.Cell(1, 10).Value = "สร้างเมื่อ";
+                worksheet.Cell(1, 11).Value = "วันหมดอายุ";
 
- var headerRange = worksheet.Range(1,1,1,11);
- headerRange.Style.Font.Bold = true;
- headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
- headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                var headerRange = worksheet.Range(1, 1, 1, 11);
+                headerRange.Style.Font.Bold = true;
+                headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+                headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
- int row =2;
- // จัดเรียงข้อมูลตามวันที่ใช้จากเก่าไปใหม่
- var sortedItems = result.Items.OrderBy(x => x.UsedDate ?? DateTime.MinValue).ToList();
- 
- foreach (var item in sortedItems)
- {
-worksheet.Cell(row,1).Value = item.GeneratedCode;
- worksheet.Cell(row,2).Value = item.CouponDefinitionCode;
- worksheet.Cell(row,3).Value = item.CouponDefinitionName;
- worksheet.Cell(row,4).Value = item.BranchName;
- worksheet.Cell(row,5).Value = item.CouponDefinitionPrice;
- worksheet.Cell(row,6).Value = item.StatusText;
- worksheet.Cell(row,7).Value = item.UsageText;
- worksheet.Cell(row,8).Value = item.UsedBy ?? "";
- worksheet.Cell(row,9).Value = item.UsedDate?.ToString("dd/MM/yyyy HH:mm") ?? "";
- worksheet.Cell(row,10).Value = item.CreatedAt.ToString("dd/MM/yyyy HH:mm");
- worksheet.Cell(row,11).Value = item.ExpiresAt?.ToString("dd/MM/yyyy") ?? "";
+                int row = 2;
+                // จัดเรียงข้อมูลตามวันที่ใช้จากเก่าไปใหม่
+                var sortedItems = result.Items.OrderBy(x => x.UsedDate ?? DateTime.MinValue).ToList();
 
- // จัดกึ่งกลางทุกเซลล์ในแถวนี้
- for (int col = 1; col <= 11; col++)
- {
- worksheet.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
- }
+                foreach (var item in sortedItems)
+                {
+                    worksheet.Cell(row, 1).Value = item.GeneratedCode;
+                    worksheet.Cell(row, 2).Value = item.CouponDefinitionCode;
+                    worksheet.Cell(row, 3).Value = item.CouponDefinitionName;
+                    worksheet.Cell(row, 4).Value = item.BranchName;
+                    worksheet.Cell(row, 5).Value = item.CouponDefinitionPrice;
+                    worksheet.Cell(row, 6).Value = item.StatusText;
+                    worksheet.Cell(row, 7).Value = item.UsageText;
+                    worksheet.Cell(row, 8).Value = item.UsedBy ?? "";
+                    worksheet.Cell(row, 9).Value = item.UsedDate?.ToString("dd/MM/yyyy HH:mm") ?? "";
+                    worksheet.Cell(row, 10).Value = item.CreatedAt.ToString("dd/MM/yyyy HH:mm");
+                    worksheet.Cell(row, 11).Value = item.ExpiresAt?.ToString("dd/MM/yyyy") ?? "";
 
- row++;
- }
+                    // จัดกึ่งกลางทุกเซลล์ในแถวนี้
+                    for (int col = 1; col <= 11; col++)
+                    {
+                        worksheet.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    }
 
- worksheet.Columns().AdjustToContents();
+                    row++;
+                }
 
- // สร้างส่วนสรุปตามวันที่และชื่อคำนิยาม
- using var ctx = new CouponContext();
- 
- // กรุ๊ปข้อมูลตามวันที่ใช้งาน ชื่อคำนิยาม และสาขา
- var summaryGroups = result.Items
- .Where(x => x.UsedDate.HasValue)
- .GroupBy(x => new { 
- UsedDate = x.UsedDate!.Value.Date, 
- DefinitionId = x.CouponDefinitionId,
- DefinitionCode = x.CouponDefinitionCode,
- DefinitionName = x.CouponDefinitionName,
- BranchName = x.BranchName
- })
- .OrderBy(g => g.Key.UsedDate)
- .ThenBy(g => g.Key.DefinitionName)
- .ToList();
+                worksheet.Columns().AdjustToContents();
 
- if (summaryGroups.Any())
- {
- row += 2;
- worksheet.Cell(row, 1).Value = "สรุปการใช้คูปองแยกตามวันและชื่อคำนิยาม";
- worksheet.Cell(row, 1).Style.Font.Bold = true;
- worksheet.Cell(row, 1).Style.Font.FontSize = 12;
- row++;
+                // สร้างส่วนสรุปตามวันที่และชื่อคำนิยาม
+                using var ctx = new CouponContext();
 
- // Header สำหรับสรุป
- worksheet.Cell(row, 1).Value = "วันที่ใช้";
- worksheet.Cell(row, 2).Value = "รหัสคำนิยาม";
- worksheet.Cell(row, 3).Value = "ชื่อคำนิยาม";
- worksheet.Cell(row, 4).Value = "สาขา";
- worksheet.Cell(row, 5).Value = "จำนวนที่ขายทั้งหมด";
- worksheet.Cell(row, 6).Value = "ใช้ไปก่อนหน้า";
- worksheet.Cell(row, 7).Value = "คงเหลือก่อนวันนี้";
- worksheet.Cell(row, 8).Value = "ใช้ในวันนี้";
- worksheet.Cell(row, 9).Value = "คงเหลือหลังวันนี้";
- 
- var summaryHeaderRange = worksheet.Range(row, 1, row, 9);
- summaryHeaderRange.Style.Font.Bold = true;
- summaryHeaderRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
- summaryHeaderRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
- row++;
+                // กรุ๊ปข้อมูลตามวันที่ใช้งาน ชื่อคำนิยาม และสาขา
+                var summaryGroups = result.Items
+                .Where(x => x.UsedDate.HasValue)
+                .GroupBy(x => new
+                {
+                    UsedDate = x.UsedDate!.Value.Date,
+                    DefinitionId = x.CouponDefinitionId,
+                    DefinitionCode = x.CouponDefinitionCode,
+                    DefinitionName = x.CouponDefinitionName,
+                    BranchName = x.BranchName
+                })
+                .OrderBy(g => g.Key.UsedDate)
+                .ThenBy(g => g.Key.DefinitionName)
+                .ToList();
 
- // คำนวณข้อมูลสรุปสำหรับแต่ละกรุ๊ป
- foreach (var group in summaryGroups)
- {
- var usedDate = group.Key.UsedDate;
- var definitionId = group.Key.DefinitionId;
- var definitionCode = group.Key.DefinitionCode;
- var definitionName = group.Key.DefinitionName;
- var branchName = group.Key.BranchName;
+                if (summaryGroups.Any())
+                {
+                    row += 2;
+                    worksheet.Cell(row, 1).Value = "สรุปการใช้คูปองแยกตามวันและชื่อคำนิยาม";
+                    worksheet.Cell(row, 1).Style.Font.Bold = true;
+                    worksheet.Cell(row, 1).Style.Font.FontSize = 12;
+                    row++;
 
- // จำนวนที่ขายทั้งหมด (คูปองที่มี ReceiptItemId)
- var totalSold = await ctx.GeneratedCoupons
- .CountAsync(gc => gc.CouponDefinitionId == definitionId && gc.ReceiptItemId.HasValue);
+                    // Header สำหรับสรุป
+                    worksheet.Cell(row, 1).Value = "วันที่ใช้";
+                    worksheet.Cell(row, 2).Value = "รหัสคำนิยาม";
+                    worksheet.Cell(row, 3).Value = "ชื่อคำนิยาม";
+                    worksheet.Cell(row, 4).Value = "สาขา";
+                    worksheet.Cell(row, 5).Value = "จำนวนที่ขายทั้งหมด";
+                    worksheet.Cell(row, 6).Value = "ใช้ไปก่อนหน้า";
+                    worksheet.Cell(row, 7).Value = "คงเหลือก่อนวันนี้";
+                    worksheet.Cell(row, 8).Value = "ใช้ในวันนี้";
+                    worksheet.Cell(row, 9).Value = "คงเหลือหลังวันนี้";
 
- // จำนวนที่ใช้ไปก่อนวันนี้
- var usedBeforeToday = await ctx.GeneratedCoupons
- .CountAsync(gc => gc.CouponDefinitionId == definitionId 
- && gc.IsUsed 
- && gc.UsedDate.HasValue
- && gc.UsedDate.Value.Date < usedDate);
+                    var summaryHeaderRange = worksheet.Range(row, 1, row, 9);
+                    summaryHeaderRange.Style.Font.Bold = true;
+                    summaryHeaderRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
+                    summaryHeaderRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    row++;
 
- // คงเหลือก่อนวันนี้
- var remainingBeforeToday = totalSold - usedBeforeToday;
+                    // คำนวณข้อมูลสรุปสำหรับแต่ละกรุป
+                    foreach (var group in summaryGroups)
+                    {
+                        var usedDate = group.Key.UsedDate;
+                        var definitionId = group.Key.DefinitionId;
+                        var definitionCode = group.Key.DefinitionCode;
+                        var definitionName = group.Key.DefinitionName;
+                        var branchName = group.Key.BranchName;
 
- // จำนวนที่ใช้ในวันนี้
- var usedToday = group.Count();
+                        // จำนวนที่ขายทั้งหมด (คูปองที่มี ReceiptItemId)
+                        var totalSold = await ctx.GeneratedCoupons
+                        .CountAsync(gc => gc.CouponDefinitionId == definitionId && gc.ReceiptItemId.HasValue);
 
- // คงเหลือหลังวันนี้
- var remainingAfterToday = remainingBeforeToday - usedToday;
+                        // จำนวนที่ใช้ไปก่อนวันนี้
+                        var usedBeforeToday = await ctx.GeneratedCoupons
+                        .CountAsync(gc => gc.CouponDefinitionId == definitionId
+                        && gc.IsUsed
+                        && gc.UsedDate.HasValue
+                        && gc.UsedDate.Value.Date < usedDate);
 
- worksheet.Cell(row, 1).Value = usedDate.ToString("dd/MM/yyyy");
- worksheet.Cell(row, 2).Value = definitionCode;
- worksheet.Cell(row, 3).Value = definitionName;
- worksheet.Cell(row, 4).Value = branchName;
- worksheet.Cell(row, 5).Value = totalSold;
- worksheet.Cell(row, 6).Value = usedBeforeToday;
- worksheet.Cell(row, 7).Value = remainingBeforeToday;
- worksheet.Cell(row, 8).Value = usedToday;
- worksheet.Cell(row, 9).Value = remainingAfterToday;
+                        // คงเหลือก่อนวันนี้
+                        var remainingBeforeToday = totalSold - usedBeforeToday;
 
- // จัดกึ่งกลางทุกเซลล์ในแถวนี้
- for (int col = 1; col <= 9; col++)
- {
- worksheet.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
- }
- 
- row++;
- }
+                        // จำนวนที่ใช้ในวันนี้
+                        var usedToday = group.Count();
 
- worksheet.Columns().AdjustToContents();
- }
+                        // คงเหลือหลังวันนี้
+                        var remainingAfterToday = remainingBeforeToday - usedToday;
 
- // เพิ่มส่วนสรุปรวมตามคำนิยาม (รวมทุกวันในช่วงที่เลือก)
- // แสดงเฉพาะคูปองประเภท ASIA BANGKOK และ ONLINE ที่เป็นคูปองจำกัดจำนวน
- var wantedTypes = new[] { "ASIA BANGKOK", "ONLINE" };
- var wantedTypesUpper = wantedTypes.Select(t => t.ToUpper()).ToList();
+                        worksheet.Cell(row, 1).Value = usedDate.ToString("dd/MM/yyyy");
+                        worksheet.Cell(row, 2).Value = definitionCode;
+                        worksheet.Cell(row, 3).Value = definitionName;
+                        worksheet.Cell(row, 4).Value = branchName;
+                        worksheet.Cell(row, 5).Value = totalSold;
+                        worksheet.Cell(row, 6).Value = usedBeforeToday;
+                        worksheet.Cell(row, 7).Value = remainingBeforeToday;
+                        worksheet.Cell(row, 8).Value = usedToday;
+                        worksheet.Cell(row, 9).Value = remainingAfterToday;
 
- // ดึง CouponDefinition IDs ที่ตรงตามเงื่อนไข
- var matchingDefinitionIds = await ctx.CouponDefinitions
- .Include(cd => cd.Branch)
- .Where(cd => cd.IsLimited && cd.Branch != null && wantedTypesUpper.Contains(cd.Branch.Name.ToUpper()))
- .Select(cd => cd.Id)
- .ToListAsync();
+                        // จัดกึ่งกลางทุกเซลล์ในแถวนี้
+                        for (int col = 1; col <= 9; col++)
+                        {
+                            worksheet.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                        }
 
- if (matchingDefinitionIds.Any())
- {
- // ดึงข้อมูลคำนิยามทั้งหมดที่ตรงเงื่อนไข
- var allMatchingDefinitions = await ctx.CouponDefinitions
- .Include(cd => cd.Branch)
- .Where(cd => matchingDefinitionIds.Contains(cd.Id))
- .Select(cd => new
- {
- cd.Id,
- cd.Code,
- cd.Name,
- BranchName = cd.Branch != null ? cd.Branch.Name : ""
- })
- .ToListAsync();
+                        row++;
+                    }
 
- row += 2;
- worksheet.Cell(row, 1).Value = "สรุปรวมตามชื่อคูปอง (ทุกวันในช่วงที่เลือก)";
- worksheet.Cell(row, 1).Style.Font.Bold = true;
- worksheet.Cell(row, 1).Style.Font.FontSize = 12;
- row++;
+                    worksheet.Columns().AdjustToContents();
+                }
+                using var ctx2 = new CouponContext();
 
- // Header สำหรับสรุป
- worksheet.Cell(row, 1).Value = "รหัสคำนิยาม";
- worksheet.Cell(row, 2).Value = "ชื่อคำนิยาม";
- worksheet.Cell(row, 3).Value = "สาขา";
- worksheet.Cell(row, 4).Value = "จำนวนที่ขายทั้งหมด";
- worksheet.Cell(row, 5).Value = "ใช้ไปก่อนช่วงวันที่";
- worksheet.Cell(row, 6).Value = "คงเหลือก่อนช่วงวันที่";
- worksheet.Cell(row, 7).Value = "ใช้ในช่วงวันที่";
- worksheet.Cell(row, 8).Value = "คงเหลือหลังช่วงวันที่";
- 
- var definitionHeaderRange = worksheet.Range(row, 1, row, 8);
- definitionHeaderRange.Style.Font.Bold = true;
- definitionHeaderRange.Style.Fill.BackgroundColor = XLColor.LightGreen;
- definitionHeaderRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
- row++;
+                // Filter CouponDefinitions ตาม branchId/saleEventId
+                var query = ctx2.CouponDefinitions
+                    .Include(cd => cd.Branch)
+                    .Where(cd => cd.IsLimited && cd.Branch != null);
 
- // คำนวณข้อมูลสรุปสำหรับแต่ละคำนิยาม
- foreach (var definition in allMatchingDefinitions.OrderBy(d => d.Name))
- {
- var definitionId = definition.Id;
- var definitionCode = definition.Code;
- var definitionName = definition.Name;
- var branchName = definition.BranchName;
+                if (branchId.HasValue)
+                    query = query.Where(cd => cd.BranchId == branchId.Value);
 
- // จำนวนที่ขายทั้งหมด (คูปองที่มี ReceiptItemId)
- var totalSold = await ctx.GeneratedCoupons
- .CountAsync(gc => gc.CouponDefinitionId == definitionId && gc.ReceiptItemId.HasValue);
+                if (saleEventId.HasValue)
+                    query = query.Where(cd => cd.SaleEventId == saleEventId.Value);
 
- // หาวันแรกที่มีการใช้ในช่วงที่เลือก (ถ้ามี)
- var firstUsedInPeriod = await ctx.GeneratedCoupons
- .Where(gc => gc.CouponDefinitionId == definitionId 
- && gc.IsUsed 
- && gc.UsedDate.HasValue
- && usedFrom.HasValue && gc.UsedDate.Value >= usedFrom.Value
- && usedTo.HasValue && gc.UsedDate.Value <= usedTo.Value)
- .OrderBy(gc => gc.UsedDate)
- .Select(gc => gc.UsedDate!.Value.Date)
- .FirstOrDefaultAsync();
+                var matchingDefinitionIds = await query
+                    .Select(cd => cd.Id)
+                    .ToListAsync();
 
- int usedBeforePeriod = 0;
- int usedInPeriod = 0;
+                if (matchingDefinitionIds.Any())
+                {
+                    var allMatchingDefinitions = await ctx2.CouponDefinitions
+                        .Include(cd => cd.Branch)
+                        .Where(cd => matchingDefinitionIds.Contains(cd.Id))
+                        .Select(cd => new
+                        {
+                            cd.Id,
+                            cd.Code,
+                            cd.Name,
+                            BranchName = cd.Branch != null ? cd.Branch.Name : ""
+                        })
+                        .ToListAsync();
 
- if (firstUsedInPeriod != default(DateTime))
- {
- // จำนวนที่ใช้ไปก่อนช่วงวันที่
- usedBeforePeriod = await ctx.GeneratedCoupons
- .CountAsync(gc => gc.CouponDefinitionId == definitionId 
- && gc.IsUsed 
- && gc.UsedDate.HasValue
- && gc.UsedDate.Value.Date < firstUsedInPeriod);
+                    row += 2;
+                    worksheet.Cell(row, 1).Value = "สรุปรวมตามชื่อคูปอง (ทุกวันในช่วงที่เลือก)";
+                    worksheet.Cell(row, 1).Style.Font.Bold = true;
+                    worksheet.Cell(row, 1).Style.Font.FontSize = 12;
+                    row++;
 
- // จำนวนที่ใช้ในช่วงวันที่
- usedInPeriod = await ctx.GeneratedCoupons
- .CountAsync(gc => gc.CouponDefinitionId == definitionId 
- && gc.IsUsed 
- && gc.UsedDate.HasValue
- && usedFrom.HasValue && gc.UsedDate.Value >= usedFrom.Value
- && usedTo.HasValue && gc.UsedDate.Value <= usedTo.Value);
- }
- else
- {
- // ถ้าไม่มีการใช้ในช่วงที่เลือก ให้นับทั้งหมดที่ใช้ไปก่อนหน้า
- usedBeforePeriod = await ctx.GeneratedCoupons
- .CountAsync(gc => gc.CouponDefinitionId == definitionId && gc.IsUsed);
- }
+                    // Header สำหรับสรุป
+                    worksheet.Cell(row, 1).Value = "รหัสคำนิยาม";
+                    worksheet.Cell(row, 2).Value = "ชื่อคำนิยาม";
+                    worksheet.Cell(row, 3).Value = "สาขา";
+                    worksheet.Cell(row, 4).Value = "จำนวนที่ขายทั้งหมด";
+                    worksheet.Cell(row, 5).Value = "ใช้ไปก่อนช่วงวันที่";
+                    worksheet.Cell(row, 6).Value = "คงเหลือก่อนช่วงวันที่";
+                    worksheet.Cell(row, 7).Value = "ใช้ในช่วงวันที่";
+                    worksheet.Cell(row, 8).Value = "คงเหลือหลังช่วงวันที่";
 
- // คงเหลือก่อนช่วงวันที่
- var remainingBeforePeriod = totalSold - usedBeforePeriod;
+                    var definitionHeaderRange = worksheet.Range(row, 1, row, 8);
+                    definitionHeaderRange.Style.Font.Bold = true;
+                    definitionHeaderRange.Style.Fill.BackgroundColor = XLColor.LightGreen;
+                    definitionHeaderRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    row++;
 
- // คงเหลือหลังช่วงวันที่
- var remainingAfterPeriod = remainingBeforePeriod - usedInPeriod;
+                    // คำนวณข้อมูลสรุปสำหรับแต่ละคำนิยาม
+                    foreach (var definition in allMatchingDefinitions.OrderBy(d => d.Name))
+                    {
+                        var definitionId = definition.Id;
+                        var definitionCode = definition.Code;
+                        var definitionName = definition.Name;
+                        var branchName = definition.BranchName;
 
- worksheet.Cell(row, 1).Value = definitionCode;
- worksheet.Cell(row, 2).Value = definitionName;
- worksheet.Cell(row, 3).Value = branchName;
- worksheet.Cell(row, 4).Value = totalSold;
- worksheet.Cell(row, 5).Value = usedBeforePeriod;
- worksheet.Cell(row, 6).Value = remainingBeforePeriod;
- worksheet.Cell(row, 7).Value = usedInPeriod;
- worksheet.Cell(row, 8).Value = remainingAfterPeriod;
+                        // จำนวนที่ขายทั้งหมด (คูปองที่มี ReceiptItemId)
+                        var totalSold = await ctx2.GeneratedCoupons
+                        .CountAsync(gc => gc.CouponDefinitionId == definitionId && gc.ReceiptItemId.HasValue);
 
- // จัดกึ่งกลางทุกเซลล์ในแถวนี้
- for (int col = 1; col <= 8; col++)
- {
- worksheet.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
- }
- 
- row++;
- }
+                        // หาวันแรกที่มีการใช้ในช่วงที่เลือก (ถ้ามี)
+                        var firstUsedInPeriod = await ctx2.GeneratedCoupons
+                        .Where(gc => gc.CouponDefinitionId == definitionId
+                        && gc.IsUsed
+                        && gc.UsedDate.HasValue
+                        && usedFrom.HasValue && gc.UsedDate.Value >= usedFrom.Value
+                        && usedTo.HasValue && gc.UsedDate.Value <= usedTo.Value)
+                        .OrderBy(gc => gc.UsedDate)
+                        .Select(gc => gc.UsedDate!.Value.Date)
+                        .FirstOrDefaultAsync();
 
- worksheet.Columns().AdjustToContents();
- }
+                        int usedBeforePeriod = 0;
+                        int usedInPeriod = 0;
 
- using var stream = new MemoryStream();
- workbook.SaveAs(stream);
- stream.Position = 0;
+                        if (firstUsedInPeriod != default(DateTime))
+                        {
+                            // จำนวนที่ใช้ไปก่อนช่วงวันที่
+                            usedBeforePeriod = await ctx2.GeneratedCoupons
+                            .CountAsync(gc => gc.CouponDefinitionId == definitionId
+                            && gc.IsUsed
+                            && gc.UsedDate.HasValue
+                            && gc.UsedDate.Value.Date < firstUsedInPeriod);
 
- var fileName = $"รายงานคูปอง_{DateTime.Now:dd-MM-yyyy_HH-mm-ss}.xlsx";
- return File(stream.ToArray(),
- "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
- fileName);
- }
- catch (Exception ex)
- {
- _logger.LogError(ex, "Error exporting to Excel");
- return StatusCode(500, new { message = "Error exporting to Excel", error = ex.Message });
- }
- }
+                            // จำนวนที่ใช้ในช่วงวันที่
+                            usedInPeriod = await ctx2.GeneratedCoupons
+                            .CountAsync(gc => gc.CouponDefinitionId == definitionId
+                            && gc.IsUsed
+                            && gc.UsedDate.HasValue
+                            && usedFrom.HasValue && gc.UsedDate.Value >= usedFrom.Value
+                            && usedTo.HasValue && gc.UsedDate.Value <= usedTo.Value);
+                        }
+                        else
+                        {
+                            // ถ้าไม่มีการใช้ในช่วงที่เลือก ให้นับทั้งหมดที่ใช้ไปก่อนหน้า
+                            usedBeforePeriod = await ctx2.GeneratedCoupons
+                            .CountAsync(gc => gc.CouponDefinitionId == definitionId && gc.IsUsed);
+                        }
+
+                        // คงเหลือก่อนช่วงวันที่
+                        var remainingBeforePeriod = totalSold - usedBeforePeriod;
+
+                        // คงเหลือหลังช่วงวันที่
+                        var remainingAfterPeriod = remainingBeforePeriod - usedInPeriod;
+
+                        worksheet.Cell(row, 1).Value = definitionCode;
+                        worksheet.Cell(row, 2).Value = definitionName;
+                        worksheet.Cell(row, 3).Value = branchName;
+                        worksheet.Cell(row, 4).Value = totalSold;
+                        worksheet.Cell(row, 5).Value = usedBeforePeriod;
+                        worksheet.Cell(row, 6).Value = remainingBeforePeriod;
+                        worksheet.Cell(row, 7).Value = usedInPeriod;
+                        worksheet.Cell(row, 8).Value = remainingAfterPeriod;
+
+                        // จัดกึ่งกลางทุกเซลล์ในแถวนี้
+                        for (int col = 1; col <= 8; col++)
+                        {
+                            worksheet.Cell(row, col).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                        }
+
+                        row++;
+                    }
+
+                    worksheet.Columns().AdjustToContents();
+                }
+
+                using var stream = new MemoryStream();
+                workbook.SaveAs(stream);
+                stream.Position = 0;
+
+                var fileName = $"รายงานคูปอง_{DateTime.Now:dd-MM-yyyy_HH-mm-ss}.xlsx";
+                return File(stream.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting to Excel");
+                return StatusCode(500, new { message = "Error exporting to Excel", error = ex.Message });
+            }
+        }
 
         /// <summary>
-     /// Export sold coupons to PDF format with Thai font support.
+        /// Export sold coupons to PDF format with Thai font support.
         /// </summary>
         /// <param name="couponDefinitionId">Optional coupon definition id to filter.</param>
-     /// <param name="searchCode">Optional generated code search text.</param>
+        /// <param name="searchCode">Optional generated code search text.</param>
         /// <param name="receiptItemId">Optional receipt item id to filter.</param>
         /// <param name="receiptId">Optional receipt id to filter.</param>
         /// <param name="soldBy">Optional soldBy/UsedBy filter.</param>
-      /// <param name="couponDefinitionCode">Optional coupon definition code filter.</param>
+        /// <param name="couponDefinitionCode">Optional coupon definition code filter.</param>
         /// <param name="couponDefinitionName">Optional coupon definition name filter.</param>
         /// <param name="createdFrom">Optional created from datetime filter.</param>
         /// <param name="createdTo">Optional created to datetime filter.</param>
         /// <param name="reportMode">"detailed" | "summary" | "both"</param>
+        /// <param name="branchId"></param>
+        /// <param name="saleEventId"></param>
         /// <param name="includeRetrievedDate">When true, include the retrieved/used date column label as 'วันที่ใช้/ขาย' in outputs.</param>
         /// <returns>PDF file containing daily coupon report with Thai language support.</returns>
         [HttpGet("export/pdf")]
@@ -529,175 +539,178 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
             [FromQuery] string? createdFrom = null,
             [FromQuery] string? createdTo = null,
  [FromQuery] string? reportMode = "detailed",
+ [FromQuery] int? branchId = null,
+    [FromQuery] int? saleEventId = null,
  [FromQuery] bool includeRetrievedDate = false)
- {
- try
- {
- // Parse client-supplied createdFrom/createdTo which may be ISO UTC or naive local, convert UTC -> local unspecified
- DateTime? usedFrom = null;
- DateTime? usedTo = null;
- if (!string.IsNullOrWhiteSpace(createdFrom))
- {
- if (DateTime.TryParseExact(createdFrom, "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedFrom))
- {
- usedFrom = DateTime.SpecifyKind(parsedFrom, DateTimeKind.Unspecified);
- }
- else if (DateTime.TryParse(createdFrom, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsedGenericFrom))
- {
- var local = parsedGenericFrom.ToLocalTime();
- usedFrom = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
- }
- }
+        {
+            try
+            {
+                // Parse client-supplied createdFrom/createdTo which may be ISO UTC or naive local, convert UTC -> local unspecified
+                DateTime? usedFrom = null;
+                DateTime? usedTo = null;
+                if (!string.IsNullOrWhiteSpace(createdFrom))
+                {
+                    if (DateTime.TryParseExact(createdFrom, "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedFrom))
+                    {
+                        usedFrom = DateTime.SpecifyKind(parsedFrom, DateTimeKind.Unspecified);
+                    }
+                    else if (DateTime.TryParse(createdFrom, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsedGenericFrom))
+                    {
+                        var local = parsedGenericFrom.ToLocalTime();
+                        usedFrom = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
+                    }
+                }
 
- if (!string.IsNullOrWhiteSpace(createdTo))
- {
- if (DateTime.TryParseExact(createdTo, "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedTo))
- {
- usedTo = DateTime.SpecifyKind(parsedTo, DateTimeKind.Unspecified);
- }
- else if (DateTime.TryParse(createdTo, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsedGenericTo))
- {
- var localTo = parsedGenericTo.ToLocalTime();
- usedTo = DateTime.SpecifyKind(localTo, DateTimeKind.Unspecified);
- }
- }
+                if (!string.IsNullOrWhiteSpace(createdTo))
+                {
+                    if (DateTime.TryParseExact(createdTo, "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedTo))
+                    {
+                        usedTo = DateTime.SpecifyKind(parsedTo, DateTimeKind.Unspecified);
+                    }
+                    else if (DateTime.TryParse(createdTo, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsedGenericTo))
+                    {
+                        var localTo = parsedGenericTo.ToLocalTime();
+                        usedTo = DateTime.SpecifyKind(localTo, DateTimeKind.Unspecified);
+                    }
+                }
 
- var result = await _couponService.GetRedeemedCouponsAsync(
-1, int.MaxValue, usedFrom, usedTo, soldBy, couponDefinitionCode, couponDefinitionName);
+                var result = await _couponService.GetRedeemedCouponsAsync(
+               1, int.MaxValue, usedFrom, usedTo, soldBy, couponDefinitionCode, couponDefinitionName);
 
- using var stream = new MemoryStream();
- using var writer = new PdfWriter(stream);
- using var pdf = new PdfDocument(writer);
- using var document = new Document(pdf, iText.Kernel.Geom.PageSize.A4);
+                using var stream = new MemoryStream();
+                using var writer = new PdfWriter(stream);
+                using var pdf = new PdfDocument(writer);
+                using var document = new Document(pdf, iText.Kernel.Geom.PageSize.A4);
 
- // Load Thai font - with better fallback options
- PdfFont thaiFont;
- try
- {
- string fontPath = "";
- 
- fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "THSarabunNew.ttf");
- if (System.IO.File.Exists(fontPath))
- {
- _logger.LogInformation("Using font: THSarabunNew.ttf");
- thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
- }
- else if (System.IO.File.Exists(fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "angsa.ttf")))
- {
- _logger.LogInformation("Using font: angsa.ttf");
- thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
- }
- else if (System.IO.File.Exists(fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "cordia.ttf")))
- {
- _logger.LogInformation("Using font: cordia.ttf");
- thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
- }
- else if (System.IO.File.Exists(fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "browa.ttf")))
- {
- _logger.LogInformation("Using font: browa.ttf");
- thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
- }
- else if (System.IO.File.Exists(fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "tahoma.ttf")))
- {
- _logger.LogInformation("Using font: tahoma.ttf");
- thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
- }
- else if (System.IO.File.Exists(fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "ARIALUNI.TTF")))
- {
- _logger.LogInformation("Using font: ARIALUNI.TTF");
- thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
- }
- else
- {
- _logger.LogWarning("No Thai font found in system. Thai text may not display correctly.");
- thaiFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
- }
- }
- catch (Exception ex)
- {
- _logger.LogError(ex, "Error loading Thai font, falling back to Helvetica");
- thaiFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
- }
+                // Load Thai font - with better fallback options
+                PdfFont thaiFont;
+                try
+                {
+                    string fontPath = "";
 
- document.SetFont(thaiFont);
- document.SetMargins(20,20,20,20);
+                    fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "THSarabunNew.ttf");
+                    if (System.IO.File.Exists(fontPath))
+                    {
+                        _logger.LogInformation("Using font: THSarabunNew.ttf");
+                        thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
+                    }
+                    else if (System.IO.File.Exists(fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "angsa.ttf")))
+                    {
+                        _logger.LogInformation("Using font: angsa.ttf");
+                        thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
+                    }
+                    else if (System.IO.File.Exists(fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "cordia.ttf")))
+                    {
+                        _logger.LogInformation("Using font: cordia.ttf");
+                        thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
+                    }
+                    else if (System.IO.File.Exists(fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "browa.ttf")))
+                    {
+                        _logger.LogInformation("Using font: browa.ttf");
+                        thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
+                    }
+                    else if (System.IO.File.Exists(fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "tahoma.ttf")))
+                    {
+                        _logger.LogInformation("Using font: tahoma.ttf");
+                        thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
+                    }
+                    else if (System.IO.File.Exists(fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "ARIALUNI.TTF")))
+                    {
+                        _logger.LogInformation("Using font: ARIALUNI.TTF");
+                        thaiFont = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("No Thai font found in system. Thai text may not display correctly.");
+                        thaiFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error loading Thai font, falling back to Helvetica");
+                    thaiFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+                }
 
- var mainTitle = new Paragraph("รายงานคูปองประจำวัน")
- .SetTextAlignment(TextAlignment.CENTER)
- .SetFontSize(18)
- .SetFont(thaiFont);
- document.Add(mainTitle);
+                document.SetFont(thaiFont);
+                document.SetMargins(20, 20, 20, 20);
 
- var dateInfo = new Paragraph($"วันที่พิมพ์: {DateTime.Now:dd/MM/yyyy HH:mm}")
- .SetTextAlignment(TextAlignment.CENTER)
- .SetFontSize(10)
- .SetFont(thaiFont);
- document.Add(dateInfo);
+                var mainTitle = new Paragraph("รายงานคูปองประจำวัน")
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetFontSize(18)
+                .SetFont(thaiFont);
+                document.Add(mainTitle);
 
- if (usedFrom.HasValue || usedTo.HasValue)
- {
- var dateRange = $"ช่วงวันที่: {usedFrom?.ToString("dd/MM/yyyy") ?? "N/A"} - {usedTo?.ToString("dd/MM/yyyy") ?? "N/A"}";
- document.Add(new Paragraph(dateRange)
- .SetTextAlignment(TextAlignment.CENTER)
- .SetFontSize(10)
- .SetFont(thaiFont));
- }
+                var dateInfo = new Paragraph($"วันที่พิมพ์: {DateTime.Now:dd/MM/yyyy HH:mm}")
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetFontSize(10)
+                .SetFont(thaiFont);
+                document.Add(dateInfo);
 
- document.Add(new Paragraph("\n").SetFontSize(3));
+                if (usedFrom.HasValue || usedTo.HasValue)
+                {
+                    var dateRange = $"ช่วงวันที่: {usedFrom?.ToString("dd/MM/yyyy") ?? "N/A"} - {usedTo?.ToString("dd/MM/yyyy") ?? "N/A"}";
+                    document.Add(new Paragraph(dateRange)
+                    .SetTextAlignment(TextAlignment.CENTER)
+                    .SetFontSize(10)
+                    .SetFont(thaiFont));
+                }
 
- var table = new Table(new float[] {9,9,14,8,7,7,10,10,9 });
- table.SetWidth(UnitValue.CreatePercentValue(100));
- table.SetFont(thaiFont);
- table.SetFontSize(6);
+                document.Add(new Paragraph("\n").SetFontSize(3));
 
- var headerBgColor = new iText.Kernel.Colors.DeviceRgb(200,200,200);
- AddHeaderCell(table, "รหัสคูปอง", headerBgColor, thaiFont);
- AddHeaderCell(table, "รหัสคำนิยาม", headerBgColor, thaiFont);
- AddHeaderCell(table, "ชื่อคำนิยาม", headerBgColor, thaiFont);
- AddHeaderCell(table, "สาขา", headerBgColor, thaiFont);
- AddHeaderCell(table, "ราคา", headerBgColor, thaiFont);
- AddHeaderCell(table, "สถานะ", headerBgColor, thaiFont);
- AddHeaderCell(table, "ผู้ใช้", headerBgColor, thaiFont);
- AddHeaderCell(table, includeRetrievedDate ? "วันที่ใช้/ขาย" : "วันที่ใช้", headerBgColor, thaiFont);
- AddHeaderCell(table, "หมดอายุ", headerBgColor, thaiFont);
+                var table = new Table(new float[] { 9, 9, 14, 8, 7, 7, 10, 10, 9 });
+                table.SetWidth(UnitValue.CreatePercentValue(100));
+                table.SetFont(thaiFont);
+                table.SetFontSize(6);
 
- // จัดเรียงข้อมูลตามวันที่ใช้จากเก่าไปใหม่
- var sortedItems = result.Items.OrderBy(x => x.UsedDate ?? DateTime.MinValue).ToList();
- 
- foreach (var item in sortedItems)
- {
- table.AddCell(CreateCell(item.GeneratedCode, thaiFont));
- table.AddCell(CreateCell(item.CouponDefinitionCode, thaiFont));
- table.AddCell(CreateCell(item.CouponDefinitionName, thaiFont));
- table.AddCell(CreateCell(item.BranchName, thaiFont));
- table.AddCell(CreateCell(item.CouponDefinitionPrice.ToString("N0"), thaiFont));
- table.AddCell(CreateCell(item.StatusText, thaiFont));
- table.AddCell(CreateCell(item.UsedBy ?? "-", thaiFont));
+                var headerBgColor = new iText.Kernel.Colors.DeviceRgb(200, 200, 200);
+                AddHeaderCell(table, "รหัสคูปอง", headerBgColor, thaiFont);
+                AddHeaderCell(table, "รหัสคำนิยาม", headerBgColor, thaiFont);
+                AddHeaderCell(table, "ชื่อคำนิยาม", headerBgColor, thaiFont);
+                AddHeaderCell(table, "สาขา", headerBgColor, thaiFont);
+                AddHeaderCell(table, "ราคา", headerBgColor, thaiFont);
+                AddHeaderCell(table, "สถานะ", headerBgColor, thaiFont);
+                AddHeaderCell(table, "ผู้ใช้", headerBgColor, thaiFont);
+                AddHeaderCell(table, includeRetrievedDate ? "วันที่ใช้/ขาย" : "วันที่ใช้", headerBgColor, thaiFont);
+                AddHeaderCell(table, "หมดอายุ", headerBgColor, thaiFont);
+
+                // จัดเรียงข้อมูลตามวันที่ใช้จากเก่าไปใหม่
+                var sortedItems = result.Items.OrderBy(x => x.UsedDate ?? DateTime.MinValue).ToList();
+
+                foreach (var item in sortedItems)
+                {
+                    table.AddCell(CreateCell(item.GeneratedCode, thaiFont));
+                    table.AddCell(CreateCell(item.CouponDefinitionCode, thaiFont));
+                    table.AddCell(CreateCell(item.CouponDefinitionName, thaiFont));
+                    table.AddCell(CreateCell(item.BranchName, thaiFont));
+                    table.AddCell(CreateCell(item.CouponDefinitionPrice.ToString("N0"), thaiFont));
+                    table.AddCell(CreateCell(item.StatusText, thaiFont));
+                    table.AddCell(CreateCell(item.UsedBy ?? "-", thaiFont));
                     var usedDateText = item.UsedDate.HasValue
                     ? $"{item.UsedDate.Value:dd/MM/yy} เวลา {item.UsedDate.Value:HH:mm} น."
                     : "-";
                     table.AddCell(CreateCell(usedDateText, thaiFont));
                     table.AddCell(CreateCell(item.ExpiresAt?.ToString("dd/MM/yy") ?? "-", thaiFont));
- }
+                }
 
- document.Add(table);
+                document.Add(table);
 
- // สร้างส่วนสรุปตามวันที่และชื่อคำนิยาม
- using var ctx = new CouponContext();
- 
- // กรุ๊ปข้อมูลตามวันที่ใช้งาน ชื่อคำนิยาม และสาขา
- var summaryGroups = result.Items
- .Where(x => x.UsedDate.HasValue)
- .GroupBy(x => new { 
- UsedDate = x.UsedDate!.Value.Date, 
- DefinitionId = x.CouponDefinitionId,
- DefinitionCode = x.CouponDefinitionCode,
- DefinitionName = x.CouponDefinitionName,
- BranchName = x.BranchName
- })
- .OrderBy(g => g.Key.UsedDate)
- .ThenBy(g => g.Key.DefinitionName)
- .ToList();
+                // สร้างส่วนสรุปตามวันที่และชื่อคำนิยาม
+                using var ctx = new CouponContext();
+
+                // กรุ๊ปข้อมูลตามวันที่ใช้งาน ชื่อคำนิยาม และสาขา
+                var summaryGroups = result.Items
+                .Where(x => x.UsedDate.HasValue)
+                .GroupBy(x => new
+                {
+                    UsedDate = x.UsedDate!.Value.Date,
+                    DefinitionId = x.CouponDefinitionId,
+                    DefinitionCode = x.CouponDefinitionCode,
+                    DefinitionName = x.CouponDefinitionName,
+                    BranchName = x.BranchName
+                })
+                .OrderBy(g => g.Key.UsedDate)
+                .ThenBy(g => g.Key.DefinitionName)
+                .ToList();
 
                 if (summaryGroups.Any())
                 {
@@ -741,8 +754,8 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
                             .CountAsync(gc => gc.CouponDefinitionId == definitionId && gc.ReceiptItemId.HasValue);
 
                         var usedBeforeToday = await ctx.GeneratedCoupons
-                            .CountAsync(gc => gc.CouponDefinitionId == definitionId 
-                                && gc.IsUsed 
+                            .CountAsync(gc => gc.CouponDefinitionId == definitionId
+                                && gc.IsUsed
                                 && gc.UsedDate.HasValue
                                 && gc.UsedDate.Value.Date < usedDate);
 
@@ -763,16 +776,10 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
 
                     document.Add(summaryTable);
                 }
-
-                // เพิ่มส่วนสรุปรวมตามคำนิยาม (รวมทุกวันในช่วงที่เลือก)
-                // แสดงเฉพาะคูปองประเภท ASIA BANGKOK และ ONLINE ที่เป็นคูปองจำกัดจำนวน
-                var wantedTypes = new[] { "ASIA BANGKOK", "ONLINE" };
-                var wantedTypesUpper = wantedTypes.Select(t => t.ToUpper()).ToList();
-
                 // ดึง CouponDefinition IDs ที่ตรงตามเงื่อนไข
                 var matchingDefinitionIds = await ctx.CouponDefinitions
                     .Include(cd => cd.Branch)
-                    .Where(cd => cd.IsLimited && cd.Branch != null && wantedTypesUpper.Contains(cd.Branch.Name.ToUpper()))
+                    .Where(cd => cd.IsLimited && cd.Branch != null)
                     .Select(cd => cd.Id)
                     .ToListAsync();
 
@@ -830,8 +837,8 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
 
                         // หาวันแรกที่มีการใช้ในช่วงที่เลือก (ถ้ามี)
                         var firstUsedInPeriod = await ctx.GeneratedCoupons
-                            .Where(gc => gc.CouponDefinitionId == definitionId 
-                                && gc.IsUsed 
+                            .Where(gc => gc.CouponDefinitionId == definitionId
+                                && gc.IsUsed
                                 && gc.UsedDate.HasValue
                                 && usedFrom.HasValue && gc.UsedDate.Value >= usedFrom.Value
                                 && usedTo.HasValue && gc.UsedDate.Value <= usedTo.Value)
@@ -846,15 +853,15 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
                         {
                             // จำนวนที่ใช้ไปก่อนช่วงวันที่
                             usedBeforePeriod = await ctx.GeneratedCoupons
-                                .CountAsync(gc => gc.CouponDefinitionId == definitionId 
-                                    && gc.IsUsed 
+                                .CountAsync(gc => gc.CouponDefinitionId == definitionId
+                                    && gc.IsUsed
                                     && gc.UsedDate.HasValue
                                     && gc.UsedDate.Value.Date < firstUsedInPeriod);
 
                             // จำนวนที่ใช้ในช่วงวันที่
                             usedInPeriod = await ctx.GeneratedCoupons
-                                .CountAsync(gc => gc.CouponDefinitionId == definitionId 
-                                    && gc.IsUsed 
+                                .CountAsync(gc => gc.CouponDefinitionId == definitionId
+                                    && gc.IsUsed
                                     && gc.UsedDate.HasValue
                                     && usedFrom.HasValue && gc.UsedDate.Value >= usedFrom.Value
                                     && usedTo.HasValue && gc.UsedDate.Value <= usedTo.Value);
@@ -889,13 +896,13 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
 
                 var fileName = $"รายงานคูปองประจำวัน_{DateTime.Now:dd-MM-yyyy_HH-mm-ss}.pdf";
                 return File(stream.ToArray(), "application/pdf", fileName);
- }
- catch (Exception ex)
- {
- _logger.LogError(ex, "Error exporting to PDF: {Message}", ex.Message);
- return StatusCode(500, new { message = "Error exporting to PDF", error = ex.Message });
- }
- }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting to PDF: {Message}", ex.Message);
+                return StatusCode(500, new { message = "Error exporting to PDF", error = ex.Message });
+            }
+        }
 
         /// <summary>
         /// Helper method to add a header cell to PDF table with styling.
@@ -916,9 +923,9 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
         }
 
         /// <summary>
-   /// Helper method to create a styled cell for PDF table.
+        /// Helper method to create a styled cell for PDF table.
         /// </summary>
-      /// <param name="text">Cell content text.</param>
+        /// <param name="text">Cell content text.</param>
         /// <param name="font">Font to use for Thai language support.</param>
         /// <returns>Configured table cell.</returns>
         private static Cell CreateCell(string text, PdfFont font)
@@ -928,7 +935,7 @@ worksheet.Cell(row,1).Value = item.GeneratedCode;
      .SetTextAlignment(TextAlignment.CENTER)
          .SetVerticalAlignment(VerticalAlignment.MIDDLE)
       .SetPadding(2);
- }
+        }
     }
 }
 

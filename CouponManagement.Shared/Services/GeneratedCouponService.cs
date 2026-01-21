@@ -128,7 +128,9 @@ namespace CouponManagement.Shared.Services
             bool? isUsed = null,
             DateTime? createdFrom = null,
             DateTime? createdTo = null,
-            string? createdBy = null)
+            string? createdBy = null,
+            int? branchId = null,
+            int? saleEventId = null)
         {
             var query = _context.GeneratedCoupons
                 .Include(gc => gc.CouponDefinition)
@@ -164,6 +166,12 @@ namespace CouponManagement.Shared.Services
 
             if (!string.IsNullOrWhiteSpace(createdBy))
                 query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.CreatedBy.Contains(createdBy));
+
+            if (branchId.HasValue)
+                query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.BranchId == branchId.Value);
+
+            if (saleEventId.HasValue)
+                query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.SaleEventId == saleEventId.Value);
 
             // Get total count
             var totalCount = await query.CountAsync();
@@ -314,7 +322,9 @@ namespace CouponManagement.Shared.Services
             string? couponDefinitionCode = null,
             string? couponDefinitionName = null,
             DateTime? createdFrom = null,
-            DateTime? createdTo = null)
+            DateTime? createdTo = null,
+            int? branchId = null,
+            int? saleEventId = null)
         {
             var query = _context.GeneratedCoupons
                 .Include(gc => gc.CouponDefinition)
@@ -350,6 +360,10 @@ namespace CouponManagement.Shared.Services
 
             if (createdTo.HasValue)
                 query = query.Where(gc => gc.CreatedAt <= createdTo.Value);
+            if (branchId.HasValue)
+                query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.BranchId == branchId.Value);
+            if (saleEventId.HasValue)
+                query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.SaleEventId == saleEventId.Value);
 
             var totalCount = await query.CountAsync();
 
@@ -452,11 +466,13 @@ namespace CouponManagement.Shared.Services
             DateTime? usedTo = null,
             string? usedBy = null,
             string? couponDefinitionCode = null,
-            string? couponDefinitionName = null)
+            string? couponDefinitionName = null,
+            int? branchId = null,
+            int? saleEventId = null)
         {
             var query = _context.GeneratedCoupons
-                .Include(gc => gc.CouponDefinition)
-                    .ThenInclude(cd => cd!.Branch)
+                .Include(gc => gc.CouponDefinition!)
+                    .ThenInclude(cd => cd.Branch!)
                 .Include(gc => gc.ReceiptItem)
                 .AsQueryable();
 
@@ -477,6 +493,12 @@ namespace CouponManagement.Shared.Services
 
             if (!string.IsNullOrWhiteSpace(couponDefinitionName))
                 query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.Name.Contains(couponDefinitionName));
+
+            if (branchId.HasValue)
+                query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.BranchId == branchId.Value);
+
+            if (saleEventId.HasValue)
+                query = query.Where(gc => gc.CouponDefinition != null && gc.CouponDefinition.SaleEventId == saleEventId.Value);
 
             var totalCount = await query.CountAsync();
 

@@ -15,6 +15,9 @@ namespace CouponManagement
     {
         private ObservableCollection<ReceiptRow> _rows = new ObservableCollection<ReceiptRow>();
 
+        // Suppress selection changed handlers while initializing controls to avoid double-loading
+        private bool _suppressBranchFilterChanged = false;
+
         public ReceiptPage()
         {
             this.InitializeComponent();
@@ -59,8 +62,12 @@ namespace CouponManagement
 
         private async void ReceiptPage_Loaded(object sender, RoutedEventArgs e)
         {
-            // load branch types first so filter is available
+            // Prevent selection-changed handlers from firing while we populate branch list.
+            _suppressBranchFilterChanged = true;
             await LoadBranchTypesAsync();
+            _suppressBranchFilterChanged = false;
+
+            // Load receipts once after initialization
             await LoadReceiptsAsync();
         }
 
@@ -122,11 +129,15 @@ namespace CouponManagement
 
         private async void StatusCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            // status changes should always reload receipts
             await LoadReceiptsAsync();
         }
 
         private async void BranchComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            // ignore selection changes that occur during initial population
+            if (_suppressBranchFilterChanged) return;
+
             await LoadReceiptsAsync();
         }
 

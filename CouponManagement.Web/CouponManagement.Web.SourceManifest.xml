@@ -1,5 +1,4 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <sitemanifest>
-  <IisApp path="C:\Users\chaok\source\repos\BootCoupon\CouponManagement.Web\obj\Release\net8.0-windows10.0.19041\win-x86\PubTmp\Out\" />
-  <dbfullsql path="C:\Users\chaok\source\repos\BootCoupon\CouponManagement.Web\obj\Release\net8.0-windows10.0.19041\win-x86\PubTmp\EFSQLScripts\CouponManagement.Shared.CouponContext.sql" />
+  <IisApp path="C:\Users\crystal-POS\source\repos\Krom58\BootCoupon\CouponManagement.Web\obj\Release\net8.0-windows10.0.19041\win-x86\PubTmp\Out\" />
 </sitemanifest>

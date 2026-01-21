@@ -474,34 +474,55 @@ namespace BootCoupon
 
         private async Task LoadAllCouponDefinitions()
         {
-            // Use a short-lived context and AsNoTracking to avoid stale tracked entities
+            // fetch definitions + counts in one DB query (no tracking)
             using var ctx = new CouponContext();
             await ctx.Database.EnsureCreatedAsync();
 
-            var couponDefinitions = await ctx.CouponDefinitions
+            var today = DateTime.Now.Date;
+
+            var rows = await ctx.CouponDefinitions
                 .AsNoTracking()
-                .Include(cd => cd.Branch)
-                .Include(cd => cd.GeneratedCoupons)
                 .Where(cd => cd.IsActive && cd.ValidTo >= DateTime.Now)
+                .Select(cd => new
+                {
+                    Definition = cd,
+                    TotalGenerated = cd.GeneratedCoupons.Count(),
+                    TotalAllocatedOrUsed = cd.GeneratedCoupons.Count(gc => gc.IsUsed || gc.ReceiptItemId != null),
+                    // project SaleEvent metadata to avoid loading full navigation
+                    SaleEventId = cd.SaleEventId,
+                    SaleEventEnd = cd.SaleEvent != null ? (DateTime?)cd.SaleEvent.EndDate : null,
+                    SaleEventIsActive = cd.SaleEvent != null ? (bool?)cd.SaleEvent.IsActive : null
+                })
                 .ToListAsync();
 
             _couponDefinitionDisplays.Clear();
-            foreach (var definition in couponDefinitions)
-            {
-                var totalGenerated = definition.GeneratedCoupons?.Count ?? 0;
-                // consider a coupon allocated to a receipt (ReceiptItemId != null) as already sold
-                var totalAllocatedOrUsed = definition.GeneratedCoupons?.Count(gc => gc.IsUsed || gc.ReceiptItemId != null) ?? 0;
 
+            foreach (var r in rows)
+            {
+                // If coupon is NOT attached to a SaleEvent => skip (per requested rule)
+                if (!r.SaleEventId.HasValue)
+                {
+                    continue;
+                }
+
+                // If coupon is attached to a SaleEvent and that event is inactive or already ended, skip it
+                if (r.SaleEventIsActive != true || (r.SaleEventEnd.HasValue && r.SaleEventEnd.Value.Date < today))
+                {
+                    continue;
+                }
+
+                var totalGenerated = r.TotalGenerated;
+                var totalAllocatedOrUsed = r.TotalAllocatedOrUsed;
                 var availableCount = totalGenerated - totalAllocatedOrUsed;
+
                 if (totalGenerated == 0 || availableCount > 0)
                 {
-                    var display = new CouponDefinitionDisplay
+                    _couponDefinitionDisplays.Add(new CouponDefinitionDisplay
                     {
-                        CouponDefinition = definition,
+                        CouponDefinition = r.Definition,
                         TotalGenerated = totalGenerated,
                         TotalUsed = totalAllocatedOrUsed
-                    };
-                    _couponDefinitionDisplays.Add(display);
+                    });
                 }
             }
         }
@@ -588,48 +609,76 @@ namespace BootCoupon
                 }
                 catch { }
 
-                string nameSearch = NameSearchTextBox.Text.Trim().ToLower();
-                string codeSearch = CodeSearchTextBox.Text.Trim().ToLower();
+                var nameSearch = NameSearchTextBox.Text?.Trim();
+                var codeSearch = CodeSearchTextBox.Text?.Trim();
                 var branchFilter = GetSelectedTag(BranchComboBox);
 
-                // Use a new context instance and AsNoTracking to ensure fresh data from DB
                 using var ctx = new CouponContext();
                 await ctx.Database.EnsureCreatedAsync();
 
+                var today = DateTime.Now.Date;
                 var query = ctx.CouponDefinitions
                     .AsNoTracking()
-                    .Include(cd => cd.Branch)
-                    .Include(cd => cd.GeneratedCoupons)
-                    .Where(cd => cd.IsActive && cd.ValidTo >= DateTime.Now)
-                    .AsQueryable();
+                    .Where(cd => cd.IsActive && cd.ValidTo >= DateTime.Now);
 
+                // Use EF.Functions.Like to allow index use and avoid client-side ToLower
                 if (!string.IsNullOrEmpty(nameSearch))
-                    query = query.Where(cd => cd.Name.ToLower().Contains(nameSearch));
+                {
+                    var pattern = $"%{nameSearch.Replace("%", "[%]").Replace("_", "[_]")}%";
+                    query = query.Where(cd => EF.Functions.Like(cd.Name, pattern));
+                }
 
                 if (!string.IsNullOrEmpty(codeSearch))
-                    query = query.Where(cd => cd.Code.ToLower().Contains(codeSearch));
+                {
+                    var pattern = $"%{codeSearch.Replace("%", "[%]").Replace("_", "[_]")}%";
+                    query = query.Where(cd => EF.Functions.Like(cd.Code, pattern));
+                }
 
                 if (branchFilter != "ALL" && int.TryParse(branchFilter, out int branchId))
+                {
                     query = query.Where(cd => cd.BranchId == branchId);
+                }
 
-                var couponDefinitions = await query.ToListAsync();
+                // Project counts and sale-event metadata server-side to avoid loading GeneratedCoupons collections or SaleEvent navigation
+                var rows = await query
+                    .Select(cd => new
+                    {
+                        Definition = cd,
+                        TotalGenerated = cd.GeneratedCoupons.Count(),
+                        TotalAllocatedOrUsed = cd.GeneratedCoupons.Count(gc => gc.IsUsed || gc.ReceiptItemId != null),
+                        SaleEventId = cd.SaleEventId,
+                        SaleEventEnd = cd.SaleEvent != null ? (DateTime?)cd.SaleEvent.EndDate : null,
+                        SaleEventIsActive = cd.SaleEvent != null ? (bool?)cd.SaleEvent.IsActive : null
+                    })
+                    .ToListAsync();
 
                 _couponDefinitionDisplays.Clear();
-                foreach (var definition in couponDefinitions)
+                foreach (var r in rows)
                 {
-                    var totalGenerated = definition.GeneratedCoupons?.Count ?? 0;
-                    var totalAllocatedOrUsed = definition.GeneratedCoupons?.Count(gc => gc.IsUsed || gc.ReceiptItemId != null) ?? 0;
+                    // If coupon is NOT attached to a SaleEvent => skip
+                    if (!r.SaleEventId.HasValue)
+                    {
+                        continue;
+                    }
+
+                    // If coupon is linked to a SaleEvent that is inactive or ended, skip it
+                    if (r.SaleEventIsActive != true || (r.SaleEventEnd.HasValue && r.SaleEventEnd.Value.Date < today))
+                    {
+                        continue;
+                    }
+
+                    var totalGenerated = r.TotalGenerated;
+                    var totalAllocatedOrUsed = r.TotalAllocatedOrUsed;
                     var availableCount = totalGenerated - totalAllocatedOrUsed;
 
                     if (totalGenerated == 0 || availableCount > 0)
                     {
-                        var display = new CouponDefinitionDisplay
+                        _couponDefinitionDisplays.Add(new CouponDefinitionDisplay
                         {
-                            CouponDefinition = definition,
+                            CouponDefinition = r.Definition,
                             TotalGenerated = totalGenerated,
                             TotalUsed = totalAllocatedOrUsed
-                        };
-                        _couponDefinitionDisplays.Add(display);
+                        });
                     }
                 }
 
@@ -889,6 +938,20 @@ if (display2 != null)
   };
         stack.Children.Add(comCheckBox);
 
+// New: quantity input to allow quick selection of N codes
+        var quantityPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        quantityPanel.Children.Add(new TextBlock { Text = "จำนวนที่ต้องการ:", VerticalAlignment = VerticalAlignment.Center });
+        var quantityBox = new NumberBox
+        {
+            Minimum = 1,
+            Maximum = Math.Max(1, availableCodes.Count),
+            Value = initialSelectedIds.Count > 0 ? initialSelectedIds.Count : 1,
+            Width = 220,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline
+        };
+        quantityPanel.Children.Add(quantityBox);
+        stack.Children.Add(quantityPanel);
+
 // Search box to filter the checklist
   var searchBox = new TextBox { PlaceholderText = "ค้นหารหัส (พิมพ์แล้วรายการจะกรองอัตโนมัติ)", Margin = new Thickness(0, 4, 0, 0) };
         stack.Children.Add(searchBox);
@@ -961,11 +1024,64 @@ if (display2 != null)
             // Initial populate
             PopulateResults(null);
 
+            // Helper to synchronize checkbox selection with desired quantity
+            void SyncSelectionWithQuantity()
+            {
+                if (checkboxMap.Count == 0) return;
+                int desired = (int)Math.Max(1, quantityBox.Value);
+                // Count already checked and belong to initialSelectedIds (preserve)
+                var initialChecked = checkboxMap.Where(kv => initialSelectedIds.Contains(kv.Key) && kv.Value.IsChecked == true).Select(kv => kv.Key).ToList();
+                int alreadyCount = initialChecked.Count;
+
+                // Uncheck all non-initial checkboxes first
+                var nonInitialKeys = checkboxMap.Keys.Except(initialSelectedIds).ToList();
+                foreach (var k in nonInitialKeys)
+                {
+                    checkboxMap[k].IsChecked = false;
+                }
+
+                int need = desired - alreadyCount;
+                if (need <= 0) return;
+
+                // Select first available enabled non-initial checkboxes
+                foreach (var kv in checkboxMap)
+                {
+                    if (need <= 0) break;
+                    var id = kv.Key;
+                    var cb = kv.Value;
+                    if (initialSelectedIds.Contains(id)) continue;
+                    if (!cb.IsEnabled) continue;
+                    if (cb.IsChecked == true) continue;
+                    cb.IsChecked = true;
+                    need--;
+                }
+            }
+
             // Live filter
             searchBox.TextChanged += (s, e) =>
             {
                 var text = searchBox.Text?.Trim();
                 PopulateResults(text);
+                // after repopulate, attempt to re-sync selection based on quantity
+                // small delay via DispatcherQueue to ensure UI updated
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    SyncSelectionWithQuantity();
+                });
+            };
+
+            // When quantity changes, auto-select/deselect checkboxes in current view
+            quantityBox.ValueChanged += (s, e) =>
+            {
+                // ensure value within bounds
+                if (double.IsNaN(quantityBox.Value) || quantityBox.Value < 1)
+                {
+                    quantityBox.Value = 1;
+                }
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    SyncSelectionWithQuantity();
+                });
             };
 
             var dialog = new ContentDialog
@@ -998,6 +1114,25 @@ if (display2 != null)
    selectedIds = matched.Select(m => m.Id).ToList();
     }
    }
+
+    // Ensure selected count matches desired quantity (if user used quantityBox)
+       int desiredQty = (int)Math.Max(1, quantityBox.Value);
+       if (selectedIds.Count != desiredQty)
+       {
+           // If fewer selected, auto-add from availableCodes (excluding disabled/already-selected-in-other)
+           var remaining = availableCodes.Select(g => g.Id).Except(selectedIds).Except(alreadySelectedInOtherItems).ToList();
+           foreach (var id in remaining)
+           {
+               if (selectedIds.Count >= desiredQty) break;
+               selectedIds.Add(id);
+           }
+
+           // If more selected than desired, trim to desiredQty (keep initial selections first)
+           if (selectedIds.Count > desiredQty)
+           {
+               selectedIds = selectedIds.Take(desiredQty).ToList();
+           }
+       }
 
     // Get COM mode flag but DON'T save to database yet
        var isComMode = comCheckBox.IsChecked == true;

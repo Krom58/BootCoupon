@@ -18,22 +18,33 @@ namespace CouponManagement.Shared.Services
         public async Task<List<CouponDefinition>> GetAllAsync(
         string? typeFilter = null,
         string? statusFilter = null,
-        string? searchText = null)
+        string? searchText = null,
+        string? saleEventFilter = null) // added saleEventFilter for Sale Event dropdown filtering
         {
             using var context = new CouponContext();
 
             var query = context.CouponDefinitions
             .Include(cd => cd.CodeGenerator)
             .Include(cd => cd.Branch) // Include Branch navigation
+            .Include(cd => cd.SaleEvent) // <-- Ensure SaleEvent is loaded so SaleEventName works
             .AsNoTracking() // Ensure fresh data is loaded and not tracked to avoid stale cached entities
             .AsQueryable();
 
-            // Filter by Type (which is now CouponTypeId)
+            // Filter by Type (which is now CouponTypeId / BranchId)
             if (!string.IsNullOrEmpty(typeFilter) && typeFilter != "ALL")
             {
                 if (int.TryParse(typeFilter, out int typeId))
                 {
                     query = query.Where(cd => cd.BranchId == typeId);
+                }
+            }
+
+            // Filter by SaleEvent (explicit dropdown selection)
+            if (!string.IsNullOrEmpty(saleEventFilter) && saleEventFilter != "ALL")
+            {
+                if (int.TryParse(saleEventFilter, out int saleEventId))
+                {
+                    query = query.Where(cd => cd.SaleEventId == saleEventId);
                 }
             }
 
@@ -51,10 +62,15 @@ namespace CouponManagement.Shared.Services
                 };
             }
 
-            // Search in code or name
-            if (!string.IsNullOrEmpty(searchText))
+            // Search in code, name or sale event name (case-insensitive LIKE)
+            if (!string.IsNullOrWhiteSpace(searchText))
             {
-                query = query.Where(cd => cd.Code.Contains(searchText) || cd.Name.Contains(searchText));
+                var s = searchText.Trim();
+                query = query.Where(cd =>
+                    (cd.Code != null && EF.Functions.Like(cd.Code, $"%{s}%")) ||
+                    (cd.Name != null && EF.Functions.Like(cd.Name, $"%{s}%")) ||
+                    (cd.SaleEvent != null && cd.SaleEvent.Name != null && EF.Functions.Like(cd.SaleEvent.Name, $"%{s}%"))
+                );
             }
 
             return await query
@@ -71,6 +87,7 @@ namespace CouponManagement.Shared.Services
             .Include(cd => cd.CodeGenerator)
             .Include(cd => cd.GeneratedCoupons)
             .Include(cd => cd.Branch) // Include Branch navigation
+            .Include(cd => cd.SaleEvent) // <-- include SaleEvent so caller sees SaleEvent and SaleEventName
             .FirstOrDefaultAsync(cd => cd.Id == id);
         }
 
@@ -84,6 +101,7 @@ namespace CouponManagement.Shared.Services
             // Normalize comparison to avoid case-sensitivity issues
             return await context.CouponDefinitions
             .Include(cd => cd.CodeGenerator)
+            .Include(cd => cd.SaleEvent) // include SaleEvent for callers that need it
             .FirstOrDefaultAsync(cd => cd.Code.ToUpper() == normalized);
         }
 
@@ -144,7 +162,8 @@ namespace CouponManagement.Shared.Services
                         ValidFrom = request.ValidFrom,
                         ValidTo = request.ValidTo,
                         CreatedBy = userId,
-                        IsLimited = request.IsLimited
+                        IsLimited = request.IsLimited,
+                        SaleEventId = request.SaleEventId // <-- persist SaleEventId from request
                     };
 
                     System.Diagnostics.Debug.WriteLine($"Adding CouponDefinition with Branch: {couponDefinition.BranchId}");
@@ -282,6 +301,7 @@ namespace CouponManagement.Shared.Services
                 existing.ValidTo = request.ValidTo;
                 existing.UpdatedBy = userId;
                 existing.UpdatedAt = DateTime.Now;
+                existing.SaleEventId = request.SaleEventId; // <-- persist updated SaleEventId
 
                 // Update IsLimited flag and manage CodeGenerator accordingly
                 var wasLimited = existing.IsLimited;

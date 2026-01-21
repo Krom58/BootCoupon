@@ -24,8 +24,6 @@ namespace CouponManagement.Shared.Models
 
         // Use BranchId (was BranchId) for clarity with DB rename
         public int BranchId { get; set; }
-
-        [ForeignKey(nameof(BranchId))]
         public Branch? Branch { get; set; }
 
         [Range(0, double.MaxValue)]
@@ -63,8 +61,6 @@ namespace CouponManagement.Shared.Models
 
         // Sale Event (Optional)
         public int? SaleEventId { get; set; }
-
-        [ForeignKey(nameof(SaleEventId))]
         public SaleEvent? SaleEvent { get; set; }
 
         // ✅ Helper property สำหรับแสดงชื่องานขาย
@@ -125,6 +121,11 @@ namespace CouponManagement.Shared.Models
 
         [NotMapped]
         public int StatUsed { get; set; }
+
+        // NEW: Expose a boolean used by the UI to show/hide delete button.
+        // It becomes true only when the definition is limited AND there is at least one generated coupon.
+        [NotMapped]
+        public bool HasGeneratedCoupons => IsLimited && StatTotalGenerated > 0;
 
         private string GetStatusText()
         {

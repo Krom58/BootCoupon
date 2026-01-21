@@ -25,222 +25,222 @@
  <Setter Property="HorizontalAlignment" Value="Center" />
  </Style>
  </Page.Resources>
- <Grid x:Name="RootGrid">
- <!-- Top Button Bar -->
- <Grid VerticalAlignment="Top" Height="64" BorderBrush="Gray" BorderThickness="0,0,0,1">
- <Grid.ColumnDefinitions>
- <ColumnDefinition Width="Auto"/>
- <ColumnDefinition Width="*"/>
- <ColumnDefinition Width="Auto"/>
- </Grid.ColumnDefinitions>
+    <Grid x:Name="RootGrid">
+        <!-- Top Button Bar -->
+        <Grid VerticalAlignment="Top" Height="64" BorderBrush="Gray" BorderThickness="0,0,0,1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
- <!-- Back Button - Top Left (Red) -->
- <Button Grid.Column="0" x:Name="BackButton" Content="⟵ กลับ" Click="BackButton_Click" 
+            <!-- Back Button - Top Left (Red) -->
+            <Button Grid.Column="0" x:Name="BackButton" Content="⟵ กลับ" Click="BackButton_Click" 
  HorizontalAlignment="Left" VerticalAlignment="Center" Margin="20,0,0,0"
  Background="Red" Foreground="White" FontSize="16" Padding="15,8" 
  CornerRadius="6" BorderThickness="0"/>
 
- <!-- Save Button - Top Right (Green) -->
- <Button Grid.Column="2" x:Name="SaveReceiptButton" Content="💾 บันทึกใบเสร็จ" Click="SaveReceiptButton_Click" 
+            <!-- Save Button - Top Right (Green) -->
+            <Button Grid.Column="2" x:Name="SaveReceiptButton" Content="💾 บันทึกใบเสร็จ" Click="SaveReceiptButton_Click" 
  HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0"
  Background="Green" Foreground="White" FontSize="16" Padding="15,8" 
  CornerRadius="6" BorderThickness="0"/>
- </Grid>
+        </Grid>
 
- <!-- Main Content -->
- <Grid Padding="20" Margin="0,76,0,0">
- <Grid.ColumnDefinitions>
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="*" />
- </Grid.ColumnDefinitions>
+        <!-- Main Content -->
+        <Grid Padding="20" Margin="0,76,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
- <!-- Left Panel - Search and Display (wrapped in Border for visual) -->
- <Border Grid.Column="0" Margin="0,0,10,0" CornerRadius="8" Padding="12"
+            <!-- Left Panel - Search and Display (wrapped in Border for visual) -->
+            <Border Grid.Column="0" Margin="0,0,10,0" CornerRadius="8" Padding="12"
  Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}" BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}" BorderThickness="1">
- <Grid>
- <Grid.RowDefinitions>
- <RowDefinition Height="Auto" />
- <RowDefinition Height="Auto" />
- <RowDefinition Height="Auto" />
- <RowDefinition Height="*" />
- <RowDefinition Height="Auto" />
- </Grid.RowDefinitions>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
- <TextBlock Grid.Row="0" Text="ค้นหาคูปอง" FontSize="22" FontWeight="Bold" Margin="0,0,0,12" />
+                    <TextBlock Grid.Row="0" Text="ค้นหาคูปอง" FontSize="22" FontWeight="Bold" Margin="0,0,0,12" />
 
- <!-- Search Controls -->
- <Grid Grid.Row="1" Margin="0,0,0,12">
- <Grid.ColumnDefinitions>
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="*" />
- </Grid.ColumnDefinitions>
+                    <!-- Search Controls -->
+                    <Grid Grid.Row="1" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
- <!-- Search by Name -->
- <TextBox x:Name="NameSearchTextBox" Grid.Column="0" PlaceholderText="ค้นหาตามชื่อ" 
+                        <!-- Search by Name -->
+                        <TextBox x:Name="NameSearchTextBox" Grid.Column="0" PlaceholderText="ค้นหาตามชื่อ" 
  Margin="0,0,8,0" TextChanged="NameSearchTextBox_TextChanged" FontSize="14"/>
 
- <!-- Search by Code -->
- <TextBox x:Name="CodeSearchTextBox" Grid.Column="1" PlaceholderText="ค้นหาตามรหัส" 
+                        <!-- Search by Code -->
+                        <TextBox x:Name="CodeSearchTextBox" Grid.Column="1" PlaceholderText="ค้นหาตามรหัส" 
  Margin="4,0,8,0" TextChanged="CodeSearchTextBox_TextChanged" FontSize="14"/>
 
- <!-- Search by Coupon Type -->
- <ComboBox x:Name="BranchComboBox" Grid.Column="2" PlaceholderText="ค้นหาตามสาขา" 
+                        <!-- Search by Coupon Type -->
+                        <ComboBox x:Name="BranchComboBox" Grid.Column="2" PlaceholderText="ค้นหาตามสาขา" 
  Margin="4,0,0,0" 
  SelectionChanged="BranchComboBox_SelectionChanged" FontSize="14"/>
- </Grid>
+                    </Grid>
 
- <!-- CouponDefinitions ListView -->
- <ListView x:Name="CouponDefinitionsListView" Grid.Row="3" SelectionMode="Single" BorderThickness="0"
+                    <!-- CouponDefinitions ListView -->
+                    <ListView x:Name="CouponDefinitionsListView" Grid.Row="3" SelectionMode="Single" BorderThickness="0"
  ItemContainerStyle="{StaticResource DefaultListViewItemStyle}">
- <ListView.ItemTemplate>
- <DataTemplate x:DataType="local:CouponDefinitionDisplay">
- <Border Padding="10" Margin="5,5,5,5" CornerRadius="6" BorderThickness="1" BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}">
- <Grid>
- <Grid.ColumnDefinitions>
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="140" />
- <ColumnDefinition Width="100" />
- </Grid.ColumnDefinitions>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:CouponDefinitionDisplay">
+                                <Border Padding="10" Margin="5,5,5,5" CornerRadius="6" BorderThickness="1" BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="100" />
+                                        </Grid.ColumnDefinitions>
 
- <!-- Left: Main info -->
- <StackPanel Grid.Column="0" VerticalAlignment="Center">
- <TextBlock Text="{x:Bind CouponDefinition.Name}" FontSize="24" FontWeight="SemiBold" TextWrapping="WrapWholeWords"/>
- <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
- <TextBlock Text="{x:Bind CouponDefinition.Code}" FontSize="18" Opacity="0.85"/>
- <TextBlock Text="•" FontSize="18" Opacity="0.6" Margin="2,0"/>
- <TextBlock Text="{x:Bind CouponDefinition.TypeDisplayText}" FontSize="18" FontStyle="Italic" Opacity="0.8"/>
- </StackPanel>
- <TextBlock Text="{x:Bind AvailabilityText}" FontSize="18" FontWeight="SemiBold" Margin="0,6,0,0"
+                                        <!-- Left: Main info -->
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind CouponDefinition.Name}" FontSize="24" FontWeight="SemiBold" TextWrapping="WrapWholeWords"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+                                                <TextBlock Text="{x:Bind CouponDefinition.Code}" FontSize="18" Opacity="0.85"/>
+                                                <TextBlock Text="•" FontSize="18" Opacity="0.6" Margin="2,0"/>
+                                                <TextBlock Text="{x:Bind CouponDefinition.TypeDisplayText}" FontSize="18" FontStyle="Italic" Opacity="0.8"/>
+                                            </StackPanel>
+                                            <TextBlock Text="{x:Bind AvailabilityText}" FontSize="18" FontWeight="SemiBold" Margin="0,6,0,0"
  Foreground="{x:Bind IsExhausted, Converter={StaticResource BoolToColorConverter}}"/>
- </StackPanel>
+                                        </StackPanel>
 
- <!-- Middle: Price -->
- <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
- <TextBlock Text="{x:Bind CouponDefinition.Price, Mode=OneWay}" FontSize="18" FontWeight="Bold" TextAlignment="Right"/>
- <TextBlock Text="บาท/ใบ" FontSize="18" Opacity="0.8" TextAlignment="Right" Margin="0,4,0,0"/>
- </StackPanel>
+                                        <!-- Middle: Price -->
+                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind CouponDefinition.Price, Mode=OneWay}" FontSize="18" FontWeight="Bold" TextAlignment="Right"/>
+                                            <TextBlock Text="บาท/ใบ" FontSize="18" Opacity="0.8" TextAlignment="Right" Margin="0,4,0,0"/>
+                                        </StackPanel>
 
- <!-- Right: Action -->
- <StackPanel Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center">
- <Button Content="เลือก" Tag="{x:Bind}" Click="SelectCouponButton_Click"
+                                        <!-- Right: Action -->
+                                        <StackPanel Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Button Content="เลือก" Tag="{x:Bind}" Click="SelectCouponButton_Click"
  MinWidth="80" MinHeight="30" FontSize="18"
  IsEnabled="{x:Bind IsExhausted, Converter={StaticResource BoolNegationConverter}}"/>
- </StackPanel>
- </Grid>
- </Border>
- </DataTemplate>
- </ListView.ItemTemplate>
- </ListView>
- </Grid>
- </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
 
- <!-- Right Panel - Selected Items and Actions -->
- <Border Grid.Column="1" Margin="10,0,0,0" CornerRadius="8" Padding="12"
+            <!-- Right Panel - Selected Items and Actions -->
+            <Border Grid.Column="1" Margin="10,0,0,0" CornerRadius="8" Padding="12"
  Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}" BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}" BorderThickness="1">
- <Grid>
- <Grid.RowDefinitions>
- <RowDefinition Height="Auto" />
- <RowDefinition Height="*" />
- <RowDefinition Height="Auto" />
- <RowDefinition Height="Auto" />
- <RowDefinition Height="Auto" />
- </Grid.RowDefinitions>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
- <TextBlock Grid.Row="0" Text="รายการที่เลือก" FontSize="20" FontWeight="Bold" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="0" Text="รายการที่เลือก" FontSize="20" FontWeight="Bold" Margin="0,0,0,10" />
 
- <!-- Selected Items ListView -->
- <ListView x:Name="SelectedItemsListView" Grid.Row="1" BorderThickness="1" Margin="0,0,0,10">
- <ListView.ItemTemplate>
- <DataTemplate x:DataType="local:ReceiptItem">
- <Border Padding="10" Margin="5,5,5,5" CornerRadius="6" BorderThickness="1" BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}">
- <Grid Padding="8">
- <Grid.ColumnDefinitions>
- <ColumnDefinition Width="*" />
- <ColumnDefinition Width="90" />
- <ColumnDefinition Width="110" />
- <ColumnDefinition Width="Auto" />
- </Grid.ColumnDefinitions>
- <StackPanel Grid.Column="0" VerticalAlignment="Center">
- <TextBlock Text="{x:Bind CouponDefinition.Name}" FontWeight="SemiBold" FontSize="20"/>
- <!-- show COM badge if applicable -->
- <TextBlock Text="{x:Bind ComBadgeText}" FontSize="14" Foreground="Orange" FontWeight="SemiBold" Margin="0,2,0,0"/>
- <!-- show selected generated codes (if any) below the name -->
- <TextBlock Text="{x:Bind SelectedCodesPreview}" FontSize="16" Opacity="0.9" Foreground="Green" TextWrapping="Wrap"/>
- <TextBlock Text="{x:Bind CouponDefinition.Code}" FontSize="14" Opacity="0.7"/>
- </StackPanel>
- <TextBlock Grid.Column="1" Text="{x:Bind Quantity}" TextAlignment="Center" VerticalAlignment="Center" FontSize="20"/>
- <TextBlock Grid.Column="2" Text="{x:Bind TotalPrice}" TextAlignment="Right" VerticalAlignment="Center" FontSize="20"/>
- <StackPanel Grid.Column="3" Orientation="Vertical" Margin="8,0,0,0" VerticalAlignment="Center">
- <!-- Edit button visible only for unlimited coupons -->
- <Button Content="{x:Bind IsLimited, Converter={StaticResource BoolToEditLabelConverter}}" 
+                    <!-- Selected Items ListView -->
+                    <ListView x:Name="SelectedItemsListView" Grid.Row="1" BorderThickness="1" Margin="0,0,0,10">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:ReceiptItem">
+                                <Border Padding="10" Margin="5,5,5,5" CornerRadius="6" BorderThickness="1" BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}">
+                                    <Grid Padding="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind CouponDefinition.Name}" FontWeight="SemiBold" FontSize="20"/>
+                                            <!-- show COM badge if applicable -->
+                                            <TextBlock Text="{x:Bind ComBadgeText}" FontSize="14" Foreground="Orange" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                                            <!-- show selected generated codes (if any) below the name -->
+                                            <TextBlock Text="{x:Bind SelectedCodesPreview}" FontSize="16" Opacity="0.9" Foreground="Green" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{x:Bind CouponDefinition.Code}" FontSize="14" Opacity="0.7"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Quantity}" TextAlignment="Center" VerticalAlignment="Center" FontSize="20"/>
+                                        <TextBlock Grid.Column="2" Text="{x:Bind TotalPrice}" TextAlignment="Right" VerticalAlignment="Center" FontSize="20"/>
+                                        <StackPanel Grid.Column="3" Orientation="Vertical" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <!-- Edit button visible only for unlimited coupons -->
+                                            <Button Content="{x:Bind IsLimited, Converter={StaticResource BoolToEditLabelConverter}}" 
  Tag="{Binding}" Click="EditItemButton_Click" FontSize="18" Padding="8,6" Margin="0,0,0,6"
  Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}"/>
- <Button Content="ลบ" Tag="{Binding}" Click="DeleteItemButton_Click" FontSize="18" Padding="8,6" />
- </StackPanel>
- </Grid>
- </Border>
- </DataTemplate>
- </ListView.ItemTemplate>
- </ListView>
+                                            <Button Content="ลบ" Tag="{Binding}" Click="DeleteItemButton_Click" FontSize="18" Padding="8,6" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
 
- <!-- Payment Method Section -->
- <StackPanel Grid.Row="2" Margin="0,10,0,10">
- <TextBlock Text="วิธีการชำระเงิน" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8" />
- <TextBlock x:Name="PaymentMethodErrorText" Text="* กรุณาเลือกวิธีการชำระเงิน" 
+                    <!-- Payment Method Section -->
+                    <StackPanel Grid.Row="2" Margin="0,10,0,10">
+                        <TextBlock Text="วิธีการชำระเงิน" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <TextBlock x:Name="PaymentMethodErrorText" Text="* กรุณาเลือกวิธีการชำระเงิน" 
  Foreground="Red" FontSize="18" Visibility="Collapsed" Margin="0,0,0,6" />
- 
- <StackPanel x:Name="PaymentMethodPanel" Orientation="Horizontal" Spacing="12">
- <!-- เช็คบ็อกจะถูกสร้างแบบไดนามิกใน code-behind -->
- </StackPanel>
- </StackPanel>
 
- <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,12">
- <TextBlock Text="เลือกเซลล์:" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="18" />
- <ComboBox x:Name="SalesPersonComboBox"
+                        <StackPanel x:Name="PaymentMethodPanel" Orientation="Horizontal" Spacing="12">
+                            <!-- เช็คบ็อกจะถูกสร้างแบบไดนามิกใน code-behind -->
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBlock Text="เลือกเซลล์:" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="18" />
+                        <ComboBox x:Name="SalesPersonComboBox"
  Width="220"
  DisplayMemberPath="Name"
  SelectedValuePath="ID"
  PlaceholderText="เลือกเซลล์"
  FontSize="18"
  VerticalAlignment="Center"/>
- </StackPanel>
+                    </StackPanel>
 
- <!-- Total Price Summary - 3 rows -->
- <StackPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,10,0,10"
+                    <!-- Total Price Summary - 3 rows -->
+                    <StackPanel Grid.Row="3" HorizontalAlignment="Right" Margin="0,10,0,10"
  Padding="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" 
 BorderThickness="1" CornerRadius="8">
-  
-  <!-- Row 1: Subtotal (ราคารวมก่อนลด) -->
-  <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
-     <TextBlock Text="ราคารวมก่อนลด: " FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="180" TextAlignment="Right" />
-    <TextBlock x:Name="SubtotalTextBlock" Text="0.00" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" 
+
+                        <!-- Row 1: Subtotal (ราคารวมก่อนลด) -->
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                            <TextBlock Text="ราคารวมก่อนลด: " FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="180" TextAlignment="Right" />
+                            <TextBlock x:Name="SubtotalTextBlock" Text="0.00" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" 
    Margin="8,0" MinWidth="100" TextAlignment="Right" />
-     <TextBlock Text="บาท" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
-   </StackPanel>
+                            <TextBlock Text="บาท" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </StackPanel>
 
-       <!-- Row 2: Total Discount (ส่วนลดรวม) -->
-     <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
-   <TextBlock Text="ส่วนลดรวม: " FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="180" TextAlignment="Right" />
-       <TextBlock x:Name="TotalDiscountTextBlock" Text="0.00" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" 
+                        <!-- Row 2: Total Discount (ส่วนลดรวม) -->
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                            <TextBlock Text="ส่วนลดรวม: " FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="180" TextAlignment="Right" />
+                            <TextBlock x:Name="TotalDiscountTextBlock" Text="0.00" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" 
   Margin="8,0" Foreground="Orange" MinWidth="100" TextAlignment="Right" />
-     <TextBlock Text="บาท" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
-           </StackPanel>
+                            <TextBlock Text="บาท" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </StackPanel>
 
-  <!-- Separator Line -->
-    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,8,0,8" />
+                        <!-- Separator Line -->
+                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,8,0,8" />
 
-             <!-- Row 3: Net Total (รวมสุทธิ) -->
-          <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
- <TextBlock Text="รวมสุทธิ: " FontSize="24" FontWeight="Bold" VerticalAlignment="Center" MinWidth="180" TextAlignment="Right" />
-         <TextBlock x:Name="TotalPriceTextBlock" Text="0.00" FontSize="24" FontWeight="Bold" VerticalAlignment="Center" 
+                        <!-- Row 3: Net Total (รวมสุทธิ) -->
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                            <TextBlock Text="รวมสุทธิ: " FontSize="24" FontWeight="Bold" VerticalAlignment="Center" MinWidth="180" TextAlignment="Right" />
+                            <TextBlock x:Name="TotalPriceTextBlock" Text="0.00" FontSize="24" FontWeight="Bold" VerticalAlignment="Center" 
     Margin="8,0" Foreground="Green" MinWidth="100" TextAlignment="Right" />
-     <TextBlock Text="บาท" FontSize="24" FontWeight="Bold" VerticalAlignment="Center" />
-   </StackPanel>
-    </StackPanel>
- </Grid>
- </Border>
- </Grid>
- </Grid>
+                            <TextBlock Text="บาท" FontSize="24" FontWeight="Bold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
 </Page>

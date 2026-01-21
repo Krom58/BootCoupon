@@ -84,7 +84,6 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
@@ -112,15 +111,20 @@
                     </ComboBox>
                 </StackPanel>
 
-                <!-- Search -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,15,0">
+                <!-- Search + SaleEvent filter -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,15,0" VerticalAlignment="Center" Spacing="8">
                     <TextBlock Text="ค้นหา:" VerticalAlignment="Center" Margin="0,0,5,0"/>
                     <TextBox x:Name="SearchTextBox" Width="200" PlaceholderText="รหัสหรือชื่อคูปอง" TextChanged="SearchTextBox_TextChanged"/>
-                    <Button Content="🔍" Margin="5,0,0,0" Click="SearchButton_Click"/>
+                    <TextBlock Text="ชื่องาน:" VerticalAlignment="Center" Margin="8,0,5,0"/>
+                    <ComboBox x:Name="SaleEventFilterComboBox" Width="200" SelectionChanged="SaleEventFilterComboBox_SelectionChanged">
+                        <!-- Items populated dynamically -->
+                        <ComboBoxItem Content="ทั้งหมด" Tag="ALL" IsSelected="True"/>
+                    </ComboBox>
+                    <Button Content="🔍" Click="SearchButton_Click"/>
                 </StackPanel>
 
                 <!-- Actions -->
-                <StackPanel Grid.Column="4" Orientation="Horizontal">
+                <StackPanel Grid.Column="3" Orientation="Horizontal">
                     <Button x:Name="CreateButton" Content="สร้างใหม่" 
                             Style="{StaticResource AccentButtonStyle}" 
                             Margin="0,0,10,0"
@@ -168,31 +172,31 @@
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,20,0">
-                                            <TextBlock Text="ประเภท: " FontWeight="SemiBold"/>
+                                            <TextBlock Text="ประเภท: " FontWeight="SemiBold" Margin="0,0,8,0"/>
                                             <TextBlock Text="{x:Bind TypeDisplayText}"/>
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,20,0">
-                                            <TextBlock Text="ราคา: " FontWeight="SemiBold"/>
+                                            <TextBlock Text="ราคา: " FontWeight="SemiBold" Margin="0,0,8,0"/>
                                             <TextBlock Text="{x:Bind Price, Converter={StaticResource CurrencyConverter}}"/>
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,20,0">
-                                            <TextBlock Text="วันหมดอายุ: " FontWeight="SemiBold"/>
+                                            <TextBlock Text="วันหมดอายุ: " FontWeight="SemiBold" Margin="0,0,8,0"/>
                                             <TextBlock Text="{x:Bind ValidTo, Converter={StaticResource DateConverter}}"/>
                                         </StackPanel>
 
                                         <!-- NEW: Sale event display -->
-                                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal">
                                             <TextBlock Text="ชื่องานที่ออกขาย: " FontWeight="SemiBold" Margin="0,0,8,0"/>
                                             <TextBlock Text="{x:Bind SaleEventName}" />
                                         </StackPanel>
                                     </Grid>
 
                                     <StackPanel Orientation="Horizontal" Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}">
-                                        <TextBlock Text="รหัสถัดไป: " FontWeight="SemiBold"/>
+                                        <TextBlock Text="รหัสถัดไป: " FontWeight="SemiBold" Margin="0,0,8,0"/>
                                         <TextBlock Text="{x:Bind CodeGenerator.NextCode}"/>
-                                        <TextBlock Text=" | สร้างแล้ว: " Margin="15,0,0,0"/>
+                                        <TextBlock Text=" | สร้างแล้ว: " Margin="8,0,8,0"/>
                                         <TextBlock Text="{x:Bind CodeGenerator.GeneratedCount}"/>
                                         <TextBlock Text=" คูปอง"/>
                                     </StackPanel>
@@ -243,9 +247,20 @@
                                             Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}"
                                             IsEnabled="{x:Bind IsCurrentlyValid}"/>
                                     <ToggleButton Content="{x:Bind IsActive, Converter={StaticResource ActiveToggleConverter}}"
-                                                      IsChecked="{x:Bind IsActive}"
-                                                      Click="ActiveToggle_Click"
-                                                      Tag="{x:Bind}"/>
+                                      IsChecked="{x:Bind IsActive}"
+                                      Click="ActiveToggle_Click"
+                                      Tag="{x:Bind}"/>
+                                    <!--<Button Content="ลบคูปองที่ถูกสร้าง" 
+                                            Background="#DC3545"
+                                            Foreground="White"
+                                            Click="DeleteButton_Click"
+                                            Tag="{x:Bind}"
+                                            Visibility="{x:Bind HasGeneratedCoupons, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Button.Resources>
+                                            <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#C82333"/>
+                                            <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#BD2130"/>
+                                        </Button.Resources>
+                                    </Button>-->
                                 </StackPanel>
                             </Grid>
                         </Border>

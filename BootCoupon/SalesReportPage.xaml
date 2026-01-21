@@ -21,7 +21,9 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -118,8 +120,17 @@ PlaceholderText="ทุกประเภท"
        HorizontalAlignment="Stretch"/>
                 </StackPanel>
 
-                <!-- Row3: New Checkboxes for Cancelled Receipts -->
-                <!-- ลบ Row3 ออกเพราะไม่ต้องการเช็คบ็อกซ์แล้ว -->
+                <!-- Row3: Job name filter (ชื่องานที่ออกขาย) -->
+                <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,15,15"
+      Visibility="{Binding Path=ViewModel.ReportMode, ElementName=RootPage, Converter={StaticResource FilterVisibility}, ConverterParameter=JobName}">
+                    <TextBlock Text="ชื่องานที่ออกขาย:" Margin="0,0,0,5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                    <ComboBox x:Name="JobComboBox"
+                              ItemsSource="{x:Bind ViewModel.Jobs, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.SelectedJob, Mode=TwoWay}"
+                              DisplayMemberPath="Name"
+                              PlaceholderText="ทุกงาน"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
 
                 <!-- Report mode buttons -->
                 <StackPanel Grid.Row="4" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="10" Margin="0,0,0,15">

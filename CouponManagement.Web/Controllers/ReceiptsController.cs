@@ -62,6 +62,8 @@ namespace CouponManagement.Web.Controllers
         /// <param name="salesPersonId">Optional sales person id filter.</param>
         /// <param name="paymentMethodId">Optional payment method id filter.</param>
         /// <param name="couponCode">Optional coupon code (definition code or generated code) to filter receipts.</param>
+        /// <param name="branchId">Optional branch id filter (filters by CouponDefinition.BranchId).</param>
+        /// <param name="saleEventId">Optional sale event id filter (filters by CouponDefinition.SaleEventId).</param>
         /// <returns>Paged result of receipts.</returns>
         [HttpGet]
         public async Task<IActionResult> GetReceipts(
@@ -75,7 +77,9 @@ namespace CouponManagement.Web.Controllers
             [FromQuery] string? status = null,
             [FromQuery] int? salesPersonId = null,
             [FromQuery] int? paymentMethodId = null,
-            [FromQuery] string? couponCode = null)
+            [FromQuery] string? couponCode = null,
+            [FromQuery] int? branchId = null,
+            [FromQuery] int? saleEventId = null)
         {
             try
             {
@@ -153,14 +157,25 @@ namespace CouponManagement.Web.Controllers
                     query = query.Where(r => matchingReceiptIds.Contains(r.ReceiptID));
                 }
 
-                // NEW (existing behavior): only include receipts that have at least one ReceiptItem whose CouponDefinition's CouponType
-                // is either "ASIA BANGKOK" or "ONLINE".
-                var wantedTypes = new[] { "ASIA BANGKOK", "ONLINE" };
-                var wantedUpper = wantedTypes.Select(w => w.ToUpper()).ToList();
+                // Determine coupon definition ids that should be considered when filtering receipts.
+                // Respect incoming branchId and saleEventId filters so frontend dropdowns actually filter results.
+                var defQuery = context.CouponDefinitions.AsQueryable();
 
-                var matchingDefIds = await context.CouponDefinitions
-                    .Include(cd => cd.Branch)
-                    .Where(cd => cd.Branch != null && wantedUpper.Contains(cd.Branch.Name.ToUpper()))
+                // If branchId or saleEventId provided, apply those filters to the coupon definitions considered
+                if (branchId.HasValue)
+                {
+                    defQuery = defQuery.Where(cd => cd.BranchId == branchId.Value);
+                }
+
+                if (saleEventId.HasValue)
+                {
+                    defQuery = defQuery.Where(cd => cd.SaleEventId == saleEventId.Value);
+                }
+
+                // Keep only definitions that are associated with a branch (existing behavior)
+                defQuery = defQuery.Where(cd => cd.Branch != null);
+
+                var matchingDefIds = await defQuery
                     .Select(cd => cd.Id)
                     .ToListAsync();
 
