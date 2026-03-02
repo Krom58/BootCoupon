@@ -241,11 +241,11 @@
                                             Click="EditButton_Click"
                                             Tag="{x:Bind}"/>
                                     <Button Content="สร้างคูปอง" 
-                                            Style="{StaticResource AccentButtonStyle}"
-                                            Click="GenerateButton_Click"
-                                            Tag="{x:Bind}"
-                                            Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}"
-                                            IsEnabled="{x:Bind IsCurrentlyValid}"/>
+        Style="{StaticResource AccentButtonStyle}"
+        Click="GenerateButton_Click"
+        Tag="{x:Bind}"
+        Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}"
+        IsEnabled="{x:Bind IsActive, Mode=OneWay}"/>
                                     <ToggleButton Content="{x:Bind IsActive, Converter={StaticResource ActiveToggleConverter}}"
                                       IsChecked="{x:Bind IsActive}"
                                       Click="ActiveToggle_Click"

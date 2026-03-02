@@ -38,14 +38,63 @@ namespace BootCoupon
         private static readonly SemaphoreSlim dialogSemaphore = new(1,1);
         private static bool isPrintingInProgress = false;
 
+        // add near top static fields:
+        private static decimal overrideComDiscount = 0m;
+
         /// <summary>
         /// พิมพ์ใบเสร็จโดยไม่ต้องเปิดหน้า Preview
         /// </summary>
         /// <param name="receiptId">รหัสใบเสร็จ</param>
         /// <param name="xamlRoot">XamlRoot สำหรับแสดง dialog</param>
+        /// <param name="comDiscount">COM discount (ถ้าเป็น 0 จะคำนวณอัตโนมัติจากฐานข้อมูล)</param>
         /// <returns>true ถ้าพิมพ์สำเร็จ, false ถ้าไม่สำเร็จ</returns>
-        public static async Task<bool> PrintReceiptAsync(int receiptId, XamlRoot xamlRoot)
+        public static async Task<bool> PrintReceiptAsync(int receiptId, XamlRoot xamlRoot, decimal comDiscount = 0m)
         {
+            // ✅ ถ้า comDiscount = 0 ให้คำนวณจากฐานข้อมูลอัตโนมัติ
+            if (comDiscount == 0m)
+            {
+                try
+                {
+                    using (var ctx = new CouponContext())
+                    {
+                        // โหลด receipt items
+                        var items = await ctx.ReceiptItems
+                            .AsNoTracking()
+                            .Where(ri => ri.ReceiptId == receiptId)
+                            .ToListAsync();
+
+                        var receiptItemIds = items
+                            .Select(i => i.ReceiptItemId)
+                            .Where(id => id != 0)
+                            .ToList();
+
+                        if (receiptItemIds.Any())
+                        {
+                            // คำนวณ COM discount จากคูปองที่ marked เป็น complimentary
+                            comDiscount = await (from gc in ctx.GeneratedCoupons.AsNoTracking()
+                                                 join cd in ctx.CouponDefinitions.AsNoTracking() 
+                                                     on gc.CouponDefinitionId equals cd.Id
+                                                 where gc.ReceiptItemId != null
+                                                       && receiptItemIds.Contains(gc.ReceiptItemId.Value)
+                                                       && gc.IsComplimentary == true
+                                                 select cd.Price)
+                                                .SumAsync();
+                    
+                            Debug.WriteLine($"คำนวณ COM discount อัตโนมัติ: {comDiscount:N2} บาท");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"ข้อผิดพลาดในการคำนวณ COM discount: {ex.Message}");
+                    // ถ้าคำนวณไม่สำเร็จ ให้ใช้ 0
+                    comDiscount = 0m;
+                }
+            }
+            
+            // ตั้งค่า override value สำหรับแสดงผล
+            overrideComDiscount = comDiscount;
+
             // ป้องกันการพิมพ์พร้อมกัน
             if (isPrintingInProgress)
             {
@@ -56,7 +105,7 @@ namespace BootCoupon
             try
             {
                 isPrintingInProgress = true;
-                Debug.WriteLine($"เริ่มพิมพ์ใบเสร็จ ID: {receiptId}");
+                Debug.WriteLine($"เริ่มพิมพ์ใบเสร็จ ID: {receiptId} (COM discount: {comDiscount:N2})");
 
                 // โหลดข้อมูลใบเสร็จ
                 if (!await LoadReceiptDataAsync(receiptId))
@@ -315,9 +364,31 @@ namespace BootCoupon
                 printDocument.GetPreviewPage += PrintDocument_GetPreviewPage;
                 printDocument.AddPages += PrintDocument_AddPages;
 
-                // วิธีใหม่สำหรับ WinUI3 - ใช้ MainWindow instance
+                // Ensure the print visuals (canvas & children) are created on the UI thread
                 if (App.MainWindowInstance != null)
                 {
+                    var createCanvasTcs = new TaskCompletionSource<bool>();
+                    App.MainWindowInstance.DispatcherQueue.TryEnqueue(() =>
+                    {
+                        try
+                        {
+                            // CreatePrintCanvas uses XAML APIs and logoBitmap; run it on UI thread
+                            CreatePrintCanvas();
+                            Debug.WriteLine("Pre-created printCanvas on UI thread");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"CreatePrintCanvas on UI thread failed: {ex.Message}");
+                        }
+                        finally
+                        {
+                            createCanvasTcs.SetResult(true);
+                        }
+                    });
+
+                    // wait for UI-thread creation before showing print UI
+                    await createCanvasTcs.Task;
+
                     var windowHandle = WindowNative.GetWindowHandle(App.MainWindowInstance);
                     printManager = PrintManagerInterop.GetForWindow(windowHandle);
 
@@ -1234,9 +1305,12 @@ namespace BootCoupon
                 totalGrid.Children.Add(bottomGrid);
 
                 // Right column - numeric values aligned with the three rows
-                decimal netTotal = receipt.TotalAmount; // already net in model
-                decimal discount = receipt.Discount;
-                decimal beforeTotal = netTotal + discount;
+                // receipt.TotalAmount stored as subtotal (gross)
+                decimal beforeTotal = receipt.TotalAmount;
+                decimal additionalDiscount = receipt.Discount; // stored in DB (user-entered additional discount)
+                decimal com = overrideComDiscount; // passed from client for display only (not persisted)
+                decimal discount = com + additionalDiscount;
+                decimal netTotal = Math.Max(0m, beforeTotal - discount);
 
                 // ช่อง "รวมทั้งหมด (ก่อนส่วนลด)"
                 var rightBorder1 = new Border 

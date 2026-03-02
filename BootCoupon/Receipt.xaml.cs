@@ -24,6 +24,8 @@ using Windows.ApplicationModel.Core;
 using Windows.Graphics.Printing;
 using Windows.Graphics.Printing.OptionDetails;
 using WinRT.Interop;
+using System.Data;
+using Microsoft.Data.SqlClient;
 
 namespace BootCoupon
 {
@@ -266,16 +268,27 @@ namespace BootCoupon
     public sealed partial class Receipt : Page
     {
         // add a field to hold receipt-level discount when creating a receipt
-        private decimal _receiptDiscount =0m;
+        private decimal _receiptDiscount = 0m;
 
         private readonly CouponContext _context = new CouponContext();
+
+        // Master collection (all search results)
+        private readonly ObservableCollection<CouponDefinitionDisplay> _allCouponDefinitionDisplays = new();
+
+        // Paged collection bound to the ListView
         private readonly ObservableCollection<CouponDefinitionDisplay> _couponDefinitionDisplays = new();
+
         private readonly ObservableCollection<ReceiptItem> _selectedItems = new();
         private readonly ObservableCollection<SalesPerson> _salesPersons = new();
         private readonly string _reservationSessionId = Guid.NewGuid().ToString();
         private readonly ReservationService _reservationService;
         private readonly List<PaymentMethod> _paymentMethods = new();
         private readonly List<CheckBox> _paymentCheckBoxes = new();
+
+        // Pagination fields
+        private int _currentPage = 1;
+        private const int _pageSize = 25;
+        private int _totalPages = 1;
 
         // เพิ่มตัวแปรสำหรับ debounce
         private System.Threading.Timer? _searchTimer;
@@ -284,12 +297,30 @@ namespace BootCoupon
         // เก็บค่า VerticalOffset ของ ListView เพื่อคืนสถานะหลังรีเฟรช
         private double _couponListVerticalOffset = 0;
 
+        private static int ParseTrailingNumber(string? code)
+        {
+            if (string.IsNullOrEmpty(code))
+                return int.MaxValue;
+
+            int i = code.Length - 1;
+            while (i >= 0 && char.IsDigit(code[i])) i--;
+            var digits = code.Substring(i + 1);
+            if (string.IsNullOrEmpty(digits))
+                return int.MaxValue;
+
+            // ป้องกัน overflow — ใช้เฉพาะ 9 หลักท้ายสุดถ้ามากเกินไป
+            if (digits.Length > 9)
+                digits = digits.Substring(digits.Length - 9);
+
+            return int.TryParse(digits, out var n) ? n : int.MaxValue;
+        }
         public Receipt()
         {
             InitializeComponent();
             CouponDefinitionsListView.ItemsSource = _couponDefinitionDisplays;
             SelectedItemsListView.ItemsSource = _selectedItems;
             SalesPersonComboBox.ItemsSource = _salesPersons;
+            _reservationService = new ReservationService(_context);
             _reservationService = new ReservationService(_context);
             this.Loaded += Receipt_Loaded;
         }
@@ -305,6 +336,9 @@ namespace BootCoupon
                 await LoadSalesPersons();
                 await LoadBranchTypes(); // เพิ่มการเรียกใช้ LoadBranchTypes กลับมา
                 await LoadPaymentMethods();
+
+                // new: load sale events for dropdown
+                await LoadSaleEvents();
             }
             catch (Exception ex)
             {
@@ -320,7 +354,7 @@ namespace BootCoupon
 
                 // ตรวจสอบว่าตาราง PaymentMethods มีข้อมูลหรือไม่
                 var paymentMethodsExist = await _context.PaymentMethods.AnyAsync();
-                
+
                 if (!paymentMethodsExist)
                 {
                     // สร้างข้อมูลเริ่มต้นถ้ายังไม่มี
@@ -334,7 +368,7 @@ namespace BootCoupon
 
                     _context.PaymentMethods.AddRange(defaultPaymentMethods);
                     await _context.SaveChangesAsync();
-                    
+
                     Debug.WriteLine("สร้างข้อมูล Payment Methods เริ่มต้นเรียบร้อย");
                 }
 
@@ -354,7 +388,7 @@ namespace BootCoupon
             catch (Exception ex)
             {
                 Debug.WriteLine($"ข้อผิดพลาดในการโหลด Payment Methods: {ex.Message}");
-                
+
                 // สร้าง payment methods แบบ hardcode ถ้าเกิดข้อผิดพลาด
                 CreateFallbackPaymentMethods();
             }
@@ -472,6 +506,45 @@ namespace BootCoupon
             Debug.WriteLine($"โหลด SalesPerson สำเร็จ: {_salesPersons.Count} รายการ (รวม placeholder)");
         }
 
+        // แก้ไขให้มีการตรวจสอบวันที่เริ่มต้นและสิ้นสุดของกิจกรรมขาย
+        private async Task LoadSaleEvents()
+        {
+            try
+            {
+                await _context.Database.EnsureCreatedAsync();
+                var now = DateTime.Now.Date;
+
+                var saleEvents = await _context.SaleEvents
+                    .AsNoTracking()
+                    .Where(se => se.IsActive && se.StartDate <= DateTime.Now && se.EndDate >= DateTime.Now)
+                    .OrderBy(se => se.StartDate)
+                    .ToListAsync();
+
+                SaleEventComboBox.Items.Clear();
+
+                var allItem = new ComboBoxItem { Content = "ทั้งหมด", Tag = "ALL", IsSelected = true };
+                SaleEventComboBox.Items.Add(allItem);
+
+                foreach (var se in saleEvents)
+                {
+                    var item = new ComboBoxItem
+                    {
+                        Content = $"{se.Name} ({se.StartDate:yyyy-MM-dd} – {se.EndDate:yyyy-MM-dd})",
+                        Tag = se.Id.ToString()
+                    };
+                    SaleEventComboBox.Items.Add(item);
+                }
+
+                // ensure default selection
+                if (SaleEventComboBox.Items.Count > 0)
+                    SaleEventComboBox.SelectedIndex = 0;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to load SaleEvents: {ex.Message}");
+            }
+        }
+
         private async Task LoadAllCouponDefinitions()
         {
             // fetch definitions + counts in one DB query (no tracking)
@@ -490,12 +563,13 @@ namespace BootCoupon
                     TotalAllocatedOrUsed = cd.GeneratedCoupons.Count(gc => gc.IsUsed || gc.ReceiptItemId != null),
                     // project SaleEvent metadata to avoid loading full navigation
                     SaleEventId = cd.SaleEventId,
+                    SaleEventStart = cd.SaleEvent != null ? (DateTime?)cd.SaleEvent.StartDate : null,
                     SaleEventEnd = cd.SaleEvent != null ? (DateTime?)cd.SaleEvent.EndDate : null,
                     SaleEventIsActive = cd.SaleEvent != null ? (bool?)cd.SaleEvent.IsActive : null
                 })
                 .ToListAsync();
 
-            _couponDefinitionDisplays.Clear();
+            _allCouponDefinitionDisplays.Clear();
 
             foreach (var r in rows)
             {
@@ -505,8 +579,10 @@ namespace BootCoupon
                     continue;
                 }
 
-                // If coupon is attached to a SaleEvent and that event is inactive or already ended, skip it
-                if (r.SaleEventIsActive != true || (r.SaleEventEnd.HasValue && r.SaleEventEnd.Value.Date < today))
+                // Skip sale events that are inactive or ended or not yet started
+                if (r.SaleEventIsActive != true
+                    || (r.SaleEventEnd.HasValue && r.SaleEventEnd.Value.Date < today)
+                    || (r.SaleEventStart.HasValue && r.SaleEventStart.Value.Date > today))
                 {
                     continue;
                 }
@@ -517,7 +593,7 @@ namespace BootCoupon
 
                 if (totalGenerated == 0 || availableCount > 0)
                 {
-                    _couponDefinitionDisplays.Add(new CouponDefinitionDisplay
+                    _allCouponDefinitionDisplays.Add(new CouponDefinitionDisplay
                     {
                         CouponDefinition = r.Definition,
                         TotalGenerated = totalGenerated,
@@ -525,6 +601,9 @@ namespace BootCoupon
                     });
                 }
             }
+
+            // Apply paging after load
+            ApplyPaging();
         }
 
         private async Task LoadBranchTypes()
@@ -537,7 +616,7 @@ namespace BootCoupon
 
             // Clear existing items
             BranchComboBox.Items.Clear();
-            
+
             // Add "ทั้งหมด" option with Tag "ALL"
             var allItem = new ComboBoxItem { Content = "ทั้งหมด", Tag = "ALL", IsSelected = true };
             BranchComboBox.Items.Add(allItem);
@@ -578,6 +657,11 @@ namespace BootCoupon
         {
             PerformDelayedSearch();
         }
+        private void SaleEventComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            PerformDelayedSearch();
+        }
+
         private void PerformDelayedSearch()
         {
             lock (_searchLock)
@@ -612,6 +696,7 @@ namespace BootCoupon
                 var nameSearch = NameSearchTextBox.Text?.Trim();
                 var codeSearch = CodeSearchTextBox.Text?.Trim();
                 var branchFilter = GetSelectedTag(BranchComboBox);
+                var saleEventFilter = GetSelectedTag(SaleEventComboBox);
 
                 using var ctx = new CouponContext();
                 await ctx.Database.EnsureCreatedAsync();
@@ -639,6 +724,11 @@ namespace BootCoupon
                     query = query.Where(cd => cd.BranchId == branchId);
                 }
 
+                if (saleEventFilter != "ALL" && int.TryParse(saleEventFilter, out int saleEventId))
+                {
+                    query = query.Where(cd => cd.SaleEventId == saleEventId);
+                }
+
                 // Project counts and sale-event metadata server-side to avoid loading GeneratedCoupons collections or SaleEvent navigation
                 var rows = await query
                     .Select(cd => new
@@ -647,70 +737,154 @@ namespace BootCoupon
                         TotalGenerated = cd.GeneratedCoupons.Count(),
                         TotalAllocatedOrUsed = cd.GeneratedCoupons.Count(gc => gc.IsUsed || gc.ReceiptItemId != null),
                         SaleEventId = cd.SaleEventId,
+                        SaleEventStart = cd.SaleEvent != null ? (DateTime?)cd.SaleEvent.StartDate : null,
                         SaleEventEnd = cd.SaleEvent != null ? (DateTime?)cd.SaleEvent.EndDate : null,
                         SaleEventIsActive = cd.SaleEvent != null ? (bool?)cd.SaleEvent.IsActive : null
                     })
                     .ToListAsync();
 
-                _couponDefinitionDisplays.Clear();
-                foreach (var r in rows)
+            // Populate master list
+            _allCouponDefinitionDisplays.Clear();
+            foreach (var r in rows)
+            {
+                // If coupon is NOT attached to a SaleEvent => skip (per requested rule)
+                if (!r.SaleEventId.HasValue)
                 {
-                    // If coupon is NOT attached to a SaleEvent => skip
-                    if (!r.SaleEventId.HasValue)
-                    {
-                        continue;
-                    }
-
-                    // If coupon is linked to a SaleEvent that is inactive or ended, skip it
-                    if (r.SaleEventIsActive != true || (r.SaleEventEnd.HasValue && r.SaleEventEnd.Value.Date < today))
-                    {
-                        continue;
-                    }
-
-                    var totalGenerated = r.TotalGenerated;
-                    var totalAllocatedOrUsed = r.TotalAllocatedOrUsed;
-                    var availableCount = totalGenerated - totalAllocatedOrUsed;
-
-                    if (totalGenerated == 0 || availableCount > 0)
-                    {
-                        _couponDefinitionDisplays.Add(new CouponDefinitionDisplay
-                        {
-                            CouponDefinition = r.Definition,
-                            TotalGenerated = totalGenerated,
-                            TotalUsed = totalAllocatedOrUsed
-                        });
-                    }
+                    continue;
                 }
 
-                // Restore scroll position
-                try
+                // Skip sale events that are inactive or ended or not yet started
+                if (r.SaleEventIsActive != true
+                    || (r.SaleEventEnd.HasValue && r.SaleEventEnd.Value.Date < today)
+                    || (r.SaleEventStart.HasValue && r.SaleEventStart.Value.Date > today))
                 {
-                    DispatcherQueue.TryEnqueue(() =>
+                    continue;
+                }
+
+                var totalGenerated = r.TotalGenerated;
+                var totalAllocatedOrUsed = r.TotalAllocatedOrUsed;
+                var availableCount = totalGenerated - totalAllocatedOrUsed;
+
+                if (totalGenerated == 0 || availableCount > 0)
+                {
+                    _allCouponDefinitionDisplays.Add(new CouponDefinitionDisplay
                     {
-                        var svAfter = FindScrollViewer(CouponDefinitionsListView);
-                        if (svAfter != null)
-                        {
-                            svAfter.ChangeView(null, _couponListVerticalOffset, null, disableAnimation: true);
-                        }
+                        CouponDefinition = r.Definition,
+                        TotalGenerated = totalGenerated,
+                        TotalUsed = totalAllocatedOrUsed
                     });
                 }
-                catch { }
             }
-            catch (Exception ex)
+
+            // Apply paging to display the first page of the result
+            ApplyPaging();
+
+            // Restore scroll position
+            try
             {
-                Debug.WriteLine($"ข้อผิดพลาดในการค้นหา: {ex.Message}");
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    var svAfter = FindScrollViewer(CouponDefinitionsListView);
+                    if (svAfter != null)
+                    {
+                        svAfter.ChangeView(null, _couponListVerticalOffset, null, disableAnimation: true);
+                    }
+                });
             }
+            catch { }
         }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"ข้อผิดพลาดในการค้นหา: {ex.Message}");
+        }
+    }
 
         private string GetSelectedTag(ComboBox comboBox)
         {
             return (comboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "ALL";
         }
 
-        // Helper: หา display จาก CouponDefinition.Id
+        // Helper: หา display จาก CouponDefinition.Id (ค้นหาใน master list)
         private CouponDefinitionDisplay? GetDisplayByDefinitionId(int definitionId)
         {
-            return _couponDefinitionDisplays.FirstOrDefault(d => d.CouponDefinition?.Id == definitionId);
+            return _allCouponDefinitionDisplays.FirstOrDefault(d => d.CouponDefinition?.Id == definitionId);
+        }
+
+        // Applies paging to the master collection and fills the paged collection that's bound to ListView
+        private void ApplyPaging(int page = -1)
+        {
+            if (page >= 1) _currentPage = page;
+            if (_currentPage < 1) _currentPage = 1;
+
+            int totalItems = _allCouponDefinitionDisplays.Count;
+            _totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)_pageSize));
+            if (_currentPage > _totalPages) _currentPage = _totalPages;
+
+            int skip = (_currentPage - 1) * _pageSize;
+            var pageItems = _allCouponDefinitionDisplays.Skip(skip).Take(_pageSize).ToList();
+
+            _couponDefinitionDisplays.Clear();
+            foreach (var it in pageItems)
+                _couponDefinitionDisplays.Add(it);
+
+            // Update page info UI
+            PageInfoTextBlock.Text = $"หน้า {_currentPage} / {_totalPages} ({totalItems} รายการ)";
+
+            UpdatePagingButtons();
+        }
+
+        private void UpdatePagingButtons()
+        {
+            PrevPageButton.IsEnabled = _currentPage > 1;
+            NextPageButton.IsEnabled = _currentPage < _totalPages;
+        }
+
+        private void PrevPageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentPage > 1)
+            {
+                // preserve scroll offset before changing page
+                try
+                {
+                    var sv = FindScrollViewer(CouponDefinitionsListView);
+                    _couponListVerticalOffset = sv?.VerticalOffset ?? 0;
+                }
+                catch { }
+
+                _currentPage--;
+                ApplyPaging();
+
+                // restore offset on new page
+                try
+                {
+                    var svAfter = FindScrollViewer(CouponDefinitionsListView);
+                    svAfter?.ChangeView(null, _couponListVerticalOffset, null, disableAnimation: true);
+                }
+                catch { }
+            }
+        }
+
+        private void NextPageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentPage < _totalPages)
+            {
+                try
+                {
+                    var sv = FindScrollViewer(CouponDefinitionsListView);
+                    _couponListVerticalOffset = sv?.VerticalOffset ?? 0;
+                }
+                catch { }
+
+                _currentPage++;
+                ApplyPaging();
+
+                try
+                {
+                    var svAfter = FindScrollViewer(CouponDefinitionsListView);
+                    svAfter?.ChangeView(null, _couponListVerticalOffset, null, disableAnimation: true);
+                }
+                catch { }
+            }
         }
 
         private async void SelectCouponButton_Click(object sender, RoutedEventArgs e)
@@ -732,70 +906,74 @@ namespace BootCoupon
                     // Use centralized helper to pick specific generated codes
                     var result = await ShowPickGeneratedCodesDialogAsync(selectedDefinition, null);
                     if (result == null) return;
-     
-var (selectedIds, isComMode) = result.Value;
-if (selectedIds == null || !selectedIds.Any()) return;
+                    var (normalSelectedIds, comSelectedIds) = result.Value;
+                    if ((normalSelectedIds == null || !normalSelectedIds.Any()) && (comSelectedIds == null || !comSelectedIds.Any())) return;
 
-       // Work with distinct ids
- var distinctIds = selectedIds.Distinct().ToList();
+                    // Work with distinct ids (preserve order: normal then com)
+                    var allIdsOrdered = new List<int>();
+                    if (normalSelectedIds != null) allIdsOrdered.AddRange(normalSelectedIds);
+                    if (comSelectedIds != null) allIdsOrdered.AddRange(comSelectedIds);
+                    var distinctIds = allIdsOrdered.Distinct().ToList();
 
-      // Load generated codes for preview
-       var codesMap = await _context.GeneratedCoupons
-    .Where(g => distinctIds.Contains(g.Id))
-    .ToDictionaryAsync(g => g.Id, g => g.GeneratedCode);
+                    // Load generated codes for preview
+                    var codesMap = await _context.GeneratedCoupons
+                        .Where(g => distinctIds.Contains(g.Id))
+                        .ToDictionaryAsync(g => g.Id, g => g.GeneratedCode);
 
-   var display2 = GetDisplayByDefinitionId(selectedDefinition.Id);
+                    var display2 = GetDisplayByDefinitionId(selectedDefinition.Id);
 
-     // Add each selected generated id as its own ReceiptItem (Quantity =1),
-         // skip any ids that are already present in selected items
-        foreach (var gid in distinctIds)
-  {
-      var alreadySelected = _selectedItems.Any(it => it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Contains(gid));
-    if (alreadySelected) continue;
+                    // Add each selected generated id as its own ReceiptItem (Quantity =1),
+                    // skip any ids that are already present in selected items
+                    foreach (var gid in distinctIds)
+                    {
+                        var alreadySelected = _selectedItems.Any(it => it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Contains(gid));
+                        if (alreadySelected) continue;
 
-       var receiptItem = new ReceiptItem
-      {
-    CouponDefinition = selectedDefinition,
-          Quantity =1,
- SelectedGeneratedIds = new List<int> { gid },
-        SelectedCodesPreview = codesMap.TryGetValue(gid, out var code) ? code ?? string.Empty : string.Empty,
-    IsCOM = isComMode // เก็บสถานะ COM ที่ได้จาก checkbox
-        };
+                        var isComForThisId = comSelectedIds != null && comSelectedIds.Contains(gid);
 
-      _selectedItems.Add(receiptItem);
+                        var receiptItem = new ReceiptItem
+                        {
+                            CouponDefinition = selectedDefinition,
+                            Quantity = 1,
+                            SelectedGeneratedIds = new List<int> { gid },
+                            SelectedCodesPreview = codesMap.TryGetValue(gid, out var code) ? code ?? string.Empty : string.Empty,
+                            IsCOM = isComForThisId
+                        };
 
-if (display2 != null)
-  {
-   display2.TotalUsed +=1;
-  }
-      }
+                        _selectedItems.Add(receiptItem);
 
-  UpdateTotalPrice();
-       return;
+                        if (display2 != null)
+                        {
+                            display2.TotalUsed += 1;
+                        }
+                    }
+
+                    UpdateTotalPrice();
+                    return;
                 }
 
                 // Non-limited flow (existing behavior)
                 var quantityBox = new NumberBox
                 {
-                    Value =1,
-                    Minimum =1,
+                    Value = 1,
+                    Minimum = 1,
                     Maximum = selectedDefinition.IsLimited ? selectedDisplay.AvailableCount : int.MaxValue, // สำหรับคูปองไม่จำกัด ให้อนุญาตจำนวนมาก
                     SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
-                    Margin = new Thickness(0,10,0,0)
+                    Margin = new Thickness(0, 10, 0, 0)
                 };
 
                 var priceTextBlock = new TextBlock
                 {
                     Text = $"ราคา: {selectedDefinition.Price} บาท/ใบ",
-                    Margin = new Thickness(0,10,0,10)
+                    Margin = new Thickness(0, 10, 0, 10)
                 };
 
                 var availableTextBlock = new TextBlock
                 {
                     Text = selectedDefinition.IsLimited ? $"คงเหลือ: {selectedDisplay.AvailableCount:N0} ใบ" : string.Empty,
-                    Margin = new Thickness(0,5,0,10),
-                    Foreground = selectedDefinition.IsLimited && selectedDisplay.AvailableCount >10 ? 
-                        new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Green) : 
+                    Margin = new Thickness(0, 5, 0, 10),
+                    Foreground = selectedDefinition.IsLimited && selectedDisplay.AvailableCount > 10 ?
+                        new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Green) :
                         new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Orange),
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                 };
@@ -804,12 +982,12 @@ if (display2 != null)
                 {
                     Text = $"รวมเป็นเงิน: {selectedDefinition.Price} บาท",
                     FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                    Margin = new Thickness(0,0,0,10)
+                    Margin = new Thickness(0, 0, 0, 10)
                 };
 
                 void RecalcTotal()
                 {
-                    var q = quantityBox.Value >0 ? (int)quantityBox.Value :0;
+                    var q = quantityBox.Value > 0 ? (int)quantityBox.Value : 0;
                     var total = selectedDefinition.Price * (decimal)q;
                     totalPriceTextBlock.Text = $"รวมเป็นเงิน: {total} บาท";
                 }
@@ -838,7 +1016,7 @@ if (display2 != null)
                 if (result2 == ContentDialogResult.Primary)
                 {
                     // Validate quantity input
-                    if (double.IsNaN(quantityBox.Value) || quantityBox.Value <=0)
+                    if (double.IsNaN(quantityBox.Value) || quantityBox.Value <= 0)
                     {
                         await ShowErrorDialog("กรุณาระบุจำนวนคูปองที่ถูกต้อง");
                         return;
@@ -856,118 +1034,113 @@ if (display2 != null)
                     // Try to reserve in DB for this session before updating UI (เฉพาะคูปองจำกัด)
                     if (selectedDefinition.IsLimited)
                     {
-                        var reserved = await _reservationService.TryReserveAsync(selectedDefinition.Id, _reservationSessionId, quantity, TimeSpan.FromMinutes(10));
+                        var reserved = await _reservation_service_try_reserve_wrapper(selectedDefinition.Id, quantity);
                         if (!reserved)
                         {
                             await ShowErrorDialog("ไม่สามารถสำรองคูปองได้ (จำนวนไม่พอ)");
                             return;
                         }
                     }
-                    
-                     // ถ้ามีรายการเดียวกันอยู่แล้ว ให้เพิ่มจำนวนแทนการสร้างรายการใหม่
-                     var existingItem2 = _selectedItems.FirstOrDefault(it => it.CouponDefinition.Id == selectedDefinition.Id && (it.SelectedGeneratedIds==null || !it.SelectedGeneratedIds.Any()));
-                     if (existingItem2 != null)
-                     {
+
+                    // ถ้ามีรายการเดียวกันอยู่แล้ว ให้เพิ่มจำนวนแทนการสร้างรายการใหม่
+                    var existingItem2 = _selectedItems.FirstOrDefault(it => it.CouponDefinition.Id == selectedDefinition.Id && (it.SelectedGeneratedIds == null || !it.SelectedGeneratedIds.Any()));
+                    if (existingItem2 != null)
+                    {
                         existingItem2.Quantity += quantity;
-                         // ปรับ TotalUsed ใน display เพื่อสะท้อนการสำรองคูปอง (เฉพาะคูปองจำกัด)
-                         var display2 = GetDisplayByDefinitionId(selectedDefinition.Id);
-                         if (display2 != null && selectedDefinition.IsLimited)
-                         {
-                             display2.TotalUsed += quantity;
-                         }
-                     }
-                     else
-                     {
-                         // เพิ่มลงในรายการที่เลือก
-                         var receiptItem = new ReceiptItem
-                         {
-                             CouponDefinition = selectedDefinition,
-                             Quantity = quantity
-                         };
+                        // ปรับ TotalUsed ใน display เพื่อสะท้อนการสำรองคูปอง (เฉพาะคูปองจำกัด)
+                        var display2 = GetDisplayByDefinitionId(selectedDefinition.Id);
+                        if (display2 != null && selectedDefinition.IsLimited)
+                        {
+                            display2.TotalUsed += quantity;
+                        }
+                    }
+                    else
+                    {
+                        // เพิ่มลงในรายการที่เลือก
+                        var receiptItem = new ReceiptItem
+                        {
+                            CouponDefinition = selectedDefinition,
+                            Quantity = quantity
+                        };
 
-                         _selectedItems.Add(receiptItem);
+                        _selectedItems.Add(receiptItem);
 
-                         // ปรับ TotalUsed ใน display เพื่อสะท้อนการสำรองคูปอง (เฉพาะคูปองจำกัด)
-                         var display2 = GetDisplayByDefinitionId(selectedDefinition.Id);
-                         if (display2 != null && selectedDefinition.IsLimited)
-                         {
-                             display2.TotalUsed += quantity;
-                         }
-                     }
+                        // ปรับ TotalUsed ใน display เพื่อสะท้อนการสำรองคูปอง (เฉพาะคูปองจำกัด)
+                        var display2 = GetDisplayByDefinitionId(selectedDefinition.Id);
+                        if (display2 != null && selectedDefinition.IsLimited)
+                        {
+                            display2.TotalUsed += quantity;
+                        }
+                    }
 
-                     UpdateTotalPrice();
+                    UpdateTotalPrice();
 
-                     // ไม่รีเฟรชจาก DB เพื่อไม่ให้สูญเสียการสำรองที่ยังไม่บันทึก
-                 }
-             }
-         }
-
-        // New helper: show dialog to pick generated codes (searchable checklist). Returns selected generated coupon IDs and COM flag or null if cancelled.
-        private async Task<(List<int>? selectedIds, bool isCom)?> ShowPickGeneratedCodesDialogAsync(CouponDefinition selectedDefinition, ReceiptItem? existingItem)
-      {
-    await _context.Database.EnsureCreatedAsync();
-
- var initialSelectedIds = existingItem?.SelectedGeneratedIds ?? new List<int>();
-
-      // รวบรวม IDs ของหมายเลขที่ถูกเลือกไปแล้วในรายการอื่นๆ (ยกเว้นรายการปัจจุบัน)
-        var alreadySelectedInOtherItems = _selectedItems
-    .Where(it => it != existingItem && it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Any())
- .SelectMany(it => it.SelectedGeneratedIds)
-     .Distinct()
-     .ToList();
-
-            // Include currently selected ids even if marked IsUsed, so user can manage them
- var availableCodes = await _context.GeneratedCoupons
-    .Where(g => g.CouponDefinitionId == selectedDefinition.Id && ((g.ReceiptItemId == null && !g.IsUsed) || initialSelectedIds.Contains(g.Id)))
-     .OrderBy(g => g.GeneratedCode)
-  .Take(2000)
-        .ToListAsync();
-
-   var stack = new StackPanel { Spacing = 6 };
-
-   stack.Children.Add(new TextBlock { Text = $"เลือกหมายเลขคูปองสำหรับ '{selectedDefinition.Name}'", TextWrapping = TextWrapping.Wrap });
-        
-    // Add COM checkbox in the dialog
-        var comCheckBox = new CheckBox 
-        { 
-            Content = "โหมด: COM (ตั๋วฟรี) - รหัสที่เลือกจะถูกทำเครื่องหมายเป็นตั๋วฟรี", 
-            FontSize = 16,
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange),
-     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-   Margin = new Thickness(0, 4, 0, 8)
-  };
-        stack.Children.Add(comCheckBox);
-
-// New: quantity input to allow quick selection of N codes
-        var quantityPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        quantityPanel.Children.Add(new TextBlock { Text = "จำนวนที่ต้องการ:", VerticalAlignment = VerticalAlignment.Center });
-        var quantityBox = new NumberBox
+                    // ไม่รีเฟรชจาก DB เพื่อไม่ให้สูญเสียการสำรองที่ยังไม่บันทึก
+                }
+            }
+        }
+        // If the older single-result method name does not exist in your file, add this compatibility wrapper
+        // which contains the previous single-list dialog implementation. If you already have the full
+        // two-list implementation elsewhere, you can remove the wrapper above and keep that implementation.
+        private async Task<(List<int>? selectedIds, bool isComMode)?> ShowPickGeneratedCodesDialogAsync_Old(CouponDefinition selectedDefinition, ReceiptItem? existingItem)
         {
-            Minimum = 1,
-            Maximum = Math.Max(1, availableCodes.Count),
-            Value = initialSelectedIds.Count > 0 ? initialSelectedIds.Count : 1,
-            Width = 220,
-            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline
-        };
-        quantityPanel.Children.Add(quantityBox);
-        stack.Children.Add(quantityPanel);
+            await _context.Database.EnsureCreatedAsync();
 
-// Search box to filter the checklist
-  var searchBox = new TextBox { PlaceholderText = "ค้นหารหัส (พิมพ์แล้วรายการจะกรองอัตโนมัติ)", Margin = new Thickness(0, 4, 0, 0) };
-        stack.Children.Add(searchBox);
+            var initialSelectedIds = existingItem?.SelectedGeneratedIds ?? new List<int>();
 
-          var infoText = new TextBlock { Text = $"หมายเลขที่แสดง: 0 / {availableCodes.Count}", Margin = new Thickness(0, 6, 0, 0) };
+            // IDs already chosen in other receipt items (exclude current item)
+            var alreadySelectedInOtherItems = _selectedItems
+                .Where(it => it != existingItem && it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Any())
+                .SelectMany(it => it.SelectedGeneratedIds!)
+                .Distinct()
+                .ToList();
+
+            var availableCodes = await _context.GeneratedCoupons
+                .Where(g => g.CouponDefinitionId == selectedDefinition.Id && ((g.ReceiptItemId == null && !g.IsUsed) || initialSelectedIds.Contains(g.Id)))
+                .ToListAsync();
+
+            var stack = new StackPanel { Spacing = 6 };
+            stack.Children.Add(new TextBlock { Text = $"เลือกหมายเลขคูปองสำหรับ '{selectedDefinition.Name}'", TextWrapping = TextWrapping.Wrap });
+
+            // COM checkbox
+            var comCheckBox = new CheckBox
+            {
+                Content = "โหมด: COM (ตั๋วฟรี) - รหัสที่เลือกจะถูกทำเครื่องหมายเป็นตั๋วฟรี",
+                FontSize = 16,
+                Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange),
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Margin = new Thickness(0, 4, 0, 8)
+            };
+            stack.Children.Add(comCheckBox);
+
+            // Quantity input for quick selection
+            var quantityPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            quantityPanel.Children.Add(new TextBlock { Text = "จำนวนที่ต้องการ:", VerticalAlignment = VerticalAlignment.Center });
+            var quantityBox = new NumberBox
+            {
+                Minimum = 1,
+                Maximum = Math.Max(1, availableCodes.Count),
+                Value = initialSelectedIds.Count > 0 ? initialSelectedIds.Count : 1,
+                Width = 220,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline
+            };
+            quantityPanel.Children.Add(quantityBox);
+            stack.Children.Add(quantityPanel);
+
+            // Search box
+            var searchBox = new TextBox { PlaceholderText = "ค้นหารหัส (พิมพ์แล้วรายการจะกรองอัตโนมัติ)", Margin = new Thickness(0, 4, 0, 0) };
+            stack.Children.Add(searchBox);
+
+            var infoText = new TextBlock { Text = $"หมายเลขที่แสดง: 0 / {availableCodes.Count}", Margin = new Thickness(0, 6, 0, 0) };
             stack.Children.Add(infoText);
 
-    var scroll = new ScrollViewer { Height = 300 };
+            var scroll = new ScrollViewer { Height = 300 };
             var resultsPanel = new StackPanel { Spacing = 2 };
             scroll.Content = resultsPanel;
-          stack.Children.Add(scroll);
+            stack.Children.Add(scroll);
 
-            // Dictionary to keep track of checkboxes so we can read selections later
             var checkboxMap = new Dictionary<int, CheckBox>();
 
-            // Function to populate resultsPanel based on filter
             void PopulateResults(string? filter)
             {
                 resultsPanel.Children.Clear();
@@ -979,71 +1152,51 @@ if (display2 != null)
                     query = query.Where(g => g.GeneratedCode?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0);
                 }
 
-                // Limit displayed to avoid UI freeze
                 var displayed = query.Take(1000).ToList();
 
                 foreach (var g in displayed)
                 {
                     var isAlreadySelected = alreadySelectedInOtherItems.Contains(g.Id);
-                    
-                    // สร้าง content ที่แสดงสถานะ
-   var content = g.GeneratedCode;
-            if (isAlreadySelected)
-  {
-          content += " (ถูกเลือกแล้ว)";
-    }
+                    var content = g.GeneratedCode;
+                    if (isAlreadySelected) content += " (ถูกเลือกแล้ว)";
 
-  var cb = new CheckBox 
-         { 
-      Content = content, 
-   Tag = g.Id, 
-   Margin = new Thickness(0, 2, 0, 2),
-    IsEnabled = !isAlreadySelected // ปิดการใช้งานถ้าถูกเลือกไปแล้ว
-          };
+                    var cb = new CheckBox
+                    {
+                        Content = content,
+                        Tag = g.Id,
+                        Margin = new Thickness(0, 2, 0, 2),
+                        IsEnabled = !isAlreadySelected
+                    };
 
-    // ถ้าเป็นหมายเลขที่เลือกไว้ในรายการปัจจุบัน ให้ check ไว้
-                 if (initialSelectedIds.Contains(g.Id)) 
-        {
-    cb.IsChecked = true;
-       }
+                    if (initialSelectedIds.Contains(g.Id))
+                        cb.IsChecked = true;
 
-  // เปลี่ยนสีถ้าถูกเลือกไปแล้ว
-    if (isAlreadySelected)
-         {
-             cb.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray);
-    }
+                    if (isAlreadySelected)
+                        cb.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray);
 
-    checkboxMap[g.Id] = cb;
-         resultsPanel.Children.Add(cb);
-}
-
+                    checkboxMap[g.Id] = cb;
+                    resultsPanel.Children.Add(cb);
+                }
 
                 infoText.Text = $"หมายเลขที่แสดง: {displayed.Count} / {availableCodes.Count}";
             }
 
-            // Initial populate
-            PopulateResults(null);
-
-            // Helper to synchronize checkbox selection with desired quantity
+            // Helper to sync selection to desired quantity
             void SyncSelectionWithQuantity()
             {
                 if (checkboxMap.Count == 0) return;
                 int desired = (int)Math.Max(1, quantityBox.Value);
-                // Count already checked and belong to initialSelectedIds (preserve)
+
                 var initialChecked = checkboxMap.Where(kv => initialSelectedIds.Contains(kv.Key) && kv.Value.IsChecked == true).Select(kv => kv.Key).ToList();
                 int alreadyCount = initialChecked.Count;
 
-                // Uncheck all non-initial checkboxes first
                 var nonInitialKeys = checkboxMap.Keys.Except(initialSelectedIds).ToList();
                 foreach (var k in nonInitialKeys)
-                {
                     checkboxMap[k].IsChecked = false;
-                }
 
                 int need = desired - alreadyCount;
                 if (need <= 0) return;
 
-                // Select first available enabled non-initial checkboxes
                 foreach (var kv in checkboxMap)
                 {
                     if (need <= 0) break;
@@ -1057,31 +1210,16 @@ if (display2 != null)
                 }
             }
 
-            // Live filter
             searchBox.TextChanged += (s, e) =>
             {
-                var text = searchBox.Text?.Trim();
-                PopulateResults(text);
-                // after repopulate, attempt to re-sync selection based on quantity
-                // small delay via DispatcherQueue to ensure UI updated
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    SyncSelectionWithQuantity();
-                });
+                PopulateResults(searchBox.Text?.Trim());
+                DispatcherQueue.TryEnqueue(() => SyncSelectionWithQuantity());
             };
 
-            // When quantity changes, auto-select/deselect checkboxes in current view
             quantityBox.ValueChanged += (s, e) =>
             {
-                // ensure value within bounds
-                if (double.IsNaN(quantityBox.Value) || quantityBox.Value < 1)
-                {
-                    quantityBox.Value = 1;
-                }
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    SyncSelectionWithQuantity();
-                });
+                if (double.IsNaN(quantityBox.Value) || quantityBox.Value < 1) quantityBox.Value = 1;
+                DispatcherQueue.TryEnqueue(() => SyncSelectionWithQuantity());
             };
 
             var dialog = new ContentDialog
@@ -1095,98 +1233,426 @@ if (display2 != null)
             };
 
             var result = await dialog.ShowAsync();
-   if (result == ContentDialogResult.Primary)
-     {
-         var selectedIds = checkboxMap.Where(kv => kv.Value.IsChecked == true).Select(kv => kv.Key).ToList();
+            if (result == ContentDialogResult.Primary)
+            {
+                var selectedIds = checkboxMap.Where(kv => kv.Value.IsChecked == true).Select(kv => kv.Key).ToList();
 
-   // If nothing checked but user typed something in search, try to match those tokens
-        if (!selectedIds.Any() && !string.IsNullOrWhiteSpace(searchBox.Text))
-       {
-   var tokens = searchBox.Text.Split(new[] { '\n', '\r', ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
-          .Select(t => t.Trim())
-        .Where(t => !string.IsNullOrEmpty(t))
-     .Distinct(StringComparer.OrdinalIgnoreCase)
-     .ToList();
+                if (!selectedIds.Any() && !string.IsNullOrWhiteSpace(searchBox.Text))
+                {
+                    var tokens = searchBox.Text.Split(new[] { '\n', '\r', ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(t => t.Trim())
+                        .Where(t => !string.IsNullOrEmpty(t))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
 
- if (tokens.Count > 0)
-              {
-      var matched = availableCodes.Where(g => tokens.Any(tok => string.Equals(g.GeneratedCode, tok, StringComparison.OrdinalIgnoreCase))).ToList();
-   selectedIds = matched.Select(m => m.Id).ToList();
-    }
-   }
+                    if (tokens.Count > 0)
+                    {
+                        var matched = availableCodes.Where(g => tokens.Any(tok => string.Equals(g.GeneratedCode, tok, StringComparison.OrdinalIgnoreCase))).ToList();
+                        selectedIds = matched.Select(m => m.Id).ToList();
+                    }
+                }
 
-    // Ensure selected count matches desired quantity (if user used quantityBox)
-       int desiredQty = (int)Math.Max(1, quantityBox.Value);
-       if (selectedIds.Count != desiredQty)
-       {
-           // If fewer selected, auto-add from availableCodes (excluding disabled/already-selected-in-other)
-           var remaining = availableCodes.Select(g => g.Id).Except(selectedIds).Except(alreadySelectedInOtherItems).ToList();
-           foreach (var id in remaining)
-           {
-               if (selectedIds.Count >= desiredQty) break;
-               selectedIds.Add(id);
-           }
+                int desiredQty = (int)Math.Max(1, quantityBox.Value);
+                if (selectedIds.Count != desiredQty)
+                {
+                    var remaining = availableCodes.Select(g => g.Id).Except(selectedIds).Except(alreadySelectedInOtherItems).ToList();
+                    foreach (var id in remaining)
+                    {
+                        if (selectedIds.Count >= desiredQty) break;
+                        selectedIds.Add(id);
+                    }
 
-           // If more selected than desired, trim to desiredQty (keep initial selections first)
-           if (selectedIds.Count > desiredQty)
-           {
-               selectedIds = selectedIds.Take(desiredQty).ToList();
-           }
-       }
+                    if (selectedIds.Count > desiredQty)
+                        selectedIds = selectedIds.Take(desiredQty).ToList();
+                }
 
-    // Get COM mode flag but DON'T save to database yet
-       var isComMode = comCheckBox.IsChecked == true;
-        
-    // Return tuple with selectedIds and COM flag
-        // Database update will happen when receipt is saved
-      return (selectedIds, isComMode);
-}
+                var isComMode = comCheckBox.IsChecked == true;
+                return (selectedIds, isComMode);
+            }
 
             return null;
-}
+        }
+
+        // helper used by older dialog
+        private List<int> _selected_items_helper()
+        {
+            return _selectedItems
+                .Where(it => it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Any())
+                .SelectMany(it => it.SelectedGeneratedIds!)
+                .Distinct()
+                .ToList();
+        }
+
+        private async Task<(List<int>? normalSelectedIds, List<int>? comSelectedIds)?> ShowPickGeneratedCodesDialogAsync(CouponDefinition selectedDefinition, ReceiptItem? existingItem)
+        {
+            await _context.Database.EnsureCreatedAsync();
+
+            var initialSelectedIds = existingItem?.SelectedGeneratedIds ?? new List<int>();
+
+            // IDs already chosen in other receipt items (exclude current item)
+            var alreadySelectedInOtherItems = _selectedItems
+                .Where(it => it != existingItem && it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Any())
+                .SelectMany(it => it.SelectedGeneratedIds!)
+                .Distinct()
+                .ToList();
+
+            // Load available generated coupons (include currently selected ones so user can manage them)
+            var availableCodes = await _context.GeneratedCoupons
+                .Where(g => g.CouponDefinitionId == selectedDefinition.Id && ((g.ReceiptItemId == null && !g.IsUsed) || initialSelectedIds.Contains(g.Id)))
+                .ToListAsync();
+
+            // sort by trailing numeric value first, then by full code
+            availableCodes = availableCodes
+                .OrderBy(g => ParseTrailingNumber(g.GeneratedCode))
+                .ThenBy(g => g.GeneratedCode)
+                .ToList();
+
+            // UI containers
+            var stack = new StackPanel { Spacing = 8 };
+            stack.Children.Add(new TextBlock { Text = $"เลือกหมายเลขคูปองสำหรับ '{selectedDefinition.Name}'", TextWrapping = TextWrapping.Wrap });
+
+            // Controls: normal/com quantity
+            var normalPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            normalPanel.Children.Add(new TextBlock { Text = "จำนวนที่ต้องการ:", VerticalAlignment = VerticalAlignment.Center });
+            var normalQuantityBox = new NumberBox
+            {
+                Minimum = 0,
+                Maximum = Math.Max(0, availableCodes.Count),
+                Value = 0,
+                Width = 220,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline
+            };
+            normalPanel.Children.Add(normalQuantityBox);
+            stack.Children.Add(normalPanel);
+
+            var comPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            comPanel.Children.Add(new TextBlock { Text = "จำนวนที่ต้องการ (COM):", VerticalAlignment = VerticalAlignment.Center });
+            var comQuantityBox = new NumberBox
+            {
+                Minimum = 0,
+                Maximum = Math.Max(0, availableCodes.Count),
+                Value = 0,
+                Width = 220,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline
+            };
+            comPanel.Children.Add(comQuantityBox);
+            stack.Children.Add(comPanel);
+
+            // Search box
+            var searchBox = new TextBox { PlaceholderText = "ค้นหารหัส (พิมพ์แล้วรายการจะกรองอัตโนมัติ)", Margin = new Thickness(0, 8, 0, 0) };
+            stack.Children.Add(searchBox);
+
+            // Info text (counts)
+            var infoText = new TextBlock { Text = $"หมายเลขที่มีทั้งหมด: {availableCodes.Count}", Margin = new Thickness(0, 6, 0, 0) };
+            stack.Children.Add(infoText);
+
+            // Scroll area for checkboxes
+            var scroll = new ScrollViewer { Height = 320 };
+            var resultsPanel = new StackPanel { Spacing = 2 };
+            scroll.Content = resultsPanel;
+            stack.Children.Add(scroll);
+
+            // Pagination controls
+            const int pageSize = 25;
+            int currentPage = 1;
+            int totalPages = Math.Max(1, (int)Math.Ceiling(availableCodes.Count / (double)pageSize));
+            var pagingPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 8, 0, 0) };
+            var prevBtn = new Button { Content = "‹ ก่อนหน้า", MinWidth = 100 };
+            var pageInfo = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 14 };
+            var nextBtn = new Button { Content = "ถัดไป ›", MinWidth = 100 };
+            pagingPanel.Children.Add(prevBtn);
+            pagingPanel.Children.Add(pageInfo);
+            pagingPanel.Children.Add(nextBtn);
+            stack.Children.Add(pagingPanel);
+
+            // Working sets and helpers
+            var checkboxMap = new Dictionary<int, CheckBox>(); // holds checkboxes for current page
+            var normalSelected = new List<int>();
+            var comSelected = new List<int>();
+
+            // Track manual toggles by user across pages
+            var manualChecked = new HashSet<int>();
+
+            bool suppressCheckboxEvents = false;
+
+            // Allocation algorithm: choose first N normal, then next M for COM, skipping alreadySelectedInOtherItems
+            void AllocateByCounts(int normalCount, int comCount, string? filter)
+            {
+                normalSelected.Clear();
+                comSelected.Clear();
+
+                var query = availableCodes.AsEnumerable();
+                if (!string.IsNullOrWhiteSpace(filter))
+                {
+                    query = query.Where(g => g.GeneratedCode?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0);
+                }
+
+                // Candidate codes exclude those already picked in other items
+                var candidate = query.Where(g => !alreadySelectedInOtherItems.Contains(g.Id)).ToList();
+
+                // Fill normal first
+                foreach (var g in candidate)
+                {
+                    if (normalSelected.Count >= normalCount) break;
+                    normalSelected.Add(g.Id);
+                }
+
+                // Fill COM from the remaining
+                foreach (var g in candidate)
+                {
+                    if (normalSelected.Contains(g.Id)) continue;
+                    if (comSelected.Count >= comCount) break;
+                    comSelected.Add(g.Id);
+                }
+            }
+
+            // Populate results for current page
+            void PopulatePage(string? filter)
+            {
+                resultsPanel.Children.Clear();
+                checkboxMap.Clear();
+
+                var query = availableCodes.AsEnumerable();
+                if (!string.IsNullOrWhiteSpace(filter))
+                {
+                    query = query.Where(g => g.GeneratedCode?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0);
+                }
+
+                var filtered = query.ToList();
+                int totalFiltered = filtered.Count;
+                totalPages = Math.Max(1, (int)Math.Ceiling(totalFiltered / (double)pageSize));
+                if (currentPage > totalPages) currentPage = totalPages;
+                int skip = (currentPage - 1) * pageSize;
+                var displayed = filtered.Skip(skip).Take(pageSize).ToList();
+
+                foreach (var g in displayed)
+                {
+                    var isTakenElsewhere = alreadySelectedInOtherItems.Contains(g.Id);
+                    var cb = new CheckBox
+                    {
+                        Content = g.GeneratedCode,
+                        Tag = g.Id,
+                        Margin = new Thickness(0, 2, 0, 2)
+                    };
+
+                    // decide checked state:
+                    // - manualChecked (user toggled) wins
+                    // - else comSelected or normalSelected
+                    if (manualChecked.Contains(g.Id))
+                    {
+                        cb.IsChecked = true;
+                        cb.Foreground = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
+                    }
+                    else if (comSelected.Contains(g.Id))
+                    {
+                        cb.IsChecked = true;
+                        cb.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+                    }
+                    else if (normalSelected.Contains(g.Id))
+                    {
+                        cb.IsChecked = true;
+                    }
+                    else
+                    {
+                        cb.IsChecked = false;
+                    }
+
+                    cb.IsEnabled = !isTakenElsewhere;
+
+                    if (isTakenElsewhere)
+                        cb.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray);
+
+                    // checkbox change updates manualChecked set
+                    cb.Checked += (s, e) =>
+                    {
+                        if (suppressCheckboxEvents) return;
+                        var id = (int)((CheckBox)s).Tag!;
+                        manualChecked.Add(id);
+                    };
+                    cb.Unchecked += (s, e) =>
+                    {
+                        if (suppressCheckboxEvents) return;
+                        var id = (int)((CheckBox)s).Tag!;
+                        manualChecked.Remove(id);
+                    };
+
+                    checkboxMap[g.Id] = cb;
+                    resultsPanel.Children.Add(cb);
+                }
+
+                pageInfo.Text = $"หน้า {currentPage} / {totalPages} ({totalFiltered} รายการ)";
+
+                prevBtn.IsEnabled = currentPage > 1;
+                nextBtn.IsEnabled = currentPage < totalPages;
+            }
+
+            // Recompute allocations and refresh current page
+            void RecomputeAndRefresh()
+            {
+                var desiredNormal = (int)Math.Max(0, normalQuantityBox.Value);
+                var desiredCom = (int)Math.Max(0, comQuantityBox.Value);
+
+                // Cap combined counts to available (filtered)
+                var filteredCount = string.IsNullOrWhiteSpace(searchBox.Text)
+                    ? availableCodes.Count
+                    : availableCodes.Count(g => g.GeneratedCode?.IndexOf(searchBox.Text, StringComparison.OrdinalIgnoreCase) >= 0);
+
+                if (desiredNormal + desiredCom > filteredCount)
+                {
+                    var overflow = desiredNormal + desiredCom - filteredCount;
+                    // prefer preserving normal, reduce COM first
+                    desiredCom = Math.Max(0, desiredCom - overflow);
+                    if (desiredNormal + desiredCom > filteredCount)
+                    {
+                        desiredNormal = Math.Max(0, desiredNormal - (desiredNormal + desiredCom - filteredCount));
+                    }
+                }
+
+                AllocateByCounts(desiredNormal, desiredCom, searchBox.Text?.Trim());
+
+                // Populate page using currentPage
+                suppressCheckboxEvents = true;
+                PopulatePage(searchBox.Text?.Trim());
+                suppressCheckboxEvents = false;
+            }
+
+            // Events
+            normalQuantityBox.ValueChanged += (s, e) =>
+            {
+                if (double.IsNaN(normalQuantityBox.Value) || normalQuantityBox.Value < 0) normalQuantityBox.Value = 0;
+                currentPage = 1;
+                RecomputeAndRefresh();
+            };
+            comQuantityBox.ValueChanged += (s, e) =>
+            {
+                if (double.IsNaN(comQuantityBox.Value) || comQuantityBox.Value < 0) comQuantityBox.Value = 0;
+                currentPage = 1;
+                RecomputeAndRefresh();
+            };
+            searchBox.TextChanged += (s, e) =>
+            {
+                currentPage = 1;
+                DispatcherQueue.TryEnqueue(() => RecomputeAndRefresh());
+            };
+
+            prevBtn.Click += (s, e) =>
+            {
+                if (currentPage > 1) currentPage--;
+                RecomputeAndRefresh();
+                // scroll to top of list
+                resultsPanel.UpdateLayout();
+                var sv = FindScrollViewer(resultsPanel);
+                sv?.ChangeView(null, 0, null, disableAnimation: true);
+            };
+            nextBtn.Click += (s, e) =>
+            {
+                if (currentPage < totalPages) currentPage++;
+                RecomputeAndRefresh();
+                resultsPanel.UpdateLayout();
+                var sv = FindScrollViewer(resultsPanel);
+                sv?.ChangeView(null, 0, null, disableAnimation: true);
+            };
+
+            // Initialize
+            RecomputeAndRefresh();
+
+            var dialog = new ContentDialog
+            {
+                Title = "เลือกหมายเลขคูปอง",
+                Content = stack,
+                PrimaryButtonText = "ตกลง",
+                CloseButtonText = "ยกเลิก",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                // Gather manual checked items (across all pages)
+                var manualCheckedList = manualChecked.ToList();
+
+                var desiredNormal = (int)Math.Max(0, normalQuantityBox.Value);
+                var desiredCom = (int)Math.Max(0, comQuantityBox.Value);
+
+                // Start with computed sets
+                var finalNormal = new List<int>(normalSelected);
+                var finalCom = new List<int>(comSelected);
+
+                // Incorporate manual checked: try to add them to finalNormal first (but not if already in finalCom)
+                foreach (var id in manualCheckedList)
+                {
+                    if (alreadySelectedInOtherItems.Contains(id)) continue;
+                    if (finalCom.Contains(id)) continue;
+                    if (!finalNormal.Contains(id) && finalNormal.Count < desiredNormal)
+                        finalNormal.Add(id);
+                }
+
+                // Fill normal to desired (from filtered candidates)
+                var candidates = availableCodes.Select(g => g.Id).Except(alreadySelectedInOtherItems).ToList();
+                foreach (var id in candidates)
+                {
+                    if (finalNormal.Count >= desiredNormal) break;
+                    if (!finalNormal.Contains(id) && !finalCom.Contains(id))
+                        finalNormal.Add(id);
+                }
+
+                // Fill COM to desired from remaining
+                foreach (var id in candidates)
+                {
+                    if (finalCom.Count >= desiredCom) break;
+                    if (!finalCom.Contains(id) && !finalNormal.Contains(id))
+                        finalCom.Add(id);
+                }
+
+                return (finalNormal, finalCom);
+            }
+
+            return null;
+        }
 
         // wrapper to call TryReserve (separated for readability)
         private async Task<bool> _reservation_service_try_reserve_wrapper(int couponDefinitionId, int quantity)
         {
-    return await _reservationService.TryReserveAsync(couponDefinitionId, _reservationSessionId, quantity, TimeSpan.FromMinutes(10));
+            return await _reservationService.TryReserveAsync(couponDefinitionId, _reservationSessionId, quantity, TimeSpan.FromMinutes(10));
         }
 
         private async void DeleteItemButton_Click(object sender, RoutedEventArgs e)
         {
-   var button = sender as Button;
-         if (button?.Tag is ReceiptItem selectedItem)
+            var button = sender as Button;
+            if (button?.Tag is ReceiptItem selectedItem)
             {
-  var dialog = new ContentDialog
-        {
-        Title = "ยืนยันการลบ",
-           Content = $"คุณต้องการลบ {selectedItem.CouponDefinition.Name} จำนวน {selectedItem.Quantity} ใบ ใช่หรือไม่?",
-        PrimaryButtonText = "ลบ",
-  CloseButtonText = "ยกเลิก",
-        DefaultButton = ContentDialogButton.Close,
-              XamlRoot = this.XamlRoot
-     };
+                var dialog = new ContentDialog
+                {
+                    Title = "ยืนยันการลบ",
+                    Content = $"คุณต้องการลบ {selectedItem.CouponDefinition.Name} จำนวน {selectedItem.Quantity} ใบ ใช่หรือไม่?",
+                    PrimaryButtonText = "ลบ",
+                    CloseButtonText = "ยกเลิก",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
 
-      var result = await dialog.ShowAsync();
-       if (result == ContentDialogResult.Primary)
-      {
- // release reservation in DB for this session (เฉพาะคูปองจำกัด and when not specific ids)
-     if (selectedItem.CouponDefinition.IsLimited && (selectedItem.SelectedGeneratedIds == null || !selectedItem.SelectedGeneratedIds.Any()))
-          {
-     await _reservationService.ReleaseReservationAsync(selectedItem.CouponDefinition.Id, _reservationSessionId, selectedItem.Quantity);
-                }
+                var result = await dialog.ShowAsync();
+                if (result == ContentDialogResult.Primary)
+                {
+                    // release reservation in DB for this session (เฉพาะคูปองจำกัด and when not specific ids)
+                    if (selectedItem.CouponDefinition.IsLimited && (selectedItem.SelectedGeneratedIds == null || !selectedItem.SelectedGeneratedIds.Any()))
+                    {
+                        await _reservationService.ReleaseReservationAsync(selectedItem.CouponDefinition.Id, _reservationSessionId, selectedItem.Quantity);
+                    }
 
                     var display = GetDisplayByDefinitionId(selectedItem.CouponDefinition.Id);
-       if (display != null)
-             {
-            display.TotalUsed -= selectedItem.Quantity;
- if (display.TotalUsed < 0) display.TotalUsed = 0;
-               }
+                    if (display != null)
+                    {
+                        display.TotalUsed -= selectedItem.Quantity;
+                        if (display.TotalUsed < 0) display.TotalUsed = 0;
+                    }
 
-              _selectedItems.Remove(selectedItem);
-     UpdateTotalPrice();
+                    _selectedItems.Remove(selectedItem);
+                    UpdateTotalPrice();
 
-         // ไม่รีเฟรชจาก DB เพื่อไม่ให้สูญเสียการสำรองที่ยังไม่บันทึก
-  }
+                    // ไม่รีเฟรชจาก DB เพื่อไม่ให้สูญเสียการสำรองที่ยังไม่บันทึก
+                }
             }
         }
 
@@ -1199,7 +1665,6 @@ if (display2 != null)
                 return;
             }
 
-            // เช็คว่ามีการเลือก SalesPerson หรือไม่ (ตรวจสอบ placeholder ID = 0 ด้วย)
             var selectedSalesPerson = SalesPersonComboBox.SelectedItem as SalesPerson;
             if (selectedSalesPerson == null || selectedSalesPerson.ID == 0)
             {
@@ -1207,351 +1672,298 @@ if (display2 != null)
                 return;
             }
 
-            // เช็คว่ามีการเลือกวิธีการชำระเงินหรือไม่
             var selectedPaymentMethod = GetSelectedPaymentMethod();
             if (selectedPaymentMethod == null)
             {
-                // แสดงข้อความเตือนใน UI
                 PaymentMethodErrorText.Visibility = Visibility.Visible;
                 await ShowErrorDialog("กรุณาเลือกวิธีการชำระเงินก่อนบันทึกใบเสร็จ");
                 return;
             }
-            // ตรวจสอบความพร้อมของคูปองอีกครั้งก่อนบันทึก
+
+            // ตรวจสอบความพร้อมแบบ batch (เหมือนเดิม)...
+            var selectedDefinitionIds = _selectedItems.Select(i => i.CouponDefinition.Id).Distinct().ToList();
+            var defCounts = await _context.CouponDefinitions
+                .Where(cd => selectedDefinitionIds.Contains(cd.Id))
+                .Select(cd => new
+                {
+                    cd.Id,
+                    cd.Name,
+                    cd.IsLimited,
+                    TotalGenerated = cd.GeneratedCoupons.Count(),
+                    TotalAllocatedOrUsed = cd.GeneratedCoupons.Count(gc => gc.IsUsed || gc.ReceiptItemId != null)
+                })
+                .ToListAsync();
+            var defCountsMap = defCounts.ToDictionary(d => d.Id);
+
             foreach (var item in _selectedItems)
             {
-                var currentDefinition = await _context.CouponDefinitions
-                    .Include(cd => cd.GeneratedCoupons)
-                    .FirstOrDefaultAsync(cd => cd.Id == item.CouponDefinition.Id);
-
-                if (currentDefinition == null)
+                if (!defCountsMap.TryGetValue(item.CouponDefinition.Id, out var defInfo))
                 {
-                    await ShowErrorDialog($"ไม่พบข้อมูลคูปอง '{item.CouponDefinition.Name}'");
+                    await ShowErrorDialog($"ไม่พบข้อมูลคูปอง '{item.CouponDefinition.Name}' (id:{item.CouponDefinition.Id})");
                     return;
                 }
 
-                var totalGenerated = currentDefinition.GeneratedCoupons?.Count ??0;
-                var totalAllocatedOrUsed = currentDefinition.GeneratedCoupons?.Count(gc => gc.IsUsed || gc.ReceiptItemId != null) ??0;
-                var availableCount = totalGenerated - totalAllocatedOrUsed;
-
-                // เฉพาะกรณีคูปองจำกัดเท่านั้นจึงตรวจสอบจำนวนคงเหลือ
-                if (currentDefinition.IsLimited && item.Quantity > availableCount)
+                if (defInfo.IsLimited)
                 {
-                    await ShowErrorDialog($"คูปอง '{item.CouponDefinition.Name}' มีคงเหลือ {availableCount} ใบ ไม่เพียงพอสำหรับจำนวนที่เลือก ({item.Quantity} ใบ)");
-                    return;
+                    var availableCount = defInfo.TotalGenerated - defInfo.TotalAllocatedOrUsed;
+                    if (availableCount < 0) availableCount = 0;
+
+                    if (item.Quantity > availableCount)
+                    {
+                        await ShowErrorDialog($"คูปอง '{defInfo.Name}' มีคงเหลือ {availableCount} ใบ ไม่เพียงพอสำหรับจำนวนที่เลือก ({item.Quantity} ใบ)");
+                        return;
+                    }
                 }
             }
 
-            // Create customer information dialog
+            // สร้าง dialog รับข้อมูลลูกค้า + ช่องกรอกส่วนลดเพิ่มเติม (เหมือนเดิม)
             var customerPanel = new StackPanel { Spacing = 10 };
 
- customerPanel.Children.Add(new TextBlock { Text = "ชื่อลูกค้า:" });
-         var customerNameBox = new TextBox { PlaceholderText = "กรุณาระบุชื่อลูกค้า" };
-          customerPanel.Children.Add(customerNameBox);
+            customerPanel.Children.Add(new TextBlock { Text = "ชื่อลูกค้า:" });
+            var customerNameBox = new TextBox { PlaceholderText = "กรุณาระบุชื่อลูกค้า" };
+            customerPanel.Children.Add(customerNameBox);
 
-          customerPanel.Children.Add(new TextBlock { Text = "เบอร์โทรศัพท์:" });
-   var phoneNumberBox = new TextBox { PlaceholderText = "กรุณาระบุเบอร์โทรศัพท์" };
-        customerPanel.Children.Add(phoneNumberBox);
+            customerPanel.Children.Add(new TextBlock { Text = "เบอร์โทรศัพท์:" });
+            var phoneNumberBox = new TextBox { PlaceholderText = "กรุณาระบุเบอร์โทรศัพท์" };
+            customerPanel.Children.Add(phoneNumberBox);
 
-         // คำนวณส่วนลดจาก COM ล่วงหน้า
-        decimal comDiscount = 0m;
-foreach (var item in _selectedItems)
-         {
-    if (item.IsCOM)
- {
-      comDiscount += item.CouponDefinition.Price * item.Quantity;
-                }
+            // คำนวณส่วนลดจาก COM (สำหรับแสดงและคำนวณยอดรวม)
+            decimal comDiscount = 0m;
+            foreach (var item in _selectedItems)
+            {
+                if (item.IsCOM)
+                    comDiscount += item.CouponDefinition.Price * item.Quantity;
             }
 
-    // แสดงส่วนลดจาก COM (อ่านอย่างเดียว)
-  if (comDiscount > 0)
+            if (comDiscount > 0)
             {
-      customerPanel.Children.Add(new TextBlock 
-              { 
- Text = $"ส่วนลดจาก COM: {comDiscount:N2} บาท",
-             FontSize = 16,
-    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-           Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange),
-              Margin = new Thickness(0, 10, 0, 0)
-        });
-  }
+                customerPanel.Children.Add(new TextBlock
+                {
+                    Text = $"ส่วนลดจาก COM: {comDiscount:N2} บาท",
+                    FontSize = 16,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange),
+                    Margin = new Thickness(0, 10, 0, 0)
+                });
+            }
 
-            // ช่องกรอกส่วนลดเพิ่มเติม
-            customerPanel.Children.Add(new TextBlock 
-       { 
-     Text = "ส่วนลดเพิ่มเติม (ถ้ามี):",
-           Margin = new Thickness(0, 10, 0, 0)
- });
-          var additionalDiscountBox = new NumberBox 
-    { 
-       Value = 0, 
-              Minimum = 0, 
-     Maximum = (double)_selectedItems.Sum(item => item.TotalPrice),
-    SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
-       PlaceholderText = "0.00"
- };
-       customerPanel.Children.Add(additionalDiscountBox);
-
-   // แสดงยอดรวมส่วนลด
-        var totalDiscountText = new TextBlock
-      {
-       Text = $"ส่วนลดรวม: {comDiscount:N2} บาท",
-       FontSize = 16,
-          FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-         Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green),
-     Margin = new Thickness(0, 10, 0, 0)
+            customerPanel.Children.Add(new TextBlock { Text = "ส่วนลดเพิ่มเติม (ถ้ามี):", Margin = new Thickness(0, 10, 0, 0) });
+            var additionalDiscountBox = new NumberBox
+            {
+                Value = 0,
+                Minimum = 0,
+                Maximum = (double)_selectedItems.Sum(item => item.TotalPrice),
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
+                PlaceholderText = "0.00"
             };
-customerPanel.Children.Add(totalDiscountText);
+            customerPanel.Children.Add(additionalDiscountBox);
 
-            // อัปเดตยอดรวมส่วนลดเมื่อกรอกส่วนลดเพิ่ม
+            var totalDiscountText = new TextBlock
+            {
+                Text = $"ส่วนลดรวม: {comDiscount:N2} บาท",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green),
+                Margin = new Thickness(0, 10, 0, 0)
+            };
+            customerPanel.Children.Add(totalDiscountText);
+
             additionalDiscountBox.ValueChanged += (s, args) =>
-  {
-        var additionalDiscount = double.IsNaN(additionalDiscountBox.Value) ? 0m : (decimal)additionalDiscountBox.Value;
- var totalDiscount = comDiscount + additionalDiscount;
- totalDiscountText.Text = $"ส่วนลดรวม: {totalDiscount:N2} บาท";
-    };
+            {
+                var additionalDiscount = double.IsNaN(additionalDiscountBox.Value) ? 0m : (decimal)additionalDiscountBox.Value;
+                var totalDiscount = comDiscount + additionalDiscount;
+                totalDiscountText.Text = $"ส่วนลดรวม: {totalDiscount:N2} บาท";
+            };
 
             var dialog = new ContentDialog
             {
                 Title = "ข้อมูลลูกค้า",
                 Content = customerPanel,
-         PrimaryButtonText = "บันทึก",
-     CloseButtonText = "ยกเลิก",
+                PrimaryButtonText = "บันทึก",
+                CloseButtonText = "ยกเลิก",
                 DefaultButton = ContentDialogButton.Primary,
-           XamlRoot = this.XamlRoot
+                XamlRoot = this.XamlRoot
             };
 
             var result = await dialog.ShowAsync();
-  if (result == ContentDialogResult.Primary)
-     {
+            if (result != ContentDialogResult.Primary) return;
+
             string customerName = customerNameBox.Text.Trim();
-  string phoneNumber = phoneNumberBox.Text.Trim();
+            string phoneNumber = phoneNumberBox.Text.Trim();
 
-             // Validate input
-   if (string.IsNullOrEmpty(customerName) || string.IsNullOrEmpty(phoneNumber))
-         {
-              await ShowErrorDialog("กรุณากรอกข้อมูลลูกค้าให้ครบถ้วน");
-      return;
-        }
-
-        // อ่านค่าส่วนลดเพิ่มเติม
-           var additionalDiscountVal = double.IsNaN(additionalDiscountBox.Value) ? 0.0 : additionalDiscountBox.Value;
-          if (additionalDiscountVal < 0)
-                {
-                    await ShowErrorDialog("ส่วนลดต้องเป็นค่าบวกหรือเท่ากับศูนย์");
-            return;
-           }
-
-     // เก็บส่วนลดเพิ่มเติม (ส่วนลด COM จะคำนวณภายหลัง)
-            _receiptDiscount = (decimal)additionalDiscountVal;
-
-            using var tx = await _context.Database.BeginTransactionAsync();
-            try
+            if (string.IsNullOrEmpty(customerName) || string.IsNullOrEmpty(phoneNumber))
             {
-                // Verify DB connectivity before generating receipt code to provide clearer error message
-                try
-                {
-                    using var testCtx = new CouponContext();
-                    var canConnect = await testCtx.Database.CanConnectAsync();
-                    if (!canConnect)
-                    {
-                        await ShowErrorDialog("ไม่สามารถเชื่อมต่อฐานข้อมูล: กรุณาตรวจสอบการตั้งค่าการเชื่อมต่อฐานข้อมูล");
-                        return;
-                    }
-                }
-                catch (Exception connEx)
-                {
-                    await ShowErrorDialog($"ไม่สามารถตรวจสอบการเชื่อมต่อฐานข้อมูล: {connEx.Message}");
-                    return;
-                }
-                
-                string receiptCode;
-                try
-                {
-                    // Generate next receipt code (may throw if DB sequence/unavailable)
-                    receiptCode = await ReceiptNumberService.GenerateNextReceiptCodeAsync();
-                }
-                catch (Exception genEx)
-                {
-                    // Provide more context about failure to generate receipt number
-                    var detail = genEx.InnerException != null ? genEx.InnerException.Message : genEx.Message;
-                    await ShowErrorDialog($"เกิดข้อผิดพลาด: ไม่สามารถสร้างหมายเลขใบเสร็จได้\n\nรายละเอียด: {detail}");
-                    return;
-                }
-
-                // Create and save receipt with customer information, receipt code and payment method
-                var receipt = new ReceiptModel
-                {
-                    ReceiptCode = receiptCode,
-                    ReceiptDate = DateTime.Now,
-                    CustomerName = customerName,
-                    CustomerPhoneNumber = phoneNumber,
-                    Discount = _receiptDiscount,
-                    TotalAmount = _selectedItems.Sum(item => item.TotalPrice) - _receiptDiscount,
-                    SalesPersonId = (SalesPersonComboBox.SelectedItem as SalesPerson)?.ID,
-                    PaymentMethodId = GetSelectedPaymentMethod()?.Id
-                };
-
-                _context.Receipts.Add(receipt);
-
-                // Save first to get the ID
-                try
-                {
-                    await _context.SaveChangesAsync();
-                }
-                catch (Exception dbEx)
-                {
-                    // หากไม่สามารถบันทึกได้ ให้คืนหมายเลขใบเสร็จ
-                    await ReceiptNumberService.RecycleReceiptCodeAsync(receiptCode, "Database save failed");
-
-                    string errorDetails = $"Error saving receipt: {dbEx.Message}";
-                    if (dbEx.InnerException != null)
-                    {
-                        errorDetails += $"\n\nInner exception: {dbEx.InnerException.Message}";
-                    }
-                    await ShowErrorDialog(errorDetails);
-                    return;
-                }
-
-                // Save receipt items - แก้ไขให้ใช้ CouponDefinition.Id
-                var createdReceiptItems = new List<DatabaseReceiptItem>();
-                foreach (var item in _selectedItems)
-                {
-                    var receiptItem = new DatabaseReceiptItem
-                    {
-                        ReceiptId = receipt.ReceiptID,
-                        CouponId = item.CouponDefinition.Id,
-                        Quantity = item.Quantity,
-                        UnitPrice = item.CouponDefinition.Price,
-                        TotalPrice = item.TotalPrice
-                    };
-
-                    _context.ReceiptItems.Add(receiptItem);
-                    createdReceiptItems.Add(receiptItem);
-                }
-
-                // Save receipt items to get ReceiptItemId populated before allocating GeneratedCoupons
-                try
-                {
-                    await _context.SaveChangesAsync();
-                }
-                catch (Exception dbEx)
-                {
-                    await tx.RollbackAsync();
-                    await ReceiptNumberService.RecycleReceiptCodeAsync(receiptCode, "Failed to save receipt items");
-                    await ShowErrorDialog($"Error saving receipt items: {dbEx.Message}");
-                    return;
-                }
-
-                // Reserve coupons / allocate specific selected codes
-                for (int i =0; i < _selectedItems.Count; i++)
-                {
-                    var item = _selectedItems[i];
-                    var receiptItem = createdReceiptItems[i];
-
-                    if (item.CouponDefinition.IsLimited)
-                    {
-                        if (item.SelectedGeneratedIds != null && item.SelectedGeneratedIds.Any())
-                        {
-                            // allocate those specific ids
-                            var allocate = await _context.GeneratedCoupons
-                                .Where(g => item.SelectedGeneratedIds.Contains(g.Id) && !g.IsUsed && g.ReceiptItemId == null)
-                                .ToListAsync();
-
-                            if (allocate.Count < item.Quantity)
-                            {
-                                await tx.RollbackAsync();
-                                await ShowErrorDialog("คูปองที่เลือกบางรายการไม่พร้อมใช้งาน");
-                                return;
-                            }
-
-                            foreach (var g in allocate)
-                            {
-                                // Link the generated coupon to the receipt item
-                                g.ReceiptItemId = receiptItem.ReceiptItemId;
-   
-            // *** บันทึก IsComplimentary ตอนนี้ (เมื่อบันทึกใบเสร็จสำเร็จ) ***
-         if (item.IsCOM)
-      {
-         g.IsComplimentary = true;
-    }
-   
-    _context.GeneratedCoupons.Update(g);
- }
-      }
-         else
-{
-         // original allocation by selecting first available
- var allocate = await _context.GeneratedCoupons
-         .Where(g => g.CouponDefinitionId == item.CouponDefinition.Id && !g.IsUsed && g.ReceiptItemId == null)
-          .OrderBy(g => g.Id)
-        .Take(item.Quantity)
-          .ToListAsync();
-
-    if (allocate.Count < item.Quantity) { await tx.RollbackAsync(); await ShowErrorDialog("คูปองไม่เพียงพอ"); return; }
-
-       foreach (var g in allocate)
-      {
-       // Link the generated coupon to the receipt item
-            g.ReceiptItemId = receiptItem.ReceiptItemId;
-       _context.GeneratedCoupons.Update(g);
-}
-     }
-    }
-      }
-
-                    // Calculate total discount from COM (complimentary) coupons
-    decimal comDiscountFinal = 0m;
-    foreach (var item in _selectedItems)
-    {
-        // คำนวณส่วนลดจาก item.IsCOM (ที่เก็บไว้ตอนเลือก)
-        if (item.IsCOM)
-        {
-       // คูปอง COM ทั้งใบจะได้ส่วนลดเท่ากับราคาเต็ม
-      comDiscountFinal += item.CouponDefinition.Price * item.Quantity;
- }
-    }
-
-    // รวมส่วนลดทั้งหมด = ส่วนลดจาก COM + ส่วนลดเพิ่มเติม
-    decimal totalDiscount = comDiscountFinal + _receiptDiscount;
-  
-    // Update receipt with total combined discount
-    receipt.Discount = totalDiscount;
-    receipt.TotalAmount = _selectedItems.Sum(item => item.TotalPrice) - receipt.Discount;
-_context.Receipts.Update(receipt);
-
-                    // Remove reservations made by this session for these coupon definitions
-      try
-      {
-        var reservations = _context.ReservedCoupons.Where(r => r.SessionId == _reservationSessionId);
-        _context.ReservedCoupons.RemoveRange(reservations);
-        await _context.SaveChangesAsync();
-      }
-      catch (Exception ex)
-      {
-        Debug.WriteLine($"Failed to clear reservations: {ex.Message}");
-        // not fatal for commit - proceed
-      }
-      
-      await _context.SaveChangesAsync();
-                    await tx.CommitAsync();
-
-                    // ใช้ Service แทนการแสดง popup และnavigate
-                    await ShowPrintConfirmationDialog(receipt.ReceiptID, receiptCode, selectedPaymentMethod.Name);
-
-                    // เคลียร์รายการและรีเซ็ตวิธีการชำระเงินหลังจากบันทึกเรียบร้อยแล้ว
-                    _selectedItems.Clear();
-                    ClearPaymentMethodSelection();
-                    UpdateTotalPrice();
-
-                    // รีเฟรชข้อมูลเพื่อให้แสดงจำนวนที่เหลือใหม่
-                    await PerformSearch();
-                }
-                catch (Exception ex)
-                {
-                    await ShowErrorDialog($"เกิดข้อผิดพลาด: {ex.Message}");
-                }
+                await ShowErrorDialog("กรุณากรอกข้อมูลลูกค้าให้ครบถ้วน");
+                return;
             }
 
+            var additionalDiscountVal = double.IsNaN(additionalDiscountBox.Value) ? 0.0 : additionalDiscountBox.Value;
+            if (additionalDiscountVal < 0)
+            {
+                await ShowErrorDialog("ส่วนลดต้องเป็นค่าบวกหรือเท่ากับศูนย์");
+                return;
+            }
+
+            // เก็บเฉพาะส่วนลดเพิ่มเติมในตัวแปร _receiptDiscount
+            _receiptDiscount = (decimal)additionalDiscountVal;
+
+            // คำนวณยอดที่จะส่งให้ SP: TotalAmount = subtotal - (COM + additional)
+            var subtotal = _selectedItems.Sum(item => item.TotalPrice);
+            var totalDiscountForTotal = comDiscount + _receiptDiscount;
+            var totalAmountToSave = subtotal - totalDiscountForTotal;
+
+            // Generate receipt code
+            string receiptCode;
+            try
+            {
+                receiptCode = await ReceiptNumberService.GenerateNextReceiptCodeAsync();
+            }
+            catch (Exception genEx)
+            {
+                var detail = genEx.InnerException != null ? genEx.InnerException.Message : genEx.Message;
+                await ShowErrorDialog($"เกิดข้อผิดพลาด: ไม่สามารถสร้างหมายเลขใบเสร็จได้\n\nรายละเอียด: {detail}");
+                return;
+            }
+
+            // Build a ReceiptModel
+            var receipt = new ReceiptModel
+            {
+                ReceiptCode = receiptCode,
+                ReceiptDate = DateTime.Now,
+                CustomerName = customerName,
+                CustomerPhoneNumber = phoneNumber,
+                // store only the additional discount (DB field)
+                Discount = _receiptDiscount, // will be 0 if user didn't enter
+                // Store TotalAmount as the gross subtotal (ไม่หัก COM/ส่วนลด)
+                TotalAmount = subtotal,
+                SalesPersonId = (SalesPersonComboBox.SelectedItem as SalesPerson)?.ID,
+                PaymentMethodId = GetSelectedPaymentMethod()?.Id
+            };
+
+            // Call stored procedure wrapper
+            int createdReceiptId = 0;
+            try
+            {
+                createdReceiptId = await SaveReceiptViaStoredProcAsync(receipt, _selectedItems.ToList());
+            }
+            catch (Exception ex)
+            {
+                // Recycle receipt code and show error
+                try { await ReceiptNumberService.RecycleReceiptCodeAsync(receiptCode, "SP failed: " + ex.Message); } catch { }
+                await ShowErrorDialog($"เกิดข้อผิดพลาดในการบันทึกใบเสร็จ: {ex.Message}");
+                return;
+            }
+
+            if (createdReceiptId <= 0)
+            {
+                try { await ReceiptNumberService.RecycleReceiptCodeAsync(receiptCode, "SP returned invalid id"); } catch { }
+                await ShowErrorDialog("ไม่สามารถสร้างใบเสร็จได้ (ไม่ได้รับหมายเลขจากฐานข้อมูล)");
+                return;
+            }
+
+            // Remove reservations made by this session (best-effort; SP may already handle this)
+            try
+            {
+                var reservations = _context.ReservedCoupons.Where(r => r.SessionId == _reservationSessionId);
+                _context.ReservedCoupons.RemoveRange(reservations);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to clear reservations: {ex.Message}");
+                // not fatal
+            }
+
+            // Success: notify user & printing flow
+            // Pass comDiscount to the print confirmation so the PrintService can show COM in discount display (but COM is NOT saved in DB)
+            await ShowPrintConfirmationDialog(createdReceiptId, receiptCode, selectedPaymentMethod.Name, comDiscount);
+            _receiptDiscount = 0m;
+            _selectedItems.Clear();
+            ClearPaymentMethodSelection();
+            UpdateTotalPrice();
+            await PerformSearch();
+        }
+
+        // C# helper that calls the stored procedure using a TVP.
+        private async Task<int> SaveReceiptViaStoredProcAsync(ReceiptModel receiptModel, List<ReceiptItem> items)
+        {
+            var table = new DataTable();
+            table.Columns.Add("CouponDefinitionId", typeof(int));
+            table.Columns.Add("Quantity", typeof(int));
+            table.Columns.Add("UnitPrice", typeof(decimal));
+            table.Columns.Add("IsCOM", typeof(bool));
+            table.Columns.Add("SelectedGeneratedIds", typeof(string));
+
+            foreach (var it in items)
+            {
+                var selectedCsv = (it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Any())
+                    ? string.Join(',', it.SelectedGeneratedIds)
+                    : null;
+                table.Rows.Add(it.CouponDefinition.Id, it.Quantity, it.CouponDefinition.Price, it.IsCOM, (object)selectedCsv! ?? DBNull.Value);
+            }
+
+            var conn = _context.Database.GetDbConnection();
+            try
+            {
+                if (conn.State != ConnectionState.Open)
+                    await conn.OpenAsync();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "dbo.sp_CreateReceipt";
+                cmd.CommandType = CommandType.StoredProcedure;
+
+                cmd.Parameters.Add(new SqlParameter("@ReceiptCode", SqlDbType.NVarChar, 50) { Value = receiptModel.ReceiptCode ?? string.Empty });
+                cmd.Parameters.Add(new SqlParameter("@ReceiptDate", SqlDbType.DateTime2) { Value = receiptModel.ReceiptDate });
+                cmd.Parameters.Add(new SqlParameter("@CustomerName", SqlDbType.NVarChar, 200) { Value = receiptModel.CustomerName ?? string.Empty });
+                cmd.Parameters.Add(new SqlParameter("@CustomerPhoneNumber", SqlDbType.NVarChar, 50) { Value = receiptModel.CustomerPhoneNumber ?? string.Empty });
+
+                // IMPORTANT: ส่ง @Discount เป็น NULL ถ้าไม่มีส่วนลดเพิ่มเติม (ผู้ใช้ไม่ได้กรอก)
+                var discountParam = new SqlParameter("@Discount", SqlDbType.Decimal)
+                {
+                    Precision = 18,
+                    Scale = 2,
+                    // Always send a numeric value (0 when no additional discount was entered).
+                    Value = receiptModel.Discount
+                };
+                cmd.Parameters.Add(discountParam);
+
+                cmd.Parameters.Add(new SqlParameter("@TotalAmount", SqlDbType.Decimal) { Value = receiptModel.TotalAmount, Precision = 18, Scale = 2 });
+
+                cmd.Parameters.Add(new SqlParameter("@SalesPersonId", SqlDbType.Int) { Value = receiptModel.SalesPersonId.HasValue ? (object)receiptModel.SalesPersonId.Value : DBNull.Value });
+                cmd.Parameters.Add(new SqlParameter("@PaymentMethodId", SqlDbType.Int) { Value = receiptModel.PaymentMethodId.HasValue ? (object)receiptModel.PaymentMethodId.Value : DBNull.Value });
+
+                var tvp = new SqlParameter("@Items", SqlDbType.Structured)
+                {
+                    TypeName = "dbo.ReceiptItemType",
+                    Value = table
+                };
+                cmd.Parameters.Add(tvp);
+
+                var outParam = new SqlParameter("@CreatedReceiptId", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                cmd.Parameters.Add(outParam);
+
+                if (cmd is SqlCommand sqlCmd)
+                {
+                    await sqlCmd.ExecuteNonQueryAsync();
+                }
+                else
+                {
+                    using var sqlCommand = new SqlCommand(cmd.CommandText, (SqlConnection)conn)
+                    {
+                        CommandType = CommandType.StoredProcedure
+                    };
+                    foreach (SqlParameter p in cmd.Parameters)
+                        sqlCommand.Parameters.Add(p);
+                    await sqlCommand.ExecuteNonQueryAsync();
+                }
+
+                var createdId = outParam.Value == DBNull.Value ? 0 : (int)outParam.Value;
+                return createdId;
+            }
+            finally
+            {
+                try { if (conn.State == ConnectionState.Open) await conn.CloseAsync(); } catch { }
+            }
         }
 
         private void ClearPaymentMethodSelection()
@@ -1568,24 +1980,25 @@ _context.Receipts.Update(receipt);
         private void UpdateTotalPrice()
         {
             decimal subtotal = _selectedItems.Sum(item => item.TotalPrice);
-    
-  // คำนวณส่วนลดจาก COM
-       decimal comDiscount = 0m;
-     foreach (var item in _selectedItems)
-     {
-    if (item.IsCOM)
-     {
-  comDiscount += item.CouponDefinition.Price * item.Quantity;
-          }
-   }
-          
-     decimal totalDiscount = comDiscount;
-   decimal netTotal = subtotal - totalDiscount;
-       
-      // อัปเดต UI
-          SubtotalTextBlock.Text = subtotal.ToString("N2");
-     TotalDiscountTextBlock.Text = totalDiscount.ToString("N2");
-    TotalPriceTextBlock.Text = netTotal.ToString("N2");
+
+            // คำนวณส่วนลดจาก COM
+            decimal comDiscount = 0m;
+            foreach (var item in _selectedItems)
+            {
+                if (item.IsCOM)
+                {
+                    comDiscount += item.CouponDefinition.Price * item.Quantity;
+                }
+            }
+
+            // รวม COM discount กับ receipt-level additional discount
+            decimal totalDiscount = comDiscount + _receiptDiscount;
+            decimal netTotal = subtotal - totalDiscount;
+
+            // อัปเดต UI
+            SubtotalTextBlock.Text = subtotal.ToString("N2");
+            TotalDiscountTextBlock.Text = totalDiscount.ToString("N2");
+            TotalPriceTextBlock.Text = netTotal.ToString("N2");
         }
 
         private async Task ShowErrorDialog(string message)
@@ -1607,7 +2020,7 @@ _context.Receipts.Update(receipt);
         }
 
         // เพิ่ม method สำหรับแสดง popup ยืนยันการพิมพ์ใหม่
-        private async Task ShowPrintConfirmationDialog(int receiptId, string receiptCode, string paymentMethodName)
+        private async Task ShowPrintConfirmationDialog(int receiptId, string receiptCode, string paymentMethodName, decimal comDiscount)
         {
             // Outer loop so we can return to the confirmation dialog when user cancels the reason dialog
             while (true)
@@ -1628,7 +2041,7 @@ _context.Receipts.Update(receipt);
                 if (result == ContentDialogResult.Primary)
                 {
                     // กดปุ่มพิมพ์ - ใช้ Service พิมพ์โดยไม่เปิดหน้า Preview
-                    bool printSuccess = await ReceiptPrintService.PrintReceiptAsync(receiptId, this.XamlRoot);
+                    bool printSuccess = await ReceiptPrintService.PrintReceiptAsync(receiptId, this.XamlRoot, comDiscount);
                     if (printSuccess)
                     {
                         Debug.WriteLine("เรียกใช้งานการพิมพ์สำเร็จ");
@@ -1640,7 +2053,7 @@ _context.Receipts.Update(receipt);
                 // กดปุ่มยกเลิก - ขอเหตุผลการยกเลิกการพิมพ์ก่อน และเก็บหมายเลขใบเสร็จเพื่อรีไซเคิลเฉพาะเครื่องนี้
                 while (true)
                 {
-                    var reasonPanel = new StackPanel { Spacing =8 };
+                    var reasonPanel = new StackPanel { Spacing = 8 };
                     reasonPanel.Children.Add(new TextBlock { Text = "สาเหตุการยกเลิกการพิมพ์ (จำเป็น):" });
                     var reasonBox = new TextBox { PlaceholderText = "ระบุสาเหตุ เช่น ผิดรายการ/ลืมเพิ่มสินค้า", AcceptsReturn = false };
                     reasonPanel.Children.Add(reasonBox);
@@ -1739,25 +2152,25 @@ _context.Receipts.Update(receipt);
                 // For unlimited coupons, edit should allow changing quantity only (and discount)
                 var quantityBox = new NumberBox
                 {
-                    Value = selectedItem.Quantity >0 ? selectedItem.Quantity :1,
-                    Minimum =1,
+                    Value = selectedItem.Quantity > 0 ? selectedItem.Quantity : 1,
+                    Minimum = 1,
                     Maximum = int.MaxValue,
                     SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
-                    Margin = new Thickness(0,10,0,0)
+                    Margin = new Thickness(0, 10, 0, 0)
                 };
 
                 var totalPriceTextBlock = new TextBlock
                 {
                     Text = $"รวมเป็นเงิน: {selectedItem.CouponDefinition.Price * (decimal)quantityBox.Value} บาท",
                     FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                    Margin = new Thickness(0,8,0,10)
+                    Margin = new Thickness(0, 8, 0, 10)
                 };
 
                 void Recalc()
                 {
-                    var q = quantityBox.Value >0 ? (int)quantityBox.Value :0;
+                    var q = quantityBox.Value > 0 ? (int)quantityBox.Value : 0;
                     var total = selectedItem.CouponDefinition.Price * (decimal)q;
-                    if (total <0) total =0;
+                    if (total < 0) total = 0;
                     totalPriceTextBlock.Text = $"รวมเป็นเงิน: {total} บาท";
                 }
 
@@ -1765,7 +2178,7 @@ _context.Receipts.Update(receipt);
 
                 var contentPanel = new StackPanel();
                 contentPanel.Children.Add(new TextBlock { Text = $"คูปอง: {selectedItem.CouponDefinition.Name}" });
-                contentPanel.Children.Add(new TextBlock { Text = $"ราคา: {selectedItem.CouponDefinition.Price} บาท/ใบ", Margin = new Thickness(0,6,0,6) });
+                contentPanel.Children.Add(new TextBlock { Text = $"ราคา: {selectedItem.CouponDefinition.Price} บาท/ใบ", Margin = new Thickness(0, 6, 0, 6) });
                 contentPanel.Children.Add(new TextBlock { Text = "กรุณาระบุจำนวน:" });
                 contentPanel.Children.Add(quantityBox);
                 contentPanel.Children.Add(totalPriceTextBlock);
@@ -1783,7 +2196,7 @@ _context.Receipts.Update(receipt);
                 var result = await dialog.ShowAsync();
                 if (result == ContentDialogResult.Primary)
                 {
-                    if (double.IsNaN(quantityBox.Value) || quantityBox.Value <=0)
+                    if (double.IsNaN(quantityBox.Value) || quantityBox.Value <= 0)
                     {
                         await ShowErrorDialog("กรุณาระบุจำนวนคูปองที่ถูกต้อง");
                         return;
@@ -1798,11 +2211,11 @@ _context.Receipts.Update(receipt);
                     if (display != null)
                     {
                         display.TotalUsed += (newQuantity - oldQuantity);
-                        if (display.TotalUsed <0) display.TotalUsed = 0;
+                        if (display.TotalUsed < 0) display.TotalUsed = 0;
                     }
 
                     int index = _selectedItems.IndexOf(selectedItem);
-                    if (index >=0)
+                    if (index >= 0)
                     {
                         _selectedItems.RemoveAt(index);
                         _selectedItems.Insert(index, selectedItem);

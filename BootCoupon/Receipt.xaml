@@ -73,7 +73,8 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />   <!-- SaleEventComboBox -->
+                            <ColumnDefinition Width="*" />   <!-- BranchComboBox (moved) -->
                         </Grid.ColumnDefinitions>
 
                         <!-- Search by Name -->
@@ -84,10 +85,13 @@
                         <TextBox x:Name="CodeSearchTextBox" Grid.Column="1" PlaceholderText="ค้นหาตามรหัส" 
  Margin="4,0,8,0" TextChanged="CodeSearchTextBox_TextChanged" FontSize="14"/>
 
-                        <!-- Search by Coupon Type -->
-                        <ComboBox x:Name="BranchComboBox" Grid.Column="2" PlaceholderText="ค้นหาตามสาขา" 
- Margin="4,0,0,0" 
- SelectionChanged="BranchComboBox_SelectionChanged" FontSize="14"/>
+                        <!-- Search by Sale Event -->
+                        <ComboBox x:Name="SaleEventComboBox" Grid.Column="2" PlaceholderText="เลือกงานขาย" 
+              Margin="4,0,8,0" SelectionChanged="SaleEventComboBox_SelectionChanged" FontSize="14"/>
+
+    <!-- Search by Branch -->
+    <ComboBox x:Name="BranchComboBox" Grid.Column="3" PlaceholderText="ค้นหาตามสาขา" 
+              Margin="4,0,0,0" SelectionChanged="BranchComboBox_SelectionChanged" FontSize="14"/>
                     </Grid>
 
                     <!-- CouponDefinitions ListView -->
@@ -132,6 +136,13 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+
+                    <!-- Pagination controls (25 items per page) -->
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12" Margin="0,10,0,0">
+                        <Button x:Name="PrevPageButton" Content="‹ ก่อนหน้า" Click="PrevPageButton_Click" Style="{StaticResource LargeActionButton}" />
+                        <TextBlock x:Name="PageInfoTextBlock" VerticalAlignment="Center" FontSize="16" Margin="8,0"/>
+                        <Button x:Name="NextPageButton" Content="ถัดไป ›" Click="NextPageButton_Click" Style="{StaticResource LargeActionButton}" />
+                    </StackPanel>
                 </Grid>
             </Border>
 

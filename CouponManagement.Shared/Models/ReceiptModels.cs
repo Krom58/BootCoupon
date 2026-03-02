@@ -28,7 +28,10 @@ namespace CouponManagement.Shared.Models
         
         // เพิ่มสถานะของใบเสร็จ
         public string Status { get; set; } = "Active";
-        
+        // ✅ เพิ่ม properties ใหม่
+        public string? CancellationReason { get; set; }
+        public DateTime? CancelledDate { get; set; }
+        public string? CancelledBy { get; set; }
         // เพิ่มวิธีการชำระเงิน
         public int? PaymentMethodId { get; set; }
     }
@@ -65,5 +68,14 @@ namespace CouponManagement.Shared.Models
         public string TotalAmountFormatted => TotalAmount.ToString("N2");
         public string ReceiptDateFormatted => ReceiptDate.ToString("dd/MM/yyyy HH:mm:ss");
         public string StatusText => Status == "Active" ? "ใช้งาน" : Status == "Cancelled" ? "ยกเลิก" : Status;
+
+        // ✅ เพิ่ม property ใหม่
+        public string? CancellationReason { get; set; }
+        public DateTime? CancelledDate { get; set; }
+
+        // ✅ Tooltip สำหรับแสดงเหตุผล (optional)
+        public string StatusTooltip => Status == "Cancelled" && !string.IsNullOrEmpty(CancellationReason)
+            ? $"ยกเลิกเมื่อ: {CancelledDate?.ToString("dd/MM/yyyy HH:mm")}\nเหตุผล: {CancellationReason}"
+            : string.Empty;
     }
 }

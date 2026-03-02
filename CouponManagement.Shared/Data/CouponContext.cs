@@ -26,6 +26,7 @@ namespace CouponManagement.Shared
         public DbSet<CouponDefinition> CouponDefinitions { get; set; } = null!;
         public DbSet<CouponCodeGenerator> CouponCodeGenerators { get; set; } = null!;
         public DbSet<GeneratedCoupon> GeneratedCoupons { get; set; } = null!;
+        public DbSet<GeneratedCouponsHistory> GeneratedCouponsHistory { get; set; } = null!;
 
         // Receipt number etc
         public DbSet<ReceiptNumberManager> ReceiptNumberManagers { get; set; } = null!;
@@ -46,13 +47,11 @@ namespace CouponManagement.Shared
             if (!optionsBuilder.IsConfigured) 
             {
                 var conn = Environment.GetEnvironmentVariable("COUPONDB_CONNECTION")
-                           ?? "Server=10.10.0.42\\SQLSET;Database=CouponTest;User Id=sa;Password=Wutt@1976;TrustServerCertificate=True;Trusted_Connection=False;";
+                           ?? "Server=10.10.0.42\\SQLSET;Database=CouponTest;User Id=AsiaTTT;Password=Asia@dev@Bkk;TrustServerCertificate=True;Trusted_Connection=False;";
                 optionsBuilder.UseSqlServer(conn);
             }
         }
-        //"Server=(localdb)\\MSSQLLocalDB;Database=CouponDbV2;Integrated Security=True;TrustServerCertificate=True;"
-        //"Server=KROM\\SQLEXPRESS;Database=CouponDbV2;Integrated Security=True;TrustServerCertificate=True;"
-        //"Server=10.10.0.42\\SQLSET;Database=CouponDbV2;User Id=sa;Password=Wutt@1976;TrustServerCertificate=True;Trusted_Connection=False;"
+        
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -262,6 +261,53 @@ namespace CouponManagement.Shared
 
                 entity.HasIndex(e => e.BatchNumber)
                       .HasDatabaseName("IX_GeneratedCoupons_BatchNumber");
+            });
+
+            // ✅ เพิ่ม GeneratedCouponsHistory configuration
+            modelBuilder.Entity<GeneratedCouponsHistory>(entity =>
+            {
+                entity.ToTable("GeneratedCouponsHistory");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.GeneratedCode)
+                      .IsRequired()
+                      .HasMaxLength(50);
+
+                entity.Property(e => e.BatchNumber)
+                      .IsRequired();
+
+                entity.Property(e => e.CreatedAt)
+                      .HasDefaultValueSql("GETDATE()");
+
+                entity.Property(e => e.UsedBy)
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.CreatedBy)
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.MovedToHistoryAt)
+                      .HasDefaultValueSql("GETDATE()");
+
+                entity.Property(e => e.MovedReason)
+                      .HasMaxLength(255);
+
+                entity.HasOne(g => g.CouponDefinition)
+                      .WithMany()
+                      .HasForeignKey(g => g.CouponDefinitionId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Indexes for performance
+                entity.HasIndex(e => e.GeneratedCode)
+                      .HasDatabaseName("IX_GeneratedCouponsHistory_GeneratedCode");
+
+                entity.HasIndex(e => e.CouponDefinitionId)
+                      .HasDatabaseName("IX_GeneratedCouponsHistory_CouponDefinitionId");
+
+                entity.HasIndex(e => e.ReceiptItemId)
+                      .HasDatabaseName("IX_GeneratedCouponsHistory_ReceiptItemId");
+
+                entity.HasIndex(e => e.MovedToHistoryAt)
+                      .HasDatabaseName("IX_GeneratedCouponsHistory_MovedToHistoryAt");
             });
 
             // SalesPerson mapping
