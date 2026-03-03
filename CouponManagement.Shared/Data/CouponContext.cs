@@ -263,11 +263,14 @@ namespace CouponManagement.Shared
                       .HasDatabaseName("IX_GeneratedCoupons_BatchNumber");
             });
 
-            // ✅ เพิ่ม GeneratedCouponsHistory configuration
+            // ✅ แก้ไข GeneratedCouponsHistory configuration
             modelBuilder.Entity<GeneratedCouponsHistory>(entity =>
             {
                 entity.ToTable("GeneratedCouponsHistory");
                 entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Id)
+                      .HasColumnName("HistoryId");
 
                 entity.Property(e => e.GeneratedCode)
                       .IsRequired()
@@ -285,11 +288,21 @@ namespace CouponManagement.Shared
                 entity.Property(e => e.CreatedBy)
                       .HasMaxLength(100);
 
-                entity.Property(e => e.MovedToHistoryAt)
+                entity.Property(e => e.ActionType)
+                      .IsRequired()
+                      .HasMaxLength(50);
+
+                entity.Property(e => e.ActionBy)
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.ActionAt)
                       .HasDefaultValueSql("GETDATE()");
 
-                entity.Property(e => e.MovedReason)
-                      .HasMaxLength(255);
+                entity.Property(e => e.ActionReason)
+                      .HasMaxLength(500);
+
+                entity.Property(e => e.ReceiptCode)
+                      .HasMaxLength(50);
 
                 entity.HasOne(g => g.CouponDefinition)
                       .WithMany()
@@ -297,6 +310,9 @@ namespace CouponManagement.Shared
                       .OnDelete(DeleteBehavior.Cascade);
 
                 // Indexes for performance
+                entity.HasIndex(e => e.GeneratedCouponId)
+                      .HasDatabaseName("IX_GeneratedCouponsHistory_GeneratedCouponId");
+
                 entity.HasIndex(e => e.GeneratedCode)
                       .HasDatabaseName("IX_GeneratedCouponsHistory_GeneratedCode");
 
@@ -306,8 +322,8 @@ namespace CouponManagement.Shared
                 entity.HasIndex(e => e.ReceiptItemId)
                       .HasDatabaseName("IX_GeneratedCouponsHistory_ReceiptItemId");
 
-                entity.HasIndex(e => e.MovedToHistoryAt)
-                      .HasDatabaseName("IX_GeneratedCouponsHistory_MovedToHistoryAt");
+                entity.HasIndex(e => e.ActionAt)
+                      .HasDatabaseName("IX_GeneratedCouponsHistory_ActionAt");
             });
 
             // SalesPerson mapping

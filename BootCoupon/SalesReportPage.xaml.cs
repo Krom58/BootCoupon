@@ -385,6 +385,16 @@ namespace BootCoupon
                 }
             }
         }
+        private sealed record ReceiptAggregateData
+        {
+            public int ReceiptId { get; init; }
+            public int PaidGeneratedCount { get; init; }
+            public int FreeGeneratedCount { get; init; }
+            public int UnlimitedCount { get; init; }
+            public decimal PaidGeneratedAmount { get; init; }
+            public decimal FreeGeneratedAmount { get; init; }
+            public decimal UnlimitedAmount { get; init; }
+        }
 
         private DateTimeOffset? _startDate = DateTime.Today.AddDays(-30);
         private DateTimeOffset? _endDate = DateTime.Today;
@@ -508,7 +518,177 @@ namespace BootCoupon
                 }
             }
         }
+        // ✅ แทนที่ method GetActiveReceiptAggregatesAsync ทั้งหมด
+        private async Task<List<ReceiptAggregateData>> GetActiveReceiptAggregatesAsync(
+            CouponContext context,
+            IQueryable<DatabaseReceiptItem> baseReceiptItemsQuery)
+        {
+            System.Diagnostics.Debug.WriteLine("[GetActiveReceiptAggregatesAsync] Starting...");
 
+            // ดึง ReceiptItem พื้นฐาน
+            var receiptItemsBase = await (
+                from ri in baseReceiptItemsQuery
+                join cd in context.CouponDefinitions on ri.CouponId equals cd.Id into cdj
+                from cd in cdj.DefaultIfEmpty()
+                select new
+                {
+                    ri.ReceiptId,
+                    ri.ReceiptItemId,
+                    ri.Quantity,
+                    ri.UnitPrice,
+                    ri.TotalPrice,
+                    IsLimited = cd != null && cd.IsLimited
+                }
+            ).ToListAsync();
+
+            System.Diagnostics.Debug.WriteLine($"[Active] Found {receiptItemsBase.Count} base receipt items");
+
+            // ✅ ดึง ReceiptItemIds เป็น List<int> (non-nullable)
+            var receiptItemIds = receiptItemsBase.Select(x => x.ReceiptItemId).ToList();
+
+            var generatedCouponsByItem = await (
+    from gc in context.GeneratedCoupons
+    where gc.ReceiptItemId != null && receiptItemIds.Contains(gc.ReceiptItemId.Value)
+    group gc by gc.ReceiptItemId!.Value into g  // ✅ เพิ่ม ! หลัง ReceiptItemId
+    select new
+    {
+        ReceiptItemId = g.Key,
+        IsComplimentary = g.First().IsComplimentary
+    }
+).ToDictionaryAsync(x => x.ReceiptItemId);
+
+            System.Diagnostics.Debug.WriteLine($"[Active] Found {generatedCouponsByItem.Count} generated coupon items");
+
+            // Aggregate ตาม ReceiptId
+            var aggregates = receiptItemsBase
+                .GroupBy(x => x.ReceiptId)
+                .Select(g => new ReceiptAggregateData
+                {
+                    ReceiptId = g.Key,
+                    PaidGeneratedCount = g.Count(x =>
+                        x.IsLimited &&
+                        generatedCouponsByItem.ContainsKey(x.ReceiptItemId) &&
+                        !generatedCouponsByItem[x.ReceiptItemId].IsComplimentary),
+                    FreeGeneratedCount = g.Count(x =>
+                        x.IsLimited &&
+                        generatedCouponsByItem.ContainsKey(x.ReceiptItemId) &&
+                        generatedCouponsByItem[x.ReceiptItemId].IsComplimentary),
+                    UnlimitedCount = g
+                        .Where(x => !x.IsLimited && !generatedCouponsByItem.ContainsKey(x.ReceiptItemId))
+                        .Sum(x => x.Quantity),
+                    PaidGeneratedAmount = g
+                        .Where(x => x.IsLimited &&
+                                   generatedCouponsByItem.ContainsKey(x.ReceiptItemId) &&
+                                   !generatedCouponsByItem[x.ReceiptItemId].IsComplimentary)
+                        .Sum(x => x.UnitPrice),
+                    FreeGeneratedAmount = g
+                        .Where(x => x.IsLimited &&
+                                   generatedCouponsByItem.ContainsKey(x.ReceiptItemId) &&
+                                   generatedCouponsByItem[x.ReceiptItemId].IsComplimentary)
+                        .Sum(x => x.UnitPrice),
+                    UnlimitedAmount = g
+                        .Where(x => !x.IsLimited && !generatedCouponsByItem.ContainsKey(x.ReceiptItemId))
+                        .Sum(x => x.TotalPrice)
+                })
+                .ToList();
+
+            System.Diagnostics.Debug.WriteLine($"[Active] Processed {aggregates.Count} receipts");
+            foreach (var agg in aggregates.Take(3))
+            {
+                System.Diagnostics.Debug.WriteLine($"  ReceiptId={agg.ReceiptId}: Paid={agg.PaidGeneratedCount}, Free={agg.FreeGeneratedCount}, Unlim={agg.UnlimitedCount}");
+            }
+
+            return aggregates;
+        }
+        // ✅ แทนที่ method GetCancelledReceiptAggregatesAsync ทั้งหมด
+        private async Task<List<ReceiptAggregateData>> GetCancelledReceiptAggregatesAsync(
+            CouponContext context,
+            IQueryable<DatabaseReceiptItem> baseReceiptItemsQuery)
+        {
+            System.Diagnostics.Debug.WriteLine("[GetCancelledReceiptAggregatesAsync] Starting...");
+
+            // ดึง ReceiptItem พื้นฐาน
+            var receiptItemsBase = await (
+                from ri in baseReceiptItemsQuery
+                join cd in context.CouponDefinitions on ri.CouponId equals cd.Id into cdj
+                from cd in cdj.DefaultIfEmpty()
+                select new
+                {
+                    ri.ReceiptId,
+                    ri.ReceiptItemId,
+                    ri.Quantity,
+                    ri.UnitPrice,
+                    ri.TotalPrice,
+                    IsLimited = cd != null && cd.IsLimited
+                }
+            ).ToListAsync();
+
+            System.Diagnostics.Debug.WriteLine($"[Cancelled] Found {receiptItemsBase.Count} base receipt items");
+
+            // ✅ ดึง ReceiptItemIds เป็น List<int> (non-nullable)
+            var receiptItemIds = receiptItemsBase.Select(x => x.ReceiptItemId).ToList();
+
+            // ✅ ดึง Latest History - กรอง null ออกและใช้ .Value
+            var latestHistoryByItem = await (
+                from h in context.GeneratedCouponsHistory
+                where h.ActionType == "ReceiptCancelled"
+                      && h.ReceiptItemId.HasValue  // ✅ เช็คว่ามีค่า
+                      && h.ReceiptItemId.Value != 0  // ✅ กรอง 0 ออก
+                      && receiptItemIds.Contains(h.ReceiptItemId.Value) // ✅ ใช้ .Value เพื่อเปรียบเทียบกับ List<int>
+                group h by h.ReceiptItemId!.Value into g // ✅ ใช้ .Value เพื่อ group ด้วย int
+                select new
+                {
+                    ReceiptItemId = g.Key,
+                    LatestRecord = g.OrderByDescending(x => x.ActionAt).First()
+                }
+            ).ToDictionaryAsync(
+                x => x.ReceiptItemId,
+                x => x.LatestRecord.IsComplimentary
+            );
+
+            System.Diagnostics.Debug.WriteLine($"[Cancelled] Found {latestHistoryByItem.Count} history items");
+
+            // Aggregate ตาม ReceiptId
+            var aggregates = receiptItemsBase
+                .GroupBy(x => x.ReceiptId)
+                .Select(g => new ReceiptAggregateData
+                {
+                    ReceiptId = g.Key,
+                    PaidGeneratedCount = g.Count(x =>
+                        x.IsLimited &&
+                        latestHistoryByItem.ContainsKey(x.ReceiptItemId) &&
+                        !latestHistoryByItem[x.ReceiptItemId]),
+                    FreeGeneratedCount = g.Count(x =>
+                        x.IsLimited &&
+                        latestHistoryByItem.ContainsKey(x.ReceiptItemId) &&
+                        latestHistoryByItem[x.ReceiptItemId]),
+                    UnlimitedCount = g
+                        .Where(x => !x.IsLimited && !latestHistoryByItem.ContainsKey(x.ReceiptItemId))
+                        .Sum(x => x.Quantity),
+                    PaidGeneratedAmount = g
+                        .Where(x => x.IsLimited &&
+                                   latestHistoryByItem.ContainsKey(x.ReceiptItemId) &&
+                                   !latestHistoryByItem[x.ReceiptItemId])
+                        .Sum(x => x.UnitPrice),
+                    FreeGeneratedAmount = g
+                        .Where(x => x.IsLimited &&
+                                   latestHistoryByItem.ContainsKey(x.ReceiptItemId) &&
+                                   latestHistoryByItem[x.ReceiptItemId])
+                        .Sum(x => x.UnitPrice),
+                    UnlimitedAmount = g
+                        .Where(x => !x.IsLimited && !latestHistoryByItem.ContainsKey(x.ReceiptItemId))
+                        .Sum(x => x.TotalPrice)
+                })
+                .ToList();
+
+            System.Diagnostics.Debug.WriteLine($"[Cancelled] Processed {aggregates.Count} receipts");
+            foreach (var agg in aggregates.Take(3))
+            {
+                System.Diagnostics.Debug.WriteLine($"  ReceiptId={agg.ReceiptId}: Paid={agg.PaidGeneratedCount}, Free={agg.FreeGeneratedCount}, Unlim={agg.UnlimitedCount}");
+            }
+
+            return aggregates;
+        }
         public SalesPerson? SelectedSalesPerson
         {
             get => _selectedSalesPerson;
@@ -953,80 +1133,46 @@ namespace BootCoupon
                         baseReceiptItemsQuery = joined.Select(x => x.ri);
                     }
 
-                    // ✅ แก้ไข: เช็คว่าเป็น CancelledReceipts หรือไม่ และดึงจากตารางที่เหมาะสม
-                    var grouped = await (
-                        ReportMode == ReportModes.CancelledReceipts
-                        // ✅ สำหรับใบเสร็จที่ยกเลิก → ดึงจาก GeneratedCouponsHistory เท่านั้น
-                        ? (from ri in baseReceiptItemsQuery
-                           join cd in context.CouponDefinitions on ri.CouponId equals cd.Id into cdj
-                           from cd in cdj.DefaultIfEmpty()
-                           join gch in context.GeneratedCouponsHistory on ri.ReceiptItemId equals gch.ReceiptItemId into gchj
-                           from gch in gchj.DefaultIfEmpty()
-                           group new { ri, cd, gch } by ri.ReceiptId into g
-                           select new
-                           {
-                               ReceiptId = g.Key,
-                               // นับจาก GeneratedCouponsHistory
-                               GeneratedCount = g.Count(x => x.gch != null),
-                               FreeGeneratedCount = g.Count(x => x.gch != null && x.gch.IsComplimentary == true),
-                               UnlimitedCount = g.Where(x => x.cd != null && x.cd.IsLimited == false)
-                                                     .Sum(x => (int?)x.ri.Quantity) ?? 0,
-                               TotalAmount = g.Sum(x => x.ri.TotalPrice),
-                               AverageUnitPriceGenerated = g.Any(x => x.gch != null)
-                                   ? g.Where(x => x.gch != null).Average(x => x.ri.UnitPrice)
-                                   : 0m
-                           })
-                        // ✅ สำหรับใบเสร็จปกติ (Active) → ดึงจาก GeneratedCoupons เท่านั้น
-                        : (from ri in baseReceiptItemsQuery
-                           join cd in context.CouponDefinitions on ri.CouponId equals cd.Id into cdj
-                           from cd in cdj.DefaultIfEmpty()
-                           join gc in context.GeneratedCoupons on ri.ReceiptItemId equals gc.ReceiptItemId into gcj
-                           from gc in gcj.DefaultIfEmpty()
-                           group new { ri, cd, gc } by ri.ReceiptId into g
-                           select new
-                           {
-                               ReceiptId = g.Key,
-                               // นับจาก GeneratedCoupons
-                               GeneratedCount = g.Count(x => x.gc != null),
-                               FreeGeneratedCount = g.Count(x => x.gc != null && x.gc.IsComplimentary == true),
-                               UnlimitedCount = g.Where(x => x.cd != null && x.cd.IsLimited == false)
-                                                     .Sum(x => (int?)x.ri.Quantity) ?? 0,
-                               TotalAmount = g.Sum(x => x.ri.TotalPrice),
-                               AverageUnitPriceGenerated = g.Any(x => x.gc != null)
-                                   ? g.Where(x => x.gc != null).Average(x => x.ri.UnitPrice)
-                                   : 0m
-                           })
-                    ).ToListAsync();
+                    List<ReceiptAggregateData> grouped;
 
-                    // Debug
-                    System.Diagnostics.Debug.WriteLine($"Found {grouped.Count} receipt groups (with unlimited counts)");
-                    foreach (var gg in grouped.Take(5))
+                    if (ReportMode == ReportModes.ByReceipt)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Receipt {gg.ReceiptId}: generated={gg.GeneratedCount}, freeGenerated={gg.FreeGeneratedCount}, unlimited={gg.UnlimitedCount}, amount={gg.TotalAmount}");
+                        grouped = await GetActiveReceiptAggregatesAsync(context, baseReceiptItemsQuery);
+                    }
+                    else // CancelledReceipts
+                    {
+                        grouped = await GetCancelledReceiptAggregatesAsync(context, baseReceiptItemsQuery);
                     }
 
-                    var receiptGeneratedCounts = grouped.ToDictionary(x => x.ReceiptId, x => x.GeneratedCount);
-                    var receiptFreeGeneratedCounts = grouped.ToDictionary(x => x.ReceiptId, x => x.FreeGeneratedCount);
-                    var receiptUnlimitedCounts = grouped.ToDictionary(x => x.ReceiptId, x => x.UnlimitedCount);
-                    var receiptItemTotals = grouped.ToDictionary(x => x.ReceiptId, x => x.TotalAmount);
-                    var receiptAvgGenUnitPrices = grouped.ToDictionary(x => x.ReceiptId, x => x.AverageUnitPriceGenerated);
+                    // Debug - โค้ดเดิมคงไว้
+                    System.Diagnostics.Debug.WriteLine($"[{ReportMode}] Found {grouped.Count} receipt groups");
+                    foreach (var gg in grouped.Take(3))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  Receipt {gg.ReceiptId}: paidGen={gg.PaidGeneratedCount}, freeGen={gg.FreeGeneratedCount}, unlim={gg.UnlimitedCount}");
+                    }
 
-                    // Map receipts to report rows (บรรทัดประมาณ 993-1034)
+                    // Map receipts to report rows - โค้ดเดิมยังคงเหมือนเดิม
                     results = filteredReceipts.Select(r =>
                     {
-                        var genCount = receiptGeneratedCounts.ContainsKey(r.ReceiptID) ? receiptGeneratedCounts[r.ReceiptID] : 0;
-                        var freeGenCount = receiptFreeGeneratedCounts.ContainsKey(r.ReceiptID) ? receiptFreeGeneratedCounts[r.ReceiptID] : 0;
-                        var unlimCount = receiptUnlimitedCounts.ContainsKey(r.ReceiptID) ? receiptUnlimitedCounts[r.ReceiptID] : 0;
-                        var totalCouponCount = genCount + unlimCount;
+                        var aggregateData = grouped.FirstOrDefault(x => x.ReceiptId == r.ReceiptID);
+
+                        var paidGenCount = aggregateData?.PaidGeneratedCount ?? 0;
+                        var freeGenCount = aggregateData?.FreeGeneratedCount ?? 0;
+                        var unlimCount = aggregateData?.UnlimitedCount ?? 0;
+
+                        var paidGenAmount = aggregateData?.PaidGeneratedAmount ?? 0m;
+                        var freeGenAmount = aggregateData?.FreeGeneratedAmount ?? 0m;
+                        var unlimAmount = aggregateData?.UnlimitedAmount ?? 0m;
+
+                        // คำนวณตามสูตร 6 ข้อ
+                        var paidCouponCount = paidGenCount + unlimCount;
                         var freeCouponCount = freeGenCount;
-                        var totalPrice = receiptItemTotals.ContainsKey(r.ReceiptID) ? receiptItemTotals[r.ReceiptID] : 0m;
-                        var discount = r.Discount;
-                        var avgGenUnitPrice = receiptAvgGenUnitPrices.ContainsKey(r.ReceiptID) ? receiptAvgGenUnitPrices[r.ReceiptID] : 0m;
+                        var totalCouponCount = paidCouponCount + freeCouponCount;
 
-                        var freeCouponPrice = avgGenUnitPrice * freeCouponCount;
-                        var paidCouponPrice = totalPrice - discount;
+                        var paidCouponPrice = paidGenAmount + unlimAmount;
+                        var freeCouponPrice = freeGenAmount;
+                        var grandTotalPrice = paidCouponPrice + freeCouponPrice;
 
-                        // Replace the existing `return new SalesReportItem { ... }` inside ByReceipt mapping with this block
                         return new SalesReportItem
                         {
                             ReceiptDate = r.ReceiptDate,
@@ -1040,18 +1186,16 @@ namespace BootCoupon
                             PaymentMethodName = r.PaymentMethodId.HasValue && paymentMethodDict.ContainsKey(r.PaymentMethodId.Value)
                                 ? paymentMethodDict[r.PaymentMethodId.Value]
                                 : "ไม่ระบุ",
-                            UnitPrice = avgGenUnitPrice,
-                            TotalPrice = totalPrice,
-                            Discount = discount,
-                            TotalCouponCount = totalCouponCount,      // รวม = generated + unlimited
-                            FreeCouponCount = freeCouponCount,        // ฟรี = COM (จาก GeneratedCoupons.IsComplimentary)
-                            // คำนวณจ่ายชัดเจน (จ่าย = generated non-COM + unlimited)
-                            PaidCouponPrice = Math.Max(0m, (totalPrice - freeCouponPrice - discount)),
+                            UnitPrice = paidGenAmount,
+                            TotalPrice = grandTotalPrice,
+                            Discount = r.Discount,
+                            TotalCouponCount = totalCouponCount,
+                            FreeCouponCount = freeCouponCount,
+                            PaidCouponPrice = paidCouponPrice,
                             FreeCouponPrice = freeCouponPrice,
                             SaleEventName = receiptEventMap != null && receiptEventMap.TryGetValue(r.ReceiptID, out var evIds) && evIds.Any()
                                 ? string.Join(", ", evIds.Select(id => saleEventDict.TryGetValue(id, out var nm) ? nm : string.Empty).Where(s => !string.IsNullOrWhiteSpace(s)))
                                 : string.Empty,
-                            // เก็บเหตุผลยกเลิก (ถ้ามี)
                             CancellationReason = r.CancellationReason ?? ""
                         };
                     }).OrderBy(x => x.ReceiptDate).ThenBy(x => x.ReceiptCode).ToList();
@@ -1304,7 +1448,7 @@ namespace BootCoupon
                         var usedCodes = await gcQuery.ToListAsync();
 
                         // Map live generated coupons
-                        var liveMapped = usedCodes.Select(x => new SalesReportItem
+                        results = usedCodes.Select(x => new SalesReportItem
                         {
                             ReceiptDate = x.ReceiptDate,
                             ReceiptCode = x.ReceiptCode,
@@ -1326,10 +1470,10 @@ namespace BootCoupon
                             // Sale event name
                             SaleEventName = (x.SaleEventId.HasValue && x.SaleEventId.Value != 0 && saleEventDict.TryGetValue(x.SaleEventId.Value, out var ln)) ? ln : string.Empty
                         })
-                          .OrderBy(x => x.ReceiptDate)
-                       .ThenBy(x => x.ReceiptCode)
-                          .ThenBy(x => x.CouponName)
-                          .ToList();
+                        .OrderBy(x => x.ReceiptDate)
+                        .ThenBy(x => x.ReceiptCode)
+                        .ThenBy(x => x.CouponName)
+                        .ToList();  // ✅ เพิ่ม .ToList() และกำหนดให้ results
                     }
                 }
                 else if (ReportMode == ReportModes.SummaryByCoupon)
