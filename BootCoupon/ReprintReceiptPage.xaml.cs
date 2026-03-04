@@ -40,10 +40,21 @@ namespace BootCoupon
 
     public sealed partial class ReprintReceiptPage : Page
     {
-        private ObservableCollection<ReceiptDisplayModel> _receipts;
-        private ObservableCollection<ReceiptDisplayModel> _filteredReceipts;
+        private ObservableCollection<ReceiptDisplayModel> _allReceipts; // ⭐ เก็บข้อมูลทั้งหมด
+        private ObservableCollection<ReceiptDisplayModel> _filteredReceipts; // ⭐ ข้อมูลหลังกรอง (ยังไม่แบ่งหน้า)
+        private ObservableCollection<ReceiptDisplayModel> _pagedReceipts; // ⭐ ข้อมูลในหน้าปัจจุบัน
+        private ObservableCollection<SaleEvent> _saleEvents; // ⭐ รายการงานที่ออกขาย
+        
         private string _currentStatusFilter = "Active";
         private string _currentSearchText = string.Empty;
+        private SaleEvent? _selectedSaleEvent = null; // ⭐ งานที่เลือก
+        
+        // ⭐ Pagination variables
+        private int _currentPage = 1;
+        private int _pageSize = 25;
+        private int _totalPages = 1;
+        private int _totalRecords = 0;
+        
         private bool _isInitialized = false;
 
         public ReprintReceiptPage()
@@ -54,12 +65,17 @@ namespace BootCoupon
             this.Resources["StatusToBrushConverter"] = new StatusToBrushConverter();
 
             // Initialize collections
-            _receipts = new ObservableCollection<ReceiptDisplayModel>();
+            _allReceipts = new ObservableCollection<ReceiptDisplayModel>();
             _filteredReceipts = new ObservableCollection<ReceiptDisplayModel>();
+            _pagedReceipts = new ObservableCollection<ReceiptDisplayModel>();
+            _saleEvents = new ObservableCollection<SaleEvent>();
 
             // Set up ListView
-            ReceiptsDataGrid.ItemsSource = _filteredReceipts;
+            ReceiptsDataGrid.ItemsSource = _pagedReceipts; // ⭐ แสดงเฉพาะหน้าปัจจุบัน
             ReceiptsDataGrid.SelectionChanged += ReceiptsDataGrid_SelectionChanged;
+
+            // Set up SaleEvent ComboBox
+            SaleEventFilterComboBox.ItemsSource = _saleEvents;
 
             // Mark as initialized
             _isInitialized = true;
@@ -69,7 +85,62 @@ namespace BootCoupon
 
         private async void ReprintReceiptPage_Loaded(object sender, RoutedEventArgs e)
         {
+            // ✅ เพิ่ม: Preload logo ล่วงหน้าเพื่อให้พร้อมก่อนพิมพ์
+            try
+            {
+                await ReceiptPrintService.ForceReloadLogoAsync();
+                Debug.WriteLine("✅ Logo preloaded in ReprintReceiptPage");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"⚠️ Failed to preload logo: {ex.Message}");
+                // ไม่ต้อง throw error เพราะจะ fallback เมื่อพิมพ์จริง
+            }
+            
+            await LoadSaleEventsAsync(); // ⭐ โหลดงานที่ออกขาย
             await LoadReceiptsAsync();
+        }
+
+        // ⭐ โหลดรายการงานที่ออกขาย
+        private async Task LoadSaleEventsAsync()
+        {
+            try
+            {
+                using (var context = new CouponContext())
+                {
+                    var events = await context.SaleEvents
+                        .Where(e => e.IsActive)
+                        .OrderByDescending(e => e.StartDate)
+                        .ToListAsync();
+
+                    _saleEvents.Clear();
+                    
+                    // เพิ่มตัวเลือก "ทั้งหมด"
+                    _saleEvents.Add(new SaleEvent 
+                    { 
+                        Id = 0, 
+                        Name = "ทั้งหมด", 
+                        StartDate = DateTime.MinValue, 
+                        EndDate = DateTime.MaxValue,
+                        IsActive = true
+                    });
+
+                    foreach (var evt in events)
+                    {
+                        _saleEvents.Add(evt);
+                    }
+
+                    // เลือก "ทั้งหมด" เป็นค่าเริ่มต้น
+                    if (_saleEvents.Count > 0)
+                    {
+                        SaleEventFilterComboBox.SelectedIndex = 0;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading sale events: {ex.Message}");
+            }
         }
 
         private async Task LoadReceiptsAsync()
@@ -81,7 +152,7 @@ namespace BootCoupon
                 using (var context = new CouponContext())
                 {
                     var receipts = await context.Receipts
-                        .OrderBy(r => r.ReceiptID) // เรียงจากรหัสใบเสร็จน้อยไปมาก
+                        .OrderBy(r => r.ReceiptID)
                         .ToListAsync();
 
                     // โหลด PaymentMethods ทั้งหมดมาเก็บไว้ในหน่วยความจำ
@@ -90,7 +161,34 @@ namespace BootCoupon
                     // โหลด SalesPersons ทั้งหมดมาเก็บไว้ในหน่วยความจำ
                     var salesPersons = await context.SalesPerson.ToDictionaryAsync(sp => sp.ID, sp => sp.Name);
 
-                    _receipts.Clear();
+                    // ⭐ สร้าง Dictionary เพื่อเก็บ SaleEventIds สำหรับแต่ละใบเสร็จ
+                    var receiptIds = receipts.Select(r => r.ReceiptID).ToList();
+                    var receiptSaleEventMap = new Dictionary<int, List<int>>();
+
+                    if (receiptIds.Any())
+                    {
+                        // Query SaleEventIds จาก ReceiptItems โดยตรง
+                        var receiptSaleEvents = await (
+                            from ri in context.ReceiptItems
+                            join cd in context.CouponDefinitions on ri.CouponId equals cd.Id
+                            where receiptIds.Contains(ri.ReceiptId) && cd.SaleEventId.HasValue
+                            select new
+                            {
+                                ri.ReceiptId,
+                                SaleEventId = cd.SaleEventId!.Value
+                            }
+                        ).ToListAsync();
+
+                        // Group by ReceiptId
+                        receiptSaleEventMap = receiptSaleEvents
+                            .GroupBy(x => x.ReceiptId)
+                            .ToDictionary(
+                                g => g.Key,
+                                g => g.Select(x => x.SaleEventId).Distinct().ToList()
+                            );
+                    }
+
+                    _allReceipts.Clear();
                     foreach (var receipt in receipts)
                     {
                         string paymentMethodName = "";
@@ -105,7 +203,12 @@ namespace BootCoupon
                             salesPersonName = salesPersons[receipt.SalesPersonId.Value];
                         }
 
-                        _receipts.Add(new ReceiptDisplayModel
+                        // ⭐ ดึง SaleEventIds จาก Dictionary ที่เตรียมไว้
+                        var saleEventIds = receiptSaleEventMap.ContainsKey(receipt.ReceiptID)
+                            ? receiptSaleEventMap[receipt.ReceiptID]
+                            : new List<int>();
+
+                        _allReceipts.Add(new ReceiptDisplayModel
                         {
                             ReceiptID = receipt.ReceiptID,
                             ReceiptDate = receipt.ReceiptDate,
@@ -118,13 +221,14 @@ namespace BootCoupon
                             Status = receipt.Status ?? "Active",
                             PaymentMethodId = receipt.PaymentMethodId,
                             PaymentMethodName = paymentMethodName,
-                            // ✅ เพิ่มข้อมูลเหตุผล
                             CancellationReason = receipt.CancellationReason,
-                            CancelledDate = receipt.CancelledDate
+                            CancelledDate = receipt.CancelledDate,
+                            SaleEventIds = saleEventIds // ⭐ เก็บ SaleEventIds
                         });
                     }
 
-                    ApplyFilters();
+                    // ⭐ กรองและแบ่งหน้า
+                    ApplyFiltersAndPagination();
                 }
             }
             catch (Exception ex)
@@ -139,14 +243,15 @@ namespace BootCoupon
             }
         }
 
-        private void ApplyFilters()
+        // ⭐ กรองข้อมูลและแบ่งหน้า
+        private void ApplyFiltersAndPagination()
         {
-            if (!_isInitialized || _filteredReceipts == null || _receipts == null)
+            if (!_isInitialized || _filteredReceipts == null || _allReceipts == null)
                 return;
 
+            // 1. กรองข้อมูล
             _filteredReceipts.Clear();
-
-            var filtered = _receipts.AsEnumerable();
+            var filtered = _allReceipts.AsEnumerable();
 
             // Filter by status
             if (_currentStatusFilter != "All")
@@ -166,15 +271,62 @@ namespace BootCoupon
                 );
             }
 
-            // เรียงตามรหัสใบเสร็จจากน้อยไปมาก หลังจากกรองแล้ว
-            var sortedFiltered = filtered.OrderBy(r => r.ReceiptID);
+            // ⭐ Filter by SaleEvent
+            if (_selectedSaleEvent != null && _selectedSaleEvent.Id != 0)
+            {
+                filtered = filtered.Where(r => 
+                    r.SaleEventIds != null && 
+                    r.SaleEventIds.Contains(_selectedSaleEvent.Id)
+                );
+            }
+
+            // เรียงตามรหัสใบเสร็จจากน้อยไปมาก
+            var sortedFiltered = filtered.OrderBy(r => r.ReceiptID).ToList();
 
             foreach (var receipt in sortedFiltered)
             {
                 _filteredReceipts.Add(receipt);
             }
 
+            // 2. คำนวณ Pagination
+            _totalRecords = _filteredReceipts.Count;
+            _totalPages = (int)Math.Ceiling((double)_totalRecords / _pageSize);
+            if (_totalPages < 1) _totalPages = 1;
+
+            // ปรับ currentPage ถ้าเกินขอบเขต
+            if (_currentPage > _totalPages) _currentPage = _totalPages;
+            if (_currentPage < 1) _currentPage = 1;
+
+            // 3. แบ่งหน้า
+            ApplyPagination();
+            UpdatePaginationUI();
             UpdateEmptyState();
+        }
+
+        // ⭐ แบ่งหน้า (แสดงเฉพาะหน้าปัจจุบัน)
+        private void ApplyPagination()
+        {
+            _pagedReceipts.Clear();
+
+            var skip = (_currentPage - 1) * _pageSize;
+            var take = _pageSize;
+
+            var pageItems = _filteredReceipts.Skip(skip).Take(take);
+
+            foreach (var item in pageItems)
+            {
+                _pagedReceipts.Add(item);
+            }
+        }
+
+        // ⭐ อัปเดต UI ของ Pagination
+        private void UpdatePaginationUI()
+        {
+            TotalRecordsText.Text = $"จำนวนทั้งหมด: {_totalRecords:N0} รายการ";
+            PageInfoText.Text = $"หน้า {_currentPage} / {_totalPages}";
+
+            PrevPageButton.IsEnabled = _currentPage > 1;
+            NextPageButton.IsEnabled = _currentPage < _totalPages;
         }
 
         private void UpdateEmptyState()
@@ -190,8 +342,19 @@ namespace BootCoupon
             if (StatusFilterComboBox.SelectedItem is ComboBoxItem selectedItem)
             {
                 _currentStatusFilter = selectedItem.Tag?.ToString() ?? "All";
-                ApplyFilters();
+                _currentPage = 1; // ⭐ รีเซ็ตกลับหน้า 1
+                ApplyFiltersAndPagination();
             }
+        }
+
+        // ⭐ Event Handler สำหรับ SaleEvent Filter
+        private void SaleEventFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_isInitialized) return;
+
+            _selectedSaleEvent = SaleEventFilterComboBox.SelectedItem as SaleEvent;
+            _currentPage = 1; // ⭐ รีเซ็ตกลับหน้า 1
+            ApplyFiltersAndPagination();
         }
 
         private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -199,11 +362,33 @@ namespace BootCoupon
             if (!_isInitialized) return;
 
             _currentSearchText = SearchTextBox.Text ?? "";
-            ApplyFilters();
+            _currentPage = 1; // ⭐ รีเซ็ตกลับหน้า 1
+            ApplyFiltersAndPagination();
+        }
+
+        // ⭐ Pagination Button Handlers
+        private void PrevPageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentPage > 1)
+            {
+                _currentPage--;
+                ApplyFiltersAndPagination();
+            }
+        }
+
+        private void NextPageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentPage < _totalPages)
+            {
+                _currentPage++;
+                ApplyFiltersAndPagination();
+            }
         }
 
         private async void RefreshButton_Click(object sender, RoutedEventArgs e)
         {
+            _currentPage = 1; // ⭐ รีเซ็ตกลับหน้า 1
+            await LoadSaleEventsAsync();
             await LoadReceiptsAsync();
         }
 

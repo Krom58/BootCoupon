@@ -326,12 +326,12 @@ namespace BootCoupon
                 // รอสักครู่ก่อนเริ่มพิมพ์
                 await Task.Delay(200);
 
-                // Preload logo on UI thread so preview and print can use the BitmapImage safely
+                // ✅ ย้าย CleanupPrintResources ขึ้นมาก่อน PreloadLogoAsync
+                CleanupPrintResources();
+
+                // ✅ Preload logo หลังจาก cleanup แล้ว
                 await PreloadLogoAsync();
                 Debug.WriteLine($"PreloadLogoAsync completed. logoBitmap != null: {logoBitmap != null}");
-
-                // ทำความสะอาด resources เก่าก่อน
-                CleanupPrintResources();
 
                 // สร้าง PrintDocument ใหม่
                 printDocument = new PrintDocument();
@@ -586,6 +586,11 @@ namespace BootCoupon
                 if (receiptContent != null)
                 {
                     printCanvas.Children.Add(receiptContent);
+
+                    // ✅ Force layout pass to ensure RenderTargetBitmap can capture correctly
+                    receiptContent.Measure(new Windows.Foundation.Size(559, 794));
+                    receiptContent.Arrange(new Windows.Foundation.Rect(0, 0, 559, 794));
+                    receiptContent.UpdateLayout();
                 }
 
                 Debug.WriteLine("สร้าง Print Canvas A5 เรียบร้อย");
@@ -670,35 +675,54 @@ namespace BootCoupon
                 headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                // Logo (ถ้ามี)
+                // ✅ ปรับปรุงการโหลดโลโก้พร้อม validation
                 try
                 {
-                    var logoImage = new Image
-                    {
-                        Height = 80,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        Margin = new Thickness(0, 0, 0, 10)
-                    };
-
-                    // Prefer the preloaded BitmapImage (loaded on UI thread)
                     if (logoBitmap != null)
                     {
-                        logoImage.Source = logoBitmap;
+                        // ✅ Validate ว่า bitmap ใช้งานได้ก่อนใช้
+                        try
+                        {
+                            var pixelWidth = logoBitmap.PixelWidth; // test if valid
+                            Debug.WriteLine($"✅ Using logo with PixelWidth: {pixelWidth}");
+                            
+                            var logoImage = new Image
+                            {
+                                Height = 80,
+                                HorizontalAlignment = HorizontalAlignment.Center,
+                                Margin = new Thickness(0, 0, 0, 10),
+                                Source = logoBitmap,
+                                Stretch = Stretch.Uniform // ✅ เพิ่ม Stretch property
+                            };
+
+                            Grid.SetRow(logoImage, 0);
+                            Grid.SetColumn(logoImage, 0);
+                            Grid.SetColumnSpan(logoImage, 2);
+                            headerGrid.Children.Add(logoImage);
+                            
+                            Debug.WriteLine("✅ Logo added to header successfully");
+                        }
+                        catch (Exception validateEx)
+                        {
+                            Debug.WriteLine($"⚠️ logoBitmap is invalid: {validateEx.Message}");
+                            logoBitmap = null; // reset for next attempt
+                            
+                            // ✅ แสดง placeholder แทน
+                            AddLogoPlaceholder(headerGrid);
+                        }
                     }
                     else
                     {
-                        // fallback: try ms-appx URI (may fail on non-UI thread)
-                        logoImage.Source = new BitmapImage(new Uri("ms-appx:///Assets/AsiaHotelLogo.jpg"));
+                        Debug.WriteLine("⚠️ logoBitmap is null - showing placeholder");
+                        // ✅ แสดง placeholder text แทนโลโก้
+                        AddLogoPlaceholder(headerGrid);
                     }
-
-                    Grid.SetRow(logoImage, 0);
-                    Grid.SetColumn(logoImage, 0);
-                    Grid.SetColumnSpan(logoImage, 2);
-                    headerGrid.Children.Add(logoImage);
                 }
                 catch (Exception logoEx)
                 {
-                    Debug.WriteLine($"ไม่สามารถโหลดโลโก้ได้: {logoEx.Message}");
+                    Debug.WriteLine($"❌ ไม่สามารถโหลดโลโก้ได้: {logoEx.Message}");
+                    // ไม่ throw error ต่อ ให้พิมพ์ใบเสร็จได้โดยไม่มีโลโก้
+                    AddLogoPlaceholder(headerGrid);
                 }
 
                 // ข้อมูลบริษัท
@@ -784,6 +808,24 @@ namespace BootCoupon
                 Debug.WriteLine($"ข้อผิดพลาดในการสร้าง Header: {ex.Message}");
                 return null;
             }
+        }
+
+        // ✅ เพิ่ม Helper Method ใหม่สำหรับ Placeholder
+        private static void AddLogoPlaceholder(Grid headerGrid)
+        {
+            var placeholderText = new TextBlock
+            {
+                Text = "ASIA HOTEL",
+                FontSize = 24,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 10),
+                Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black)
+            };
+            Grid.SetRow(placeholderText, 0);
+            Grid.SetColumn(placeholderText, 0);
+            Grid.SetColumnSpan(placeholderText, 2);
+            headerGrid.Children.Add(placeholderText);
         }
 
         private static Border? CreateCustomerSection()
@@ -1176,16 +1218,11 @@ namespace BootCoupon
             try
             {
                 if (currentReceipt == null) return null;
-
-                // Create a local non-null reference to quiet nullable analysis
                 var receipt = currentReceipt!;
 
                 var totalGrid = new Grid();
-                //2 columns: left (labels and thai text), right (values)
                 totalGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                totalGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) }); // เปลี่ยนจาก 120 เป็น 90 ให้ตรงกับคอลัมน์ "จำนวนเงิน"
-
-                // Three rows for labels/values
+                totalGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
                 totalGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 totalGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                 totalGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -1232,12 +1269,38 @@ namespace BootCoupon
                 Grid.SetRow(discountBorder,1);
                 totalGrid.Children.Add(discountBorder);
 
-                // Row2 - bottom: left side contains Thai text (number in words) and the net label on the same row
+                // Row2 - bottom: Thai text and net label
                 var bottomGrid = new Grid();
                 bottomGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 bottomGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                // Thai text on left (may be long)
+                // ✅ คำนวณจาก currentItems เพื่อรองรับทั้งข้อมูลเก่าและใหม่
+                decimal beforeTotal;
+                if (currentItems != null && currentItems.Any())
+                {
+                    // ✅ ข้อมูลใหม่ + เก่า: คำนวณจาก items (ถูกต้องเสมอ)
+                    beforeTotal = currentItems.Sum(item => item.TotalPrice);
+                    Debug.WriteLine($"✅ คำนวณ beforeTotal จาก {currentItems.Count} items = {beforeTotal:N2}");
+                }
+                else
+                {
+                    // Fallback: ถ้าไม่มี items (ไม่น่าเกิด)
+                    beforeTotal = receipt.TotalAmount + receipt.Discount;
+                    Debug.WriteLine($"⚠️ Fallback: ใช้ TotalAmount จาก DB = {beforeTotal:N2}");
+                }
+
+                decimal additionalDiscount = receipt.Discount;
+                decimal com = overrideComDiscount;
+                decimal discount = com + additionalDiscount;
+                decimal netTotal = Math.Max(0m, beforeTotal - discount);
+
+                Debug.WriteLine($"📊 Total Section Summary:");
+                Debug.WriteLine($"   - Before Total (from items): {beforeTotal:N2}");
+                Debug.WriteLine($"   - COM Discount: {com:N2}");
+                Debug.WriteLine($"   - Additional Discount: {additionalDiscount:N2}");
+                Debug.WriteLine($"   - Total Discount: {discount:N2}");
+                Debug.WriteLine($"   - Net Total: {netTotal:N2}");
+
                 var thaiTextBorder = new Border
                 {
                     Padding = new Thickness(6),
@@ -1246,7 +1309,7 @@ namespace BootCoupon
                 };
                 var thaiTextBlock = new TextBlock
                 {
-                    Text = ConvertNumberToThaiText(receipt.TotalAmount), // เปลี่ยนจาก receipt.TotalAmount + receipt.Discount เป็น receipt.TotalAmount
+                    Text = ConvertNumberToThaiText(netTotal), // ✅ แปลงยอดสุทธิ
                     FontSize =12,
                     TextWrapping = TextWrapping.Wrap,
                     Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black),
@@ -1256,7 +1319,6 @@ namespace BootCoupon
                 Grid.SetColumn(thaiTextBorder,0);
                 bottomGrid.Children.Add(thaiTextBorder);
 
-                // Net label on right side of bottomGrid
                 var netLabelBorder = new Border
                 {
                     Padding = new Thickness(6),
@@ -1282,41 +1344,34 @@ namespace BootCoupon
                 Grid.SetRow(bottomGrid,2);
                 totalGrid.Children.Add(bottomGrid);
 
-                // Right column - numeric values aligned with the three rows
-                // receipt.TotalAmount stored as subtotal (gross)
-                decimal beforeTotal = receipt.TotalAmount;
-                decimal additionalDiscount = receipt.Discount; // stored in DB (user-entered additional discount)
-                decimal com = overrideComDiscount; // passed from client for display only (not persisted)
-                decimal discount = com + additionalDiscount;
-                decimal netTotal = Math.Max(0m, beforeTotal - discount);
-
-                // ช่อง "รวมทั้งหมด (ก่อนส่วนลด)"
+                // Right column - numeric values
+                // ✅ ช่อง "รวมทั้งหมด (ก่อนส่วนลด)"
                 var rightBorder1 = new Border 
                 { 
                     BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black), 
                     BorderThickness = new Thickness(0.5),
-                    Padding = new Thickness(0, 0, 5, 0) // เพิ่ม padding ขวา
+                    Padding = new Thickness(0, 0, 5, 0)
                 };
                 var txtBefore = new TextBlock 
                 { 
-                    Text = beforeTotal.ToString("N2"), 
+                    Text = beforeTotal.ToString("N2"), // ✅ จาก items
                     FontSize = 12, 
                     TextAlignment = TextAlignment.Right, 
                     Margin = new Thickness(6), 
                     VerticalAlignment = VerticalAlignment.Center,
-                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black) // เพิ่มสีดำชัดเจน
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black)
                 };
                 rightBorder1.Child = txtBefore;
                 Grid.SetColumn(rightBorder1,1); 
                 Grid.SetRow(rightBorder1,0); 
                 totalGrid.Children.Add(rightBorder1);
 
-                // ช่อง "ส่วนลด"
+                // ✅ ช่อง "ส่วนลด"
                 var rightBorder2 = new Border 
                 { 
                     BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black), 
                     BorderThickness = new Thickness(0.5),
-                    Padding = new Thickness(0, 0, 5, 0) // เพิ่ม padding ขวา
+                    Padding = new Thickness(0, 0, 5, 0)
                 };
                 var txtDiscount = new TextBlock 
                 { 
@@ -1325,20 +1380,20 @@ namespace BootCoupon
                     TextAlignment = TextAlignment.Right, 
                     Margin = new Thickness(6), 
                     VerticalAlignment = VerticalAlignment.Center,
-                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black) // เพิ่มสีดำชัดเจน
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black)
                 };
                 rightBorder2.Child = txtDiscount;
                 Grid.SetColumn(rightBorder2,1); 
                 Grid.SetRow(rightBorder2,1); 
                 totalGrid.Children.Add(rightBorder2);
 
-                // ช่อง "ราคาสุทธิ" - กรอบสีแดง
+                // ✅ ช่อง "ราคาสุทธิ"
                 var rightBorder3 = new Border 
                 { 
                     BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Red), 
                     BorderThickness = new Thickness(2), 
                     Background = new SolidColorBrush(Microsoft.UI.Colors.White),
-                    Padding = new Thickness(0, 0, 5, 0) // เพิ่ม padding ขวา
+                    Padding = new Thickness(0, 0, 5, 0)
                 };
                 var txtNet = new TextBlock 
                 { 
@@ -1348,14 +1403,12 @@ namespace BootCoupon
                     FontSize = 14, 
                     Margin = new Thickness(6), 
                     VerticalAlignment = VerticalAlignment.Center,
-                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black) // เพิ่มสีดำชัดเจน
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black)
                 };
                 rightBorder3.Child = txtNet;
                 Grid.SetColumn(rightBorder3,1); 
                 Grid.SetRow(rightBorder3,2); 
                 totalGrid.Children.Add(rightBorder3);
-
-                Debug.WriteLine($"สร้าง Total Section: ก่อนส่วนลด={beforeTotal:N2}, ส่วนลด={discount:N2}, สุทธิ={netTotal:N2}");
 
                 return totalGrid;
             }
@@ -1687,16 +1740,40 @@ namespace BootCoupon
         {
             try
             {
+                // ✅ Unsubscribe print manager events with error handling
                 if (printManager != null)
                 {
-                    printManager.PrintTaskRequested -= PrintManager_PrintTaskRequestedHandler; // แก้ไข event handler name
+                    try
+                    {
+                        printManager.PrintTaskRequested -= PrintManager_PrintTaskRequestedHandler;
+                    }
+                    catch (System.Runtime.InteropServices.COMException)
+                    {
+                        // Expected when user cancels print - ignore
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"⚠️ Error unsubscribing PrintManager: {ex.Message}");
+                    }
                 }
 
+                // ✅ Cleanup PrintDocument events with error handling
                 if (printDocument != null)
                 {
-                    printDocument.Paginate -= PrintDocument_Paginate;
-                    printDocument.GetPreviewPage -= PrintDocument_GetPreviewPage;
-                    printDocument.AddPages -= PrintDocument_AddPages;
+                    try
+                    {
+                        printDocument.Paginate -= PrintDocument_Paginate;
+                        printDocument.GetPreviewPage -= PrintDocument_GetPreviewPage;
+                        printDocument.AddPages -= PrintDocument_AddPages;
+                    }
+                    catch (System.Runtime.InteropServices.COMException)
+                    {
+                        // Expected when user cancels print - ignore
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"⚠️ Error unsubscribing PrintDocument events: {ex.Message}");
+                    }
                     printDocument = null;
                 }
 
@@ -1704,11 +1781,23 @@ namespace BootCoupon
                 printManager = null;
                 printCanvas = null;
 
-                Debug.WriteLine("ทำความสะอาด Print resources เรียบร้อย");
+                // ✅ ไม่ต้อง clear logoBitmap - ให้ cache ไว้ใช้ต่อ
+                // Logo จะถูก validate และ reload อัตโนมัติใน PreloadLogoAsync() ถ้าจำเป็น
+
+                Debug.WriteLine("✅ ทำความสะอาด Print resources เรียบร้อย");
+            }
+            catch (System.Runtime.InteropServices.COMException comEx)
+            {
+                // ✅ จัดการ COMException เฉพาะ (เกิดเมื่อ user cancel print)
+                Debug.WriteLine($"⚠️ COMException ในการ cleanup (ปกติเมื่อ user cancel): {comEx.Message}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"ข้อผิดพลาดในการทำความสะอาด: {ex.Message}");
+                Debug.WriteLine($"⚠️ ข้อผิดพลาดในการทำความสะอาด resources: {ex.GetType().Name} - {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Debug.WriteLine($"   Inner: {ex.InnerException.Message}");
+                }
             }
         }
         // Safe dialog methods ที่ป้องกัน dialog ซ้อนกัน
@@ -1778,33 +1867,55 @@ namespace BootCoupon
             }
         }
 
-        // New helper to preload the logo on the UI thread
+        // Updated method to use ImageHelper with multiple fallback strategies
         private static async Task PreloadLogoAsync()
         {
             try
             {
-                if (logoBitmap != null) return;
-                if (App.MainWindowInstance == null) return;
+                if (logoBitmap != null)
+                {
+                    try
+                    {
+                        var _ = logoBitmap.PixelWidth;
+                        Debug.WriteLine($"✅ Logo already loaded (PixelWidth: {logoBitmap.PixelWidth}) - reusing");
+                        return;
+                    }
+                    catch
+                    {
+                        Debug.WriteLine("⚠️ logoBitmap is invalid, reloading...");
+                        logoBitmap = null;
+                    }
+                }
+
+                if (App.MainWindowInstance == null)
+                {
+                    Debug.WriteLine("⚠️ App.MainWindowInstance is null - cannot load logo");
+                    return;
+                }
 
                 var tcs = new TaskCompletionSource<bool>();
 
-                // Run the file-open + SetSourceAsync on the UI thread and await it
                 App.MainWindowInstance.DispatcherQueue.TryEnqueue(async () =>
                 {
                     try
                     {
-                        var uri = new Uri("ms-appx:///Assets/AsiaHotelLogo.jpg");
-                        var file = await StorageFile.GetFileFromApplicationUriAsync(uri);
-                        using (IRandomAccessStream stream = await file.OpenReadAsync())
+                        // ⭐ เปลี่ยนจาก Services.ImageHelper เป็น ImageHelper (ถ้ามี using statement)
+                        // หรือใช้ BootCoupon.Services.ImageHelper (ถ้าไม่มี using)
+                        logoBitmap = await ImageHelper.LoadImageAsync("AsiaHotelLogo.jpg", decodePixelWidth: 300);
+
+                        if (logoBitmap != null)
                         {
-                            var bmp = new BitmapImage();
-                            await bmp.SetSourceAsync(stream);
-                            logoBitmap = bmp;
+                            Debug.WriteLine($"✅ Logo preloaded successfully (PixelWidth: {logoBitmap.PixelWidth})");
+                        }
+                        else
+                        {
+                            Debug.WriteLine("⚠️ Logo preload returned null - will use placeholder");
                         }
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"PreloadLogoAsync failed: {ex.Message}");
+                        Debug.WriteLine($"❌ PreloadLogoAsync failed: {ex.Message}");
+                        logoBitmap = null;
                     }
                     finally
                     {
@@ -1816,8 +1927,15 @@ namespace BootCoupon
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"PreloadLogoAsync top-level error: {ex.Message}");
+                Debug.WriteLine($"❌ PreloadLogoAsync top-level error: {ex.Message}");
+                logoBitmap = null;
             }
+        }
+        // ✅ Method นี้มีอยู่แล้ว - ไม่ต้องแก้ไข
+        public static async Task ForceReloadLogoAsync()
+        {
+            logoBitmap = null; // force reload
+            await PreloadLogoAsync();
         }
     }
 }

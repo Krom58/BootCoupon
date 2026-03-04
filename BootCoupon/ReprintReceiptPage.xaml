@@ -41,6 +41,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/><!-- ⭐ เพิ่มแถวสำหรับ Pagination -->
             </Grid.RowDefinitions>
 
             <!-- Filter and Search Section with Card Style -->
@@ -55,10 +56,11 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><!-- ⭐ เพิ่มแถวที่ 2 สำหรับ SaleEvent -->
                     </Grid.RowDefinitions>
 
                     <!-- First Row: Status Filter and Search -->
-                    <Grid Grid.Row="0">
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="200"/>
@@ -108,9 +110,31 @@
                         </Button>
                     </Grid>
 
+                    <!-- ⭐ Second Row: SaleEvent Filter -->
+                    <Grid Grid.Row="1" Margin="0,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" 
+                                   Text="งานที่ออกขาย:" 
+                                   VerticalAlignment="Center" 
+                                   FontWeight="Medium"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        
+                        <ComboBox x:Name="SaleEventFilterComboBox" 
+                                  Grid.Column="1" 
+                                  SelectionChanged="SaleEventFilter_SelectionChanged"
+                                  DisplayMemberPath="Name"
+                                  MinWidth="280"
+                                  Margin="8,0,0,0"
+                                  PlaceholderText="เลือกงานที่ออกขาย..."/>
+                    </Grid>
+
                     <!-- Loading Indicator (initially collapsed) -->
                     <ProgressRing x:Name="LoadingProgressRing" 
-                                  Grid.Row="1" 
+                                  Grid.Row="2" 
                                   IsActive="False" 
                                   Margin="0,12,0,0"
                                   HorizontalAlignment="Left"/>
@@ -149,7 +173,7 @@
                                 <ColumnDefinition Width="1"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="1"/>
-                    <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="1"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="1"/>
@@ -239,6 +263,7 @@
                                                        TextAlignment="Center"
                                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                                             
+
                                             <TextBlock Grid.Column="2" 
                                                        Text="{x:Bind CustomerName}" 
                                                        VerticalAlignment="Center" 
@@ -248,7 +273,7 @@
                                                        TextWrapping="Wrap"
                                                        TextAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"/>
-                                        
+                                      
                                             <TextBlock Grid.Column="4" 
                                                        Text="{x:Bind CustomerPhoneNumber}" 
                                                        VerticalAlignment="Center" 
@@ -257,7 +282,7 @@
                                                        FontSize="13"
                                                        TextWrapping="Wrap"
                                                        TextAlignment="Center"/>
-                                        
+                                      
                                             <TextBlock Grid.Column="6" 
                                                        Text="{x:Bind ReceiptCode}" 
                                                        VerticalAlignment="Center" 
@@ -267,7 +292,7 @@
                                                        FontWeight="Medium"
                                                        TextWrapping="Wrap"
                                                        TextAlignment="Center"/>
-                                        
+                                      
                                             <TextBlock Grid.Column="8" 
                                                        Text="{x:Bind ReceiptDateFormatted}" 
                                                        VerticalAlignment="Center" 
@@ -276,7 +301,7 @@
                                                        FontSize="13"
                                                        TextWrapping="Wrap"
                                                        TextAlignment="Center"/>
-                                        
+                                      
                                             <TextBlock Grid.Column="10" 
                                                        Text="{x:Bind SalesPersonName}" 
                                                        VerticalAlignment="Center" 
@@ -286,7 +311,7 @@
                                                        TextWrapping="Wrap"
                                                        TextAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"/>
-                                        
+                                      
                                             <TextBlock Grid.Column="12" 
                                                        Text="{x:Bind PaymentMethodName}" 
                                                        VerticalAlignment="Center" 
@@ -296,7 +321,7 @@
                                                        TextWrapping="Wrap"
                                                        TextAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"/>
-                                                
+                                  
                                             <Border Grid.Column="14" 
                                                     VerticalAlignment="Center"
                                                     HorizontalAlignment="Center"
@@ -341,6 +366,55 @@
                             </ListView.Header>
                         </ListView>
                     </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- ⭐ Pagination Controls -->
+            <Border Grid.Row="2" 
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="16"
+                    Margin="0,16,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: Total Records Info -->
+                    <TextBlock Grid.Column="0" 
+                               x:Name="TotalRecordsText"
+                               Text="จำนวนทั้งหมด: 0 รายการ"
+                               VerticalAlignment="Center"
+                               FontWeight="Medium"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+                    <!-- Right: Pagination Buttons -->
+                    <StackPanel Grid.Column="2" 
+                                Orientation="Horizontal" 
+                                Spacing="12"
+                                VerticalAlignment="Center">
+                        <Button x:Name="PrevPageButton" 
+                                Content="◄ ก่อนหน้า" 
+                                Click="PrevPageButton_Click"
+                                IsEnabled="False"
+                                MinWidth="100"/>
+                        
+                        <TextBlock x:Name="PageInfoText"
+                                   Text="หน้า 1 / 1"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Margin="8,0"/>
+                        
+                        <Button x:Name="NextPageButton" 
+                                Content="ถัดไป ►" 
+                                Click="NextPageButton_Click"
+                                IsEnabled="False"
+                                MinWidth="100"/>
+                    </StackPanel>
                 </Grid>
             </Border>
         </Grid>

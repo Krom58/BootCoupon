@@ -77,5 +77,8 @@ namespace CouponManagement.Shared.Models
         public string StatusTooltip => Status == "Cancelled" && !string.IsNullOrEmpty(CancellationReason)
             ? $"ยกเลิกเมื่อ: {CancelledDate?.ToString("dd/MM/yyyy HH:mm")}\nเหตุผล: {CancellationReason}"
             : string.Empty;
+        // ⭐ เพิ่ม Property สำหรับเก็บ SaleEventIds
+        public List<int> SaleEventIds { get; set; } = new List<int>();
+
     }
 }

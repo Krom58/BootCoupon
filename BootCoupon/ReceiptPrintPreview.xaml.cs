@@ -773,7 +773,7 @@ namespace BootCoupon
                 {
                     var logoImage = new Image
                     {
-                        Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri("ms-appx:///Assets/AsiaHotelLogo.jpg")),
+                        Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri("C://AsiaHotelLogo.jpg")),
                         Height = 80,
                         HorizontalAlignment = HorizontalAlignment.Center,
                         Margin = new Thickness(0, 0, 0, 10)

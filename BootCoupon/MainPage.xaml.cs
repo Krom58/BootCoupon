@@ -52,7 +52,7 @@ namespace BootCoupon
 
         private async Task PromptLoginAsync()
         {
-            // Loop until successful login or user cancels
+            // Loop until successful login - no way to escape
             while (true)
             {
                 var usernameBox = new TextBox
@@ -78,25 +78,37 @@ namespace BootCoupon
                     Title = "เข้าสู่ระบบ",
                     Content = panel,
                     PrimaryButtonText = "เข้าสู่ระบบ",
+                    CloseButtonText = null, // ✅ ลบปุ่ม X ออก
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = this.XamlRoot
                 };
 
+                // ✅ ปิดการใช้งานปุ่ม ESC
+                loginDialog.Closing += (sender, args) =>
+                {
+                    // ถ้าผู้ใช้ยังไม่ได้ล็อคอินสำเร็จ และพยายามปิด dialog ด้วย ESC หรือวิธีอื่น
+                    if (!App.IsAuthenticated && args.Result == ContentDialogResult.None)
+                    {
+                        args.Cancel = true; // ✅ ยกเลิกการปิด dialog
+                    }
+                };
+
                 var result = await loginDialog.ShowAsync();
 
+                // ✅ ลบส่วนที่ให้ผู้ใช้กด Cancel ออกได้ - ไม่มีทางออกจนกว่าจะ login สำเร็จ
                 if (result != ContentDialogResult.Primary)
                 {
-                    // user cancelled - leave app in locked state
-                    await ShowErrorDialog("ยังไม่ได้เข้าสู่ระบบ ระบบจะถูกล็อคจนกว่าจะเข้าสู่ระบบ");
-
-                    // Log cancellation
+                    // User tried to close without logging in - show warning and loop back
+                    await ShowErrorDialogAndReturnToLogin("กรุณาเข้าสู่ระบบเพื่อใช้งานระบบ");
+                    
+                    // Log cancellation attempt
                     try
                     {
                         using (var logContext = new CouponContext())
                         {
                             string attemptedUser = usernameBox.Text?.Trim() ?? "(no user)";
                             string appName = GetAppName();
-                            await LogLoginAttemptAsync(logContext, attemptedUser, "Login Cancelled", "LoginDialog - Cancel", Environment.MachineName, appName);
+                            await LogLoginAttemptAsync(logContext, attemptedUser, "Login Cancelled - Return to login", "LoginDialog - Cancel", Environment.MachineName, appName);
                         }
                     }
                     catch (Exception ex)
@@ -104,7 +116,7 @@ namespace BootCoupon
                         Debug.WriteLine($"Failed to log login cancellation: {ex}");
                     }
 
-                    break;
+                    continue; // ✅ กลับไปหน้า login อีกครั้ง
                 }
 
                 string username = usernameBox.Text?.Trim() ?? string.Empty;
@@ -112,7 +124,8 @@ namespace BootCoupon
 
                 if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
                 {
-                    await ShowErrorDialog("กรุณากรอกชื่อผู้ใช้และรหัสผ่าน");
+                    await ShowErrorDialogAndReturnToLogin("กรุณากรอกชื่อผู้ใช้และรหัสผ่าน");
+                    
                     // Log missing credentials
                     try
                     {
@@ -126,53 +139,47 @@ namespace BootCoupon
                     {
                         Debug.WriteLine($"Failed to log missing credentials: {ex}");
                     }
-                    continue;
+                    continue; // ✅ กลับไปหน้า login
                 }
 
                 try
                 {
                     using (var context = new CouponContext())
                     {
-                        // Ensure database exists and is accessible
                         await context.Database.EnsureCreatedAsync();
 
-                        // Find user by username (case-insensitive) and check password
                         var user = await context.ApplicationUsers
                             .AsNoTracking()
                             .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());
 
                         if (user == null)
                         {
-                            // Log attempt
                             string appName = GetAppName();
                             await LogLoginAttemptAsync(context, username, "Login Failed - user not found", "PromptLogin - UserLookup", Environment.MachineName, appName);
 
-                            await ShowErrorDialog("ไม่พบผู้ใช้ดังกล่าว");
-                            continue;
+                            await ShowErrorDialogAndReturnToLogin("ไม่พบผู้ใช้ดังกล่าว กรุณาลองใหม่อีกครั้ง");
+                            continue; // ✅ กลับไปหน้า login
                         }
 
                         if (!user.IsActive)
                         {
-                            // Log attempt
                             string appName = GetAppName();
                             await LogLoginAttemptAsync(context, username, "Login Failed - account inactive", "PromptLogin - CheckIsActive", Environment.MachineName, appName);
 
-                            await ShowErrorDialog("บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ");
-                            continue;
+                            await ShowErrorDialogAndReturnToLogin("บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ");
+                            continue; // ✅ กลับไปหน้า login
                         }
 
-                        // For now passwords are stored in plain text per project note
                         if (user.Password != password)
                         {
-                            // Log attempt
                             string appName = GetAppName();
                             await LogLoginAttemptAsync(context, username, "Login Failed - wrong password", "PromptLogin - PasswordCheck", Environment.MachineName, appName);
 
-                            await ShowErrorDialog("รหัสผ่านไม่ถูกต้อง");
-                            continue;
+                            await ShowErrorDialogAndReturnToLogin("รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
+                            continue; // ✅ กลับไปหน้า login
                         }
 
-                        // Success - เก็บ session ไว้ที่ App level
+                        // ✅ Success - เก็บ session ไว้ที่ App level
                         App.CurrentUser = user;
 
                         // Log success
@@ -181,15 +188,14 @@ namespace BootCoupon
 
                         EnableMainFunctions();
                         await ShowSuccessDialog($"ยินดีต้อนรับ {user.DisplayName ?? user.Username}");
-                        break;
+                        break; // ✅ ออกจาก loop เมื่อ login สำเร็จเท่านั้น
                     }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Login error: {ex}");
-                    await ShowErrorDialog($"เกิดข้อผิดพลาดขณะตรวจสอบข้อมูลผู้ใช้: {ex.Message}");
-                    // Optionally break to avoid infinite loop on DB failure
-                    break;
+                    await ShowErrorDialogAndReturnToLogin($"เกิดข้อผิดพลาดขณะตรวจสอบข้อมูลผู้ใช้: {ex.Message}\n\nกรุณาลองใหม่อีกครั้ง");
+                    continue; // ✅ กลับไปหน้า login แม้เกิด error
                 }
             }
         }
@@ -552,6 +558,34 @@ namespace BootCoupon
             {
                 return "BootCoupon";
             }
+        }
+
+        // ✅ เพิ่ม method ใหม่สำหรับแสดง error และบังคับให้กลับไปหน้า login
+        private async Task ShowErrorDialogAndReturnToLogin(string message)
+        {
+            var errorDialog = new ContentDialog
+            {
+                Title = "แจ้งเตือน",
+                Content = new TextBlock 
+                { 
+                    Text = message + "\n\nกรุณาเข้าสู่ระบบอีกครั้ง",
+                    TextWrapping = TextWrapping.Wrap
+                },
+                PrimaryButtonText = "ตกลง",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            // ✅ ป้องกันไม่ให้กด ESC ปิด error dialog ได้
+            errorDialog.Closing += (sender, args) =>
+            {
+                if (args.Result == ContentDialogResult.None)
+                {
+                    args.Cancel = true;
+                }
+            };
+
+            await errorDialog.ShowAsync();
         }
     }
 }

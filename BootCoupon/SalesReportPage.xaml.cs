@@ -391,7 +391,7 @@ namespace BootCoupon
             public int PaidGeneratedCount { get; init; }  // คูปองจำกัดที่ขาย
             public int FreeGeneratedCount { get; init; }  // คูปองจำกัดที่ฟรี (COM)
             public int UnlimitedCount { get; init; }      // คูปองไม่จำกัดที่ขาย
-            public int FreeUnlimitedCount { get; init; }  // ⭐ คูปองไม่จำกัดที่ฟรี (COM) - เพิ่มใหม่
+            public int FreeUnlimitedCount { get; init; }  // ⭐ คูปองไม่จำกัดที่ฟรี - เพิ่มใหม่
             public decimal PaidGeneratedAmount { get; init; }    // ราคาคูปองจำกัดที่ขาย
             public decimal FreeGeneratedAmount { get; init; }    // ราคาคูปองจำกัดที่ฟรี
             public decimal UnlimitedAmount { get; init; }        // ราคาคูปองไม่จำกัดที่ขาย
@@ -1162,14 +1162,18 @@ namespace BootCoupon
                             PaymentMethodName = r.PaymentMethodId.HasValue && paymentMethodDict.ContainsKey(r.PaymentMethodId.Value)
                                 ? paymentMethodDict[r.PaymentMethodId.Value]
                                 : "ไม่ระบุ",
-                            TotalPrice = r.TotalAmount,
-                            Discount = r.Discount,
-
-                            // ⭐ ใช้ค่าที่คำนวณใหม่
-                            TotalCouponCount = totalCouponCount,
+                            
+                            // ✅ เพิ่ม: กำหนดค่าที่คำนวณจาก items
+                            PaidCouponCount = paidCouponCount,           // ✅ เพิ่มบรรทัดนี้
                             FreeCouponCount = freeCouponCount,
-                            PaidCouponPrice = paidCouponPrice,
+                            TotalCouponCount = totalCouponCount,
+                            
+                            PaidCouponPrice = paidCouponPrice,           // ✅ เพิ่มบรรทัดนี้
                             FreeCouponPrice = freeCouponPrice,
+                            GrandTotalPrice = grandTotalPrice,           // ✅ เพิ่มบรรทัดนี้
+                            
+                            TotalPrice = r.TotalAmount,                   // เก็บไว้สำหรับ reference
+                            Discount = r.Discount,
 
                             CancellationReason = r.CancellationReason ?? string.Empty
                         };
@@ -1395,8 +1399,8 @@ else
                       PaymentMethodName = pm != null ? pm.Name : null,
                       PaymentMethodId = pm != null ? pm.Id : 0,
                       SaleEventId = cd != null ? cd.SaleEventId : 0,
-                      // NEW: include complimentary flag
-                      IsComplimentary = gc != null ? gc.IsComplimentary : false
+                      // ⭐ เปลี่ยนจาก gc.IsComplimentary เป็น ri.IsCOM
+                      IsComplimentary = ri != null ? ri.IsCOM : false
                   };
 
     // Apply filters
@@ -1437,9 +1441,9 @@ else
         BranchTypeName = x.BranchTypeName ?? string.Empty,
         PaymentMethodName = x.PaymentMethodName ?? string.Empty,
         Quantity = 1,
-        // If this generated coupon is marked complimentary/ค่าคอม, force price to 0
-        UnitPrice = x.IsComplimentary ? 0m : x.UnitPrice,
-        TotalPrice = x.IsComplimentary ? 0m : x.TotalPrice,
+        // ⭐ ไม่ต้องเปลี่ยนเป็น 0 แล้ว - แสดงราคาดั้งเดิม
+        UnitPrice = x.UnitPrice,
+        TotalPrice = x.TotalPrice,
         GeneratedCode = x.GeneratedCode,
         ExpiresAt = x.ExpiresAt,
         // set IsComplimentary so the UI can color the GeneratedCode when needed
@@ -1654,9 +1658,7 @@ else
 }
 else if (ReportMode == ReportModes.RemainingCoupons)
 {
-    // RemainingCoupons ไม่ได้รับผลกระทบจากใบเสร็จที่ยกเลิก
-    // เพราะนับจำนวนคูปองที่มี/ขายทั้งหมด
-    // -- diagnostics added for RemainingCoupons (inside SearchDataAsync)
+    // ✅ RemainingCoupons - แสดงคูปองที่คงเหลือ โดยนับเฉพาะที่ขายในช่วงวันที่ที่เลือก
     var limitedCoupons = await (from cd in context.CouponDefinitions
                                 join ct in context.Branches on cd.BranchId equals ct.Id into ctj
                                 from ct in ctj.DefaultIfEmpty()
@@ -1693,17 +1695,25 @@ else if (ReportMode == ReportModes.RemainingCoupons)
     // Build results and log counts
     foreach (var coupon in limitedCoupons)
     {
+        // ✅ จำนวนคูปองทั้งหมดที่สร้างไว้
         var totalCount = await context.GeneratedCoupons
                                      .Where(gc => gc.CouponDefinitionId == coupon.CouponId)
                                      .CountAsync();
 
-        var soldCount = await context.GeneratedCoupons
-                                     .Where(gc => gc.CouponDefinitionId == coupon.CouponId && gc.ReceiptItemId != null)
-                                     .CountAsync();
+        // ✅ จำนวนคูปองที่ขายในช่วงวันที่ที่เลือก (กรองด้วย ReceiptDate)
+        var soldCount = await (from gc in context.GeneratedCoupons
+                               where gc.CouponDefinitionId == coupon.CouponId 
+                                    && gc.ReceiptItemId != null
+                               join ri in context.ReceiptItems on gc.ReceiptItemId equals ri.ReceiptItemId
+                               join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
+                               where r.ReceiptDate >= startDateTime 
+                                    && r.ReceiptDate < endDateTime
+                                    && r.Status == "Active"  // นับเฉพาะใบเสร็จที่ยังไม่ยกเลิก
+                               select gc).CountAsync();
 
         var remaining = totalCount - soldCount;
 
-        System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] CouponId={coupon.CouponId} Total={totalCount} Sold={soldCount} Remaining={remaining}");
+        System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] CouponId={coupon.CouponId} Total={totalCount} Sold={soldCount} (in date range) Remaining={remaining}");
 
         results.Add(new SalesReportItem
         {
@@ -2005,7 +2015,11 @@ public async Task ExportToCsvAsync(StorageFile file)
     }
     else if (ReportMode == ReportModes.RemainingCoupons)
     {
-        var headers = new[] { "รหัส", "ชื่อคูปอง", "สาขา", "จำนวนรวม", "ขายแล้ว", "คงเหลือ", "ราคา/ใบ" };
+        // ⭐ เพิ่มคำอธิบายให้ชัดเจนว่าช่วงวันที่หมายถึงอะไร
+        csvContent.AppendLine($"\"หมายเหตุ: 'ขายแล้ว' = จำนวนคูปองที่ขายในช่วงวันที่ {StartDate?.ToString("dd/MM/yyyy")} - {EndDate?.ToString("dd/MM/yyyy")}\"");
+        csvContent.AppendLine();  // Empty line
+        
+        var headers = new[] { "รหัส", "ชื่อคูปอง", "สาขา", "จำนวนรวม", "ขายแล้ว (ในช่วงวันที่)", "คงเหลือ", "ราคา/ใบ" };
         csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
 
         foreach (var item in AllResults)
@@ -2062,17 +2076,19 @@ public async Task ExportToCsvAsync(StorageFile file)
         public bool IsLimited { get; set; }
 
         public string SaleEventName { get; set; } = "";
-
-        // ✅ เพิ่ม: เหตุผลยกเลิก
         public string CancellationReason { get; set; } = "";
 
         public int TotalCouponCount { get; set; }
         public int FreeCouponCount { get; set; }
-        public int PaidCouponCount => TotalCouponCount - FreeCouponCount;
+        
+        // ✅ เปลี่ยนเป็น property ที่ set ได้
+        public int PaidCouponCount { get; set; }
 
         public decimal FreeCouponPrice { get; set; }
         public decimal PaidCouponPrice { get; set; }
-        public decimal GrandTotalPrice => FreeCouponPrice + PaidCouponPrice;
+        
+        // ✅ เปลี่ยนเป็น property ที่ set ได้
+        public decimal GrandTotalPrice { get; set; }
 
         public int TotalQuantity { get; set; }
         public int SoldQuantity { get; set; }
@@ -2110,7 +2126,7 @@ public async Task ExportToCsvAsync(StorageFile file)
             get
             {
                 var defaultBrush = Application.Current.Resources["SystemControlForegroundBaseHighBrush"] as Microsoft.UI.Xaml.Media.Brush
-                               ?? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black);
+                           ?? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black);
                 if (IsComplimentary)
                 {
                     return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Yellow);
@@ -2124,7 +2140,7 @@ public async Task ExportToCsvAsync(StorageFile file)
             get
             {
                 var defaultBrush = Application.Current.Resources["SystemControlForegroundBaseHighBrush"] as Microsoft.UI.Xaml.Media.Brush
-                               ?? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black);
+                           ?? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black);
 
                 // color price yellow when price equals 0 (user requested) — applies for TotalPrice or UnitPrice
                 if (TotalPrice == 0m || UnitPrice == 0m)

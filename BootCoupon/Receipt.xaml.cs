@@ -158,8 +158,8 @@ namespace BootCoupon
         // Expose whether this item is for a limited coupon (has generated codes)
         public bool IsLimited => CouponDefinition?.IsLimited ?? false;
 
-        // ⭐ แก้ไข TotalPrice ให้คำนวณเป็น 0 เมื่อเป็น COM
-        public decimal TotalPrice => IsCOM ? 0 : (CouponDefinition.Price * Quantity);
+        // ⭐ แก้ไข: ให้แสดงราคาดั้งเดิมแม้เป็น COM (ไม่ลดเป็น 0)
+        public decimal TotalPrice => CouponDefinition.Price * Quantity;
 
         public string SelectedCodesPreview { get; set; } = string.Empty;
 
@@ -333,12 +333,14 @@ namespace BootCoupon
 
             try
             {
+                // ✅ เพิ่ม: Preload logo ล่วงหน้าเพื่อให้พร้อมก่อนพิมพ์
+                await ReceiptPrintService.ForceReloadLogoAsync();
+                Debug.WriteLine("✅ Logo preloaded in Receipt page");
+                
                 await LoadAllCouponDefinitions();
                 await LoadSalesPersons();
-                await LoadBranchTypes(); // เพิ่มการเรียกใช้ LoadBranchTypes กลับมา
+                await LoadBranchTypes();
                 await LoadPaymentMethods();
-
-                // new: load sale events for dropdown
                 await LoadSaleEvents();
             }
             catch (Exception ex)
@@ -1833,10 +1835,14 @@ namespace BootCoupon
             // เก็บเฉพาะส่วนลดเพิ่มเติมในตัวแปร _receiptDiscount
             _receiptDiscount = (decimal)additionalDiscountVal;
 
-            // คำนวณยอดที่จะส่งให้ SP: TotalAmount = subtotal - (COM + additional)
-            var subtotal = _selectedItems.Sum(item => item.TotalPrice);
-            var totalDiscountForTotal = comDiscount + _receiptDiscount;
-            var totalAmountToSave = subtotal - totalDiscountForTotal;
+            // ✅ คำนวณ gross subtotal (ราคาเต็มรวมทั้ง COM)
+            var grossSubtotal = _selectedItems.Sum(item => item.CouponDefinition.Price * item.Quantity);
+
+            Debug.WriteLine($"📊 การคำนวณยอดรวมก่อนบันทึก:");
+            Debug.WriteLine($"   - Gross Subtotal (รวมทั้ง COM): {grossSubtotal:N2}");
+            Debug.WriteLine($"   - COM Discount: {comDiscount:N2}");
+            Debug.WriteLine($"   - Additional Discount: {_receiptDiscount:N2}");
+            Debug.WriteLine($"   - Net Total (ที่ลูกค้าจ่าย): {grossSubtotal - comDiscount - _receiptDiscount:N2}");
 
             // Generate receipt code
             string receiptCode;
@@ -1858,10 +1864,8 @@ namespace BootCoupon
                 ReceiptDate = DateTime.Now,
                 CustomerName = customerName,
                 CustomerPhoneNumber = phoneNumber,
-                // store only the additional discount (DB field)
-                Discount = _receiptDiscount, // will be 0 if user didn't enter
-                // Store TotalAmount as the gross subtotal (ไม่หัก COM/ส่วนลด)
-                TotalAmount = subtotal,
+                Discount = _receiptDiscount,     // ส่วนลดเพิ่มเติมจาก UI
+                TotalAmount = grossSubtotal,     // ✅ gross subtotal รวมทั้ง COM (2,400)
                 SalesPersonId = (SalesPersonComboBox.SelectedItem as SalesPerson)?.ID,
                 PaymentMethodId = GetSelectedPaymentMethod()?.Id
             };
@@ -2005,23 +2009,22 @@ namespace BootCoupon
 
         private void UpdateTotalPrice()
         {
-            // Subtotal จะรวมเฉพาะรายการที่ไม่ฟรี (เพราะ COM items มี TotalPrice = 0)
+            // คำนวณราคารวมก่อนลด (รวมทุกรายการ รวมถึง COM)
             decimal subtotal = _selectedItems.Sum(item => item.TotalPrice);
 
-            // ⭐ คำนวณค่าของคูปอง COM (สำหรับแสดงเท่านั้น - ไม่ได้ใช้ในการคำนวณ)
-            decimal comValue = _selectedItems
+            // คำนวณส่วนลดรวม: ราคาของรายการ COM + ส่วนลดเพิ่มเติม
+            decimal comDiscount = _selectedItems
                 .Where(item => item.IsCOM)
-                .Sum(item => item.CouponDefinition.Price * item.Quantity);
+                .Sum(item => item.TotalPrice);
 
-            // Total discount = COM value + additional discount
-            decimal totalDiscount = comValue + _receiptDiscount;
+            decimal totalDiscount = comDiscount + _receiptDiscount;
 
-            // Net total = subtotal - additional discount (ไม่ต้องหัก COM เพราะ subtotal ไม่รวม COM อยู่แล้ว)
-            decimal netTotal = subtotal - _receiptDiscount;
+            // ราคาสุทธิ = ราคารวมก่อนลด - ส่วนลดรวม
+            decimal netTotal = subtotal - totalDiscount;
 
             // อัปเดต UI
             SubtotalTextBlock.Text = subtotal.ToString("N2");
-            TotalDiscountTextBlock.Text = totalDiscount.ToString("N2"); // แสดงส่วนลดรวมทั้งหมด
+            TotalDiscountTextBlock.Text = totalDiscount.ToString("N2");
             TotalPriceTextBlock.Text = netTotal.ToString("N2");
         }
 

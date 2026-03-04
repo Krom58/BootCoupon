@@ -449,7 +449,7 @@ namespace BootCoupon
             var infoPanel = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
 
             var infoText = $"วันที่พิมพ์: {DateTime.Now:dd/MM/yyyy HH:mm} | " +
-         $"ช่วงวันที่: {currentViewModel.StartDate?.ToString("dd/MM/yyyy")} - {currentViewModel.EndDate?.ToString("dd/MM/yyyy")}";
+                          $"ช่วงวันที่: {currentViewModel.StartDate?.ToString("dd/MM/yyyy")} - {currentViewModel.EndDate?.ToString("dd/MM/yyyy")}";
 
             var filterParts = new List<string>();
             if (currentViewModel.SelectedSalesPerson != null && currentViewModel.SelectedSalesPerson.ID != 0)
@@ -480,6 +480,12 @@ namespace BootCoupon
             // ✅ ใช้ printPages.Count แทนการคำนวณใหม่
             var totalPages = printPages.Count;
             infoText += $" | รูปแบบ: {reportModeName} | หน้า {pageNumber}/{totalPages}";
+
+            // ⭐ เพิ่มคำอธิบายพิเศษสำหรับ RemainingCoupons
+            if (currentViewModel.ReportMode == SalesReportViewModel.ReportModes.RemainingCoupons)
+            {
+                infoText += $"\nหมายเหตุ: 'ขายแล้ว' = จำนวนคูปองที่ขายในช่วงวันที่ที่เลือก";
+            }
 
             infoPanel.Children.Add(new TextBlock
             {
@@ -801,13 +807,12 @@ namespace BootCoupon
                         FontSize = 9,
                         Margin = new Thickness(2),
                         TextAlignment = TextAlignment.Center,
-                        Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black) // <- ensure black text
+                        Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black)
                     }
                 };
                 Grid.SetColumn(headerCell, i); Grid.SetRow(headerCell, 0); table.Children.Add(headerCell);
             }
 
-            // rest of method unchanged...
             var startIndex = (pageNumber - 1) * currentItemsPerPage;
             var endIndex = Math.Min(startIndex + currentItemsPerPage, currentViewModel.TotalItems);
             var all = currentViewModel.AllResults;
@@ -857,6 +862,32 @@ namespace BootCoupon
                     };
                     Grid.SetColumn(cell, j); Grid.SetRow(cell, rowIndex); table.Children.Add(cell);
                 }
+            }
+
+            // ⭐ เพิ่ม footnote ที่ท้ายตาราง (เฉพาะหน้าแรก)
+            if (pageNumber == 1)
+            {
+                var footerRowIndex = endIndex - startIndex + 1;
+                table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                var footerCell = new Border
+                {
+                    BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                    BorderThickness = new Thickness(0),
+                    Child = new TextBlock
+                    {
+                        Text = $"* ขายแล้ว = จำนวนที่ขายในช่วงวันที่ {currentViewModel?.StartDate?.ToString("dd/MM/yyyy")} - {currentViewModel?.EndDate?.ToString("dd/MM/yyyy")}",
+                        FontSize = 7,
+                        FontStyle = Windows.UI.Text.FontStyle.Italic,
+                        Margin = new Thickness(4, 4, 4, 2),
+                        Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
+                        TextWrapping = TextWrapping.Wrap
+                    }
+                };
+                Grid.SetColumn(footerCell, 0);
+                Grid.SetColumnSpan(footerCell, 7);
+                Grid.SetRow(footerCell, footerRowIndex);
+                table.Children.Add(footerCell);
             }
 
             table.Width = 794 - 40;
@@ -1205,8 +1236,7 @@ namespace BootCoupon
                 var rowIndex = i - startIndex + 1;
                 table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(20) });
 
-                var rowData = new[]
-                {
+                var rowData = new[] {
                     item.ReceiptDate.ToString("dd/MM/yy"),
                     item.ReceiptCode,
                     OptimizedTruncateString(item.CouponName ?? "", 25),

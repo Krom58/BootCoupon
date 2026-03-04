@@ -122,4 +122,30 @@
   <ItemGroup>
     <Folder Include="sql\" />
   </ItemGroup>
+
+  <!-- ✅ Add this section for Assets -->
+  <ItemGroup>
+    <!-- Strategy 1 & 2: Include as Content for file system access -->
+    <Content Include="Assets\AsiaHotelLogo.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <!-- Keep original path structure -->
+      <Link>Assets\AsiaHotelLogo.jpg</Link>
+    </Content>
+    
+    <!-- Strategy 3: Also embed as resource for single-file publish -->
+    <EmbeddedResource Include="Assets\AsiaHotelLogo.jpg">
+      <LogicalName>BootCoupon.Assets.AsiaHotelLogo.jpg</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <!-- ✅ Ensure Assets are included in publish -->
+  <Target Name="CopyAssetsOnPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <AssetsToPublish Include="Assets\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(AssetsToPublish)" 
+          DestinationFolder="$(PublishDir)Assets\%(RecursiveDir)" 
+          SkipUnchangedFiles="true" />
+    <Message Text="Copied Assets to publish directory" Importance="high" />
+  </Target>
 </Project>
