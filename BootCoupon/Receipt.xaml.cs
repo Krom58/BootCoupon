@@ -147,6 +147,7 @@ namespace BootCoupon
                     _isCom = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(ComBadgeText));
+                    OnPropertyChanged(nameof(TotalPrice)); // ⭐ เพิ่มบรรทัดนี้
                 }
             }
         }
@@ -157,8 +158,8 @@ namespace BootCoupon
         // Expose whether this item is for a limited coupon (has generated codes)
         public bool IsLimited => CouponDefinition?.IsLimited ?? false;
 
-        // TotalPrice does not include receipt-level discount
-        public decimal TotalPrice => CouponDefinition.Price * Quantity;
+        // ⭐ แก้ไข TotalPrice ให้คำนวณเป็น 0 เมื่อเป็น COM
+        public decimal TotalPrice => IsCOM ? 0 : (CouponDefinition.Price * Quantity);
 
         public string SelectedCodesPreview { get; set; } = string.Empty;
 
@@ -952,54 +953,81 @@ namespace BootCoupon
                     return;
                 }
 
-                // Non-limited flow (existing behavior)
+                // Non-limited flow - ถามจำนวนปกติและจำนวนฟรี
                 var quantityBox = new NumberBox
                 {
                     Value = 1,
-                    Minimum = 1,
-                    Maximum = selectedDefinition.IsLimited ? selectedDisplay.AvailableCount : int.MaxValue, // สำหรับคูปองไม่จำกัด ให้อนุญาตจำนวนมาก
+                    Minimum = 0,
+                    Maximum = int.MaxValue,
+                    SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
+                    Margin = new Thickness(0, 10, 0, 0)
+                };
+
+                var freeQuantityBox = new NumberBox
+                {
+                    Value = 0,
+                    Minimum = 0,
+                    Maximum = int.MaxValue,
                     SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
                     Margin = new Thickness(0, 10, 0, 0)
                 };
 
                 var priceTextBlock = new TextBlock
                 {
-                    Text = $"ราคา: {selectedDefinition.Price} บาท/ใบ",
+                    Text = $"ราคา: {selectedDefinition.Price:N2} บาท/ใบ",
+                    FontSize = 16,
                     Margin = new Thickness(0, 10, 0, 10)
-                };
-
-                var availableTextBlock = new TextBlock
-                {
-                    Text = selectedDefinition.IsLimited ? $"คงเหลือ: {selectedDisplay.AvailableCount:N0} ใบ" : string.Empty,
-                    Margin = new Thickness(0, 5, 0, 10),
-                    Foreground = selectedDefinition.IsLimited && selectedDisplay.AvailableCount > 10 ?
-                        new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Green) :
-                        new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Orange),
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                 };
 
                 var totalPriceTextBlock = new TextBlock
                 {
-                    Text = $"รวมเป็นเงิน: {selectedDefinition.Price} บาท",
+                    Text = $"รวมเป็นเงิน: {selectedDefinition.Price:N2} บาท",
                     FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    FontSize = 18,
                     Margin = new Thickness(0, 0, 0, 10)
                 };
 
                 void RecalcTotal()
                 {
                     var q = quantityBox.Value > 0 ? (int)quantityBox.Value : 0;
+                    var freeQ = freeQuantityBox.Value > 0 ? (int)freeQuantityBox.Value : 0;
                     var total = selectedDefinition.Price * (decimal)q;
-                    totalPriceTextBlock.Text = $"รวมเป็นเงิน: {total} บาท";
+                    totalPriceTextBlock.Text = $"รวมเป็นเงิน: {total:N2} บาท (ปกติ: {q} ใบ, ฟรี: {freeQ} ใบ)";
                 }
 
                 quantityBox.ValueChanged += (s, args) => RecalcTotal();
+                freeQuantityBox.ValueChanged += (s, args) => RecalcTotal();
 
-                var contentPanel = new StackPanel();
-                contentPanel.Children.Add(new TextBlock { Text = $"คูปอง: {selectedDefinition.Name}" });
+                var contentPanel = new StackPanel { Spacing = 8 };
+                contentPanel.Children.Add(new TextBlock 
+                { 
+                    Text = $"คูปอง: {selectedDefinition.Name}", 
+                    FontSize = 18, 
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold 
+                });
                 contentPanel.Children.Add(priceTextBlock);
-                contentPanel.Children.Add(availableTextBlock);
-                contentPanel.Children.Add(new TextBlock { Text = "กรุณาระบุจำนวน:" });
+
+                // ส่วนจำนวนปกติ
+                contentPanel.Children.Add(new TextBlock 
+                { 
+                    Text = "จำนวนที่ซื้อ (คิดเงิน):", 
+                    FontSize = 16, 
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Margin = new Thickness(0, 8, 0, 4) 
+                });
                 contentPanel.Children.Add(quantityBox);
+
+                // ส่วนจำนวนฟรี (COM)
+                contentPanel.Children.Add(new TextBlock 
+                { 
+                    Text = "🎁 จำนวนฟรี (COM - ไม่คิดเงิน):", 
+                    FontSize = 16, 
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Orange),
+                    Margin = new Thickness(0, 12, 0, 4) 
+                });
+                contentPanel.Children.Add(freeQuantityBox);
+
                 contentPanel.Children.Add(totalPriceTextBlock);
 
                 var dialog2 = new ContentDialog
@@ -1015,67 +1043,65 @@ namespace BootCoupon
                 var result2 = await dialog2.ShowAsync();
                 if (result2 == ContentDialogResult.Primary)
                 {
-                    // Validate quantity input
-                    if (double.IsNaN(quantityBox.Value) || quantityBox.Value <= 0)
+                    var quantity = quantityBox.Value > 0 ? (int)quantityBox.Value : 0;
+                    var freeQuantity = freeQuantityBox.Value > 0 ? (int)freeQuantityBox.Value : 0;
+
+                    // Validate that at least one quantity is specified
+                    if (quantity <= 0 && freeQuantity <= 0)
                     {
-                        await ShowErrorDialog("กรุณาระบุจำนวนคูปองที่ถูกต้อง");
+                        await ShowErrorDialog("กรุณาระบุจำนวนคูปองอย่างน้อย 1 ใบ");
                         return;
                     }
 
-                    var quantity = (int)quantityBox.Value;
-
-                    // ตรวจสอบอีกครั้งก่อนเพิ่มในรายการ เฉพาะคูปองที่จำกัด
-                    if (selectedDefinition.IsLimited && quantity > selectedDisplay.AvailableCount)
+                    // เพิ่มจำนวนปกติ (คิดเงิน)
+                    if (quantity > 0)
                     {
-                        await ShowErrorDialog($"จำนวนที่เลือก ({quantity}) เกินกว่าที่มีคงเหลือ ({selectedDisplay.AvailableCount})");
-                        return;
-                    }
-
-                    // Try to reserve in DB for this session before updating UI (เฉพาะคูปองจำกัด)
-                    if (selectedDefinition.IsLimited)
-                    {
-                        var reserved = await _reservation_service_try_reserve_wrapper(selectedDefinition.Id, quantity);
-                        if (!reserved)
+                        var existingItem = _selectedItems.FirstOrDefault(it => 
+                            it.CouponDefinition.Id == selectedDefinition.Id && 
+                            !it.IsCOM && 
+                            (it.SelectedGeneratedIds == null || !it.SelectedGeneratedIds.Any()));
+                        
+                        if (existingItem != null)
                         {
-                            await ShowErrorDialog("ไม่สามารถสำรองคูปองได้ (จำนวนไม่พอ)");
-                            return;
+                            existingItem.Quantity += quantity;
+                        }
+                        else
+                        {
+                            var receiptItem = new ReceiptItem
+                            {
+                                CouponDefinition = selectedDefinition,
+                                Quantity = quantity,
+                                IsCOM = false
+                            };
+                            _selectedItems.Add(receiptItem);
                         }
                     }
 
-                    // ถ้ามีรายการเดียวกันอยู่แล้ว ให้เพิ่มจำนวนแทนการสร้างรายการใหม่
-                    var existingItem2 = _selectedItems.FirstOrDefault(it => it.CouponDefinition.Id == selectedDefinition.Id && (it.SelectedGeneratedIds == null || !it.SelectedGeneratedIds.Any()));
-                    if (existingItem2 != null)
+                    // เพิ่มจำนวนฟรี (COM - ไม่คิดเงิน)
+                    if (freeQuantity > 0)
                     {
-                        existingItem2.Quantity += quantity;
-                        // ปรับ TotalUsed ใน display เพื่อสะท้อนการสำรองคูปอง (เฉพาะคูปองจำกัด)
-                        var display2 = GetDisplayByDefinitionId(selectedDefinition.Id);
-                        if (display2 != null && selectedDefinition.IsLimited)
+                        var existingComItem = _selectedItems.FirstOrDefault(it => 
+                            it.CouponDefinition.Id == selectedDefinition.Id && 
+                            it.IsCOM && 
+                            (it.SelectedGeneratedIds == null || !it.SelectedGeneratedIds.Any()));
+                        
+                        if (existingComItem != null)
                         {
-                            display2.TotalUsed += quantity;
+                            existingComItem.Quantity += freeQuantity;
                         }
-                    }
-                    else
-                    {
-                        // เพิ่มลงในรายการที่เลือก
-                        var receiptItem = new ReceiptItem
+                        else
                         {
-                            CouponDefinition = selectedDefinition,
-                            Quantity = quantity
-                        };
-
-                        _selectedItems.Add(receiptItem);
-
-                        // ปรับ TotalUsed ใน display เพื่อสะท้อนการสำรองคูปอง (เฉพาะคูปองจำกัด)
-                        var display2 = GetDisplayByDefinitionId(selectedDefinition.Id);
-                        if (display2 != null && selectedDefinition.IsLimited)
-                        {
-                            display2.TotalUsed += quantity;
+                            var comReceiptItem = new ReceiptItem
+                            {
+                                CouponDefinition = selectedDefinition,
+                                Quantity = freeQuantity,
+                                IsCOM = true
+                            };
+                            _selectedItems.Add(comReceiptItem);
                         }
                     }
 
                     UpdateTotalPrice();
-
-                    // ไม่รีเฟรชจาก DB เพื่อไม่ให้สูญเสียการสำรองที่ยังไม่บันทึก
                 }
             }
         }
@@ -1979,25 +2005,23 @@ namespace BootCoupon
 
         private void UpdateTotalPrice()
         {
+            // Subtotal จะรวมเฉพาะรายการที่ไม่ฟรี (เพราะ COM items มี TotalPrice = 0)
             decimal subtotal = _selectedItems.Sum(item => item.TotalPrice);
 
-            // คำนวณส่วนลดจาก COM
-            decimal comDiscount = 0m;
-            foreach (var item in _selectedItems)
-            {
-                if (item.IsCOM)
-                {
-                    comDiscount += item.CouponDefinition.Price * item.Quantity;
-                }
-            }
+            // ⭐ คำนวณค่าของคูปอง COM (สำหรับแสดงเท่านั้น - ไม่ได้ใช้ในการคำนวณ)
+            decimal comValue = _selectedItems
+                .Where(item => item.IsCOM)
+                .Sum(item => item.CouponDefinition.Price * item.Quantity);
 
-            // รวม COM discount กับ receipt-level additional discount
-            decimal totalDiscount = comDiscount + _receiptDiscount;
-            decimal netTotal = subtotal - totalDiscount;
+            // Total discount = COM value + additional discount
+            decimal totalDiscount = comValue + _receiptDiscount;
+
+            // Net total = subtotal - additional discount (ไม่ต้องหัก COM เพราะ subtotal ไม่รวม COM อยู่แล้ว)
+            decimal netTotal = subtotal - _receiptDiscount;
 
             // อัปเดต UI
             SubtotalTextBlock.Text = subtotal.ToString("N2");
-            TotalDiscountTextBlock.Text = totalDiscount.ToString("N2");
+            TotalDiscountTextBlock.Text = totalDiscount.ToString("N2"); // แสดงส่วนลดรวมทั้งหมด
             TotalPriceTextBlock.Text = netTotal.ToString("N2");
         }
 

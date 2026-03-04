@@ -473,13 +473,15 @@
 
                                             <TextBlock Grid.Column="0" Text="{x:Bind ReceiptDateDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             <TextBlock Grid.Column="1" Text="{x:Bind ReceiptCode}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                            <TextBlock Grid.Column="2" Text="{x:Bind CouponName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <!-- ⭐ เพิ่มสีเหลืองสำหรับคูปอง COM -->
+                                            <TextBlock Grid.Column="2" Text="{x:Bind CouponName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{x:Bind CouponCodeColor}"/>
                                             <TextBlock Grid.Column="3" Text="{x:Bind CustomerName}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             <TextBlock Grid.Column="4" Text="{x:Bind CustomerPhone}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             <TextBlock Grid.Column="5" Text="{x:Bind SalesPersonName}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             <TextBlock Grid.Column="6" Text="{Binding ExpiresAt, Converter={StaticResource NullableDateToString}}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             <TextBlock Grid.Column="7" Text="{x:Bind Quantity}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                            <TextBlock Grid.Column="8" Text="{x:Bind TotalPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <!-- ⭐ เพิ่มสีเหลืองสำหรับราคา COM -->
+                                            <TextBlock Grid.Column="8" Text="{x:Bind TotalPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" Foreground="{x:Bind PriceColor}"/>
 
                                             <!-- vertical separators -->
                                             <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />

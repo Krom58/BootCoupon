@@ -57,77 +57,55 @@ namespace BootCoupon
                 {
                     using (var ctx = new CouponContext())
                     {
-                        // โหลด receipt items
-                        var items = await ctx.ReceiptItems
-                            .AsNoTracking()
-                            .Where(ri => ri.ReceiptId == receiptId)
-                            .ToListAsync();
-
-                        var receiptItemIds = items
-                            .Select(i => i.ReceiptItemId)
-                            .Where(id => id != 0)
-                            .ToList();
-
-                        if (receiptItemIds.Any())
-                        {
-                            // คำนวณ COM discount จากคูปองที่ marked เป็น complimentary
-                            comDiscount = await (from gc in ctx.GeneratedCoupons.AsNoTracking()
-                                                 join cd in ctx.CouponDefinitions.AsNoTracking() 
-                                                     on gc.CouponDefinitionId equals cd.Id
-                                                 where gc.ReceiptItemId != null
-                                                       && receiptItemIds.Contains(gc.ReceiptItemId.Value)
-                                                       && gc.IsComplimentary == true
-                                                 select cd.Price)
-                                                .SumAsync();
-                    
-                            Debug.WriteLine($"คำนวณ COM discount อัตโนมัติ: {comDiscount:N2} บาท");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"ข้อผิดพลาดในการคำนวณ COM discount: {ex.Message}");
-                    // ถ้าคำนวณไม่สำเร็จ ให้ใช้ 0
-                    comDiscount = 0m;
-                }
-            }
+                        // ⭐ คำนวณจาก ReceiptItems.IsCOM เท่านั้น (ไม่ใช้ GeneratedCoupons.IsComplimentary อีกต่อไป)
+                        comDiscount = await (from ri in ctx.ReceiptItems.AsNoTracking()
+                                    where ri.ReceiptId == receiptId
+                                          && ri.IsCOM == true
+                                    select ri.UnitPrice * ri.Quantity)
+                                   .SumAsync();
             
-            // ตั้งค่า override value สำหรับแสดงผล
-            overrideComDiscount = comDiscount;
-
-            // ป้องกันการพิมพ์พร้อมกัน
-            if (isPrintingInProgress)
-            {
-                await ShowErrorDialogSafe(xamlRoot, "กำลังมีการพิมพ์อยู่แล้ว กรุณารอสักครู่");
-                return false;
-            }
-
-            try
-            {
-                isPrintingInProgress = true;
-                Debug.WriteLine($"เริ่มพิมพ์ใบเสร็จ ID: {receiptId} (COM discount: {comDiscount:N2})");
-
-                // โหลดข้อมูลใบเสร็จ
-                if (!await LoadReceiptDataAsync(receiptId))
-                {
-                    await ShowErrorDialogSafe(xamlRoot, "ไม่สามารถโหลดข้อมูลใบเสร็จได้");
-                    return false;
-                }
-
-                // เริ่มกระบวนการพิมพ์
-                return await InitiatePrintProcessAsync(xamlRoot);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"ข้อผิดพลาดในการพิมพ์: {ex.Message}");
-                await ShowErrorDialogSafe(xamlRoot, $"เกิดข้อผิดพลาดในการพิมพ์: {ex.Message}");
-                return false;
-            }
-            finally
-            {
-                isPrintingInProgress = false;
+                Debug.WriteLine($"คำนวณ COM discount จาก ReceiptItems.IsCOM: {comDiscount:N2} บาท");
             }
         }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"ข้อผิดพลาดในการคำนวณ COM discount: {ex.Message}");
+            comDiscount = 0m;
+        }
+    }
+    
+    overrideComDiscount = comDiscount;
+
+    if (isPrintingInProgress)
+    {
+        await ShowErrorDialogSafe(xamlRoot, "กำลังมีการพิมพ์อยู่แล้ว กรุณารอสักครู่");
+        return false;
+    }
+
+    try
+    {
+        isPrintingInProgress = true;
+        Debug.WriteLine($"เริ่มพิมพ์ใบเสร็จ ID: {receiptId} (COM discount: {comDiscount:N2})");
+
+        if (!await LoadReceiptDataAsync(receiptId))
+        {
+            await ShowErrorDialogSafe(xamlRoot, "ไม่สามารถโหลดข้อมูลใบเสร็จได้");
+            return false;
+        }
+
+        return await InitiatePrintProcessAsync(xamlRoot);
+    }
+    catch (Exception ex)
+    {
+        Debug.WriteLine($"ข้อผิดพลาดในการพิมพ์: {ex.Message}");
+        await ShowErrorDialogSafe(xamlRoot, $"เกิดข้อผิดพลาดในการพิมพ์: {ex.Message}");
+        return false;
+    }
+    finally
+    {
+        isPrintingInProgress = false;
+    }
+}
 
         /// <summary>
         /// จัดการกับการยกเลิกใบเสร็จ (เหมือนกับปุ่มปิดใน ReceiptPrintPreview)

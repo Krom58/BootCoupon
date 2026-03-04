@@ -45,7 +45,7 @@ namespace CouponManagement.Shared.Models
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal TotalPrice { get; set; }
-
+        public bool IsCOM { get; set; } = false;
         // Note: per-line Discount removed; use ReceiptModel.Discount for overall receipt discount
     }
 
