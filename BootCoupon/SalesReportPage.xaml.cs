@@ -1520,8 +1520,8 @@ namespace BootCoupon
                             CouponName = g.Key.CouponName,
                             BranchName = g.Key.BranchName,
                             SaleEventId = g.Key.SaleEventId,
-                            SoldCount = g.Where(x => !x.IsCOM).Sum(x => x.Quantity),      // ⭐ นับเฉพาะที่ไม่ COM
-                            FreeCount = g.Where(x => x.IsCOM).Sum(x => x.Quantity),       // ⭐ นับเฉพาะที่ COM
+                            SoldCount = g.Count(x => !x.IsCOM),      // ⭐ นับเฉพาะที่ไม่ COM
+                            FreeCount = g.Count(x => x.IsCOM),       // ⭐ นับเฉพาะที่ COM
                             PaidAmount = g.Where(x => !x.IsCOM).Sum(x => x.TotalPrice),   // ⭐ ราคาที่ขาย
                             FreeAmount = g.Where(x => x.IsCOM).Sum(x => x.UnitPrice * x.Quantity), // ⭐ มูลค่า COM
                             IsLimited = false
@@ -1548,7 +1548,7 @@ namespace BootCoupon
                                            BranchName = ct != null ? ct.Name : string.Empty,
                                            BranchId = ct != null ? ct.Id : 0,
                                            Price = cd != null ? cd.Price : 0m,
-                                           IsComplimentary = gc != null ? gc.IsComplimentary : false,
+                                           IsCOM = ri != null ? ri.IsCOM : false,  // ✅ เปลี่ยนจาก gc.IsComplimentary เป็น ri.IsCOM
                                            SaleEventId = (cd != null && cd.SaleEventId.HasValue) ? cd.SaleEventId!.Value : 0,
                                            SalesPersonName = sp != null ? sp.Name : null,
                                            PaymentMethodId = pm != null ? pm.Id : 0
@@ -1578,8 +1578,8 @@ namespace BootCoupon
                             BranchName = g.Key.BranchName,
                             Price = g.Key.Price,
                             SaleEventId = g.Key.SaleEventId,
-                            FreeCount = g.Count(x => x.IsComplimentary),
-                            SoldCount = g.Count(x => !x.IsComplimentary),
+                            FreeCount = g.Count(x => x.IsCOM),      // ✅ เปลี่ยนจาก IsComplimentary เป็น IsCOM
+                            SoldCount = g.Count(x => !x.IsCOM),     // ✅ เปลี่ยนจาก IsComplimentary เป็น IsCOM
                             IsLimited = true
                         }).ToList();
 
