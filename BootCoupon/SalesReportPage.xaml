@@ -166,10 +166,10 @@
                     <Button x:Name="ExportExcelButton" Content="ส่งออก Excel (CSV)" 
                             Click="ExportExcelButton_Click"
                             MinWidth="140"/>
-                    <!--<Button x:Name="ExportPdfButton" Content="ส่งออก PDF (Print to PDF)" 
+                    <Button x:Name="ExportPdfButton" Content="ส่งออก PDF (Print to PDF)" 
                             Click="ExportPdfButton_Click"
                             MinWidth="160"/>
-                    <Button x:Name="PrintButton" Content="พิมพ์" 
+                    <!--<Button x:Name="PrintButton" Content="พิมพ์" 
                             Click="PrintButton_Click"
                             MinWidth="120"/>-->
                 </StackPanel>

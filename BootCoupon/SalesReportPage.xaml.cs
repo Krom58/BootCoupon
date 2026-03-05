@@ -227,7 +227,7 @@ namespace BootCoupon
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[SearchButton] Error: {ex.Message}");
-                await ShowErrorDialog("เกิดข้อผิดพลาด", 
+                await ShowErrorDialog("เกิดข้อผิดพลาด",
                     $"ไม่สามารถค้นหาข้อมูลได้: {ex.Message}\n\n" +
                     $"แนะนำ: ลองลดช่วงเวลาการค้นหา หรือเพิ่มตัวกรองเพื่อจำกัดข้อมูล");
             }
@@ -901,7 +901,7 @@ namespace BootCoupon
             try
             {
                 using var context = new CouponContext();
-                
+
                 // ✅ เพิ่ม timeout สำหรับ query ขนาดใหญ่
                 context.Database.SetCommandTimeout(300); // 5 นาที
 
@@ -915,12 +915,12 @@ namespace BootCoupon
 
                 // ✅ เพิ่ม logging เพื่อ debug
                 System.Diagnostics.Debug.WriteLine($"[SearchData] Date range: {startDateTime:yyyy-MM-dd} to {endDateTime:yyyy-MM-dd}");
-                
+
                 // ✅ เช็คจำนวนข้อมูลก่อน query ใหญ่
                 var estimatedCount = await context.Receipts
                     .Where(r => r.ReceiptDate >= startDateTime && r.ReceiptDate < endDateTime)
                     .CountAsync();
-                
+
                 System.Diagnostics.Debug.WriteLine($"[SearchData] Estimated records: {estimatedCount}");
 
                 // ✅ แจ้งเตือนถ้าข้อมูลเยอะมาก
@@ -1165,7 +1165,7 @@ namespace BootCoupon
                             PaymentMethodName = r.PaymentMethodId.HasValue && paymentMethodDict.ContainsKey(r.PaymentMethodId.Value)
                                 ? paymentMethodDict[r.PaymentMethodId.Value]
                                 : "ไม่ระบุ",
-                            
+
                             // ✅ เพิ่ม: กำหนดค่าที่คำนวณจาก items
                             PaidCouponCount = paidCouponCount,           // ✅ เพิ่มบรรทัดนี้
                             FreeCouponCount = freeCouponCount,
@@ -1174,7 +1174,7 @@ namespace BootCoupon
                             PaidCouponPrice = paidCouponPrice,           // ✅ เพิ่มบรรทัดนี้
                             FreeCouponPrice = freeCouponPrice,
                             GrandTotalPrice = grandTotalPrice,           // ✅ เพิ่มบรรทัดนี้
-                            
+
                             TotalPrice = r.TotalAmount,                   // เก็บไว้สำหรับ reference
                             Discount = r.Discount,
 
@@ -1191,745 +1191,746 @@ namespace BootCoupon
                         var cancelledReceiptsQuery = context.Receipts
         .Where(r => r.ReceiptDate >= startDateTime && r.ReceiptDate < endDateTime && r.Status == "Cancelled");
 
-    // Apply filters
-    if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
-        cancelledReceiptsQuery = cancelledReceiptsQuery.Where(r => r.SalesPersonId == SelectedSalesPerson.ID);
+                        // Apply filters
+                        if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
+                            cancelledReceiptsQuery = cancelledReceiptsQuery.Where(r => r.SalesPersonId == SelectedSalesPerson.ID);
 
-    if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
-        cancelledReceiptsQuery = cancelledReceiptsQuery.Where(r => r.PaymentMethodId == SelectedPaymentMethod.Id);
+                        if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
+                            cancelledReceiptsQuery = cancelledReceiptsQuery.Where(r => r.PaymentMethodId == SelectedPaymentMethod.Id);
 
-    var cancelledReceipts = await cancelledReceiptsQuery.ToListAsync();
-    var cancelledReceiptIds = cancelledReceipts.Select(r => r.ReceiptID).ToList();
+                        var cancelledReceipts = await cancelledReceiptsQuery.ToListAsync();
+                        var cancelledReceiptIds = cancelledReceipts.Select(r => r.ReceiptID).ToList();
 
-    if (!cancelledReceiptIds.Any())
-    {
-        results = new List<SalesReportItem>();
-    }
-    else
-    {
-        // ⭐ ดึงข้อมูลจาก ReceiptItems แทน GeneratedCouponsHistory
-        var cancelledItemsQuery = from ri in context.ReceiptItems
-                          where cancelledReceiptIds.Contains(ri.ReceiptId)
-                          join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
-                          join cd in context.CouponDefinitions on ri.CouponId equals cd.Id into cdj
-                          from cd in cdj.DefaultIfEmpty()
-                          join ct in context.Branches on cd.BranchId equals ct.Id into ctj
-                          from ct in ctj.DefaultIfEmpty()
-                          join sp in context.SalesPerson on r.SalesPersonId equals sp.ID into spj
-                          from sp in spj.DefaultIfEmpty()
-                          join pm in context.PaymentMethods on r.PaymentMethodId equals pm.Id into pmj
-                          from pm in pmj.DefaultIfEmpty()
-                          // ⭐ Join GeneratedCouponsHistory เฉพาะสำหรับดึง GeneratedCode (สำหรับคูปองจำกัด)
-                          join gch in context.GeneratedCouponsHistory on ri.ReceiptItemId equals gch.ReceiptItemId into gchj
-                          from gch in gchj.DefaultIfEmpty()
-                          select new
-                          {
-                              ReceiptDate = r.ReceiptDate,
-                              ReceiptCode = r.ReceiptCode,
-                              ReceiptStatus = r.Status,
-                              CustomerName = r.CustomerName,
-                              CustomerPhone = r.CustomerPhoneNumber,
-                              SalesPersonName = sp != null ? sp.Name : null,
-                              CouponDefinitionId = cd != null ? cd.Id : 0,
-                              CouponName = cd != null ? cd.Name : null,
-                              BranchTypeName = ct != null ? ct.Name : string.Empty,
-                              BranchId = ct != null ? ct.Id : 0,
-                              IsLimited = cd != null ? cd.IsLimited : false,
-                              // ⭐ ดึง GeneratedCode จาก History (สำหรับคูปองจำกัดเท่านั้น)
-                              GeneratedCode = gch != null ? gch.GeneratedCode : null,
-                              ExpiresAt = gch != null ? gch.ExpiresAt : (cd != null ? cd.ValidTo : (DateTime?)null),
-                              PaymentMethodName = pm != null ? pm.Name : null,
-                              PaymentMethodId = pm != null ? pm.Id : 0,
-                              SaleEventId = (cd != null && cd.SaleEventId.HasValue) ? cd.SaleEventId!.Value : 0,  // ✅ แก้ไข: ใช้ .Value
-                              UnitPrice = ri.UnitPrice,
-                              TotalPrice = ri.TotalPrice,
-                              Quantity = ri.Quantity,
-                              // ⭐ ใช้ IsCOM จาก ReceiptItems แทน IsComplimentary จาก History
-                              IsCOM = ri.IsCOM,
-                              CancellationReason = r.CancellationReason ?? ""
-                          };
+                        if (!cancelledReceiptIds.Any())
+                        {
+                            results = new List<SalesReportItem>();
+                        }
+                        else
+                        {
+                            // ⭐ ดึงข้อมูลจาก ReceiptItems แทน GeneratedCouponsHistory
+                            var cancelledItemsQuery = from ri in context.ReceiptItems
+                                                      where cancelledReceiptIds.Contains(ri.ReceiptId)
+                                                      join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
+                                                      join cd in context.CouponDefinitions on ri.CouponId equals cd.Id into cdj
+                                                      from cd in cdj.DefaultIfEmpty()
+                                                      join ct in context.Branches on cd.BranchId equals ct.Id into ctj
+                                                      from ct in ctj.DefaultIfEmpty()
+                                                      join sp in context.SalesPerson on r.SalesPersonId equals sp.ID into spj
+                                                      from sp in spj.DefaultIfEmpty()
+                                                      join pm in context.PaymentMethods on r.PaymentMethodId equals pm.Id into pmj
+                                                      from pm in pmj.DefaultIfEmpty()
+                                                          // ⭐ Join GeneratedCouponsHistory เฉพาะสำหรับดึง GeneratedCode (สำหรับคูปองจำกัด)
+                                                      join gch in context.GeneratedCouponsHistory on ri.ReceiptItemId equals gch.ReceiptItemId into gchj
+                                                      from gch in gchj.DefaultIfEmpty()
+                                                      select new
+                                                      {
+                                                          ReceiptDate = r.ReceiptDate,
+                                                          ReceiptCode = r.ReceiptCode,
+                                                          ReceiptStatus = r.Status,
+                                                          CustomerName = r.CustomerName,
+                                                          CustomerPhone = r.CustomerPhoneNumber,
+                                                          SalesPersonName = sp != null ? sp.Name : null,
+                                                          CouponDefinitionId = cd != null ? cd.Id : 0,
+                                                          CouponName = cd != null ? cd.Name : null,
+                                                          BranchTypeName = ct != null ? ct.Name : string.Empty,
+                                                          BranchId = ct != null ? ct.Id : 0,
+                                                          IsLimited = cd != null ? cd.IsLimited : false,
+                                                          // ⭐ ดึง GeneratedCode จาก History (สำหรับคูปองจำกัดเท่านั้น)
+                                                          GeneratedCode = gch != null ? gch.GeneratedCode : null,
+                                                          ExpiresAt = gch != null ? gch.ExpiresAt : (cd != null ? cd.ValidTo : (DateTime?)null),
+                                                          PaymentMethodName = pm != null ? pm.Name : null,
+                                                          PaymentMethodId = pm != null ? pm.Id : 0,
+                                                          SaleEventId = (cd != null && cd.SaleEventId.HasValue) ? cd.SaleEventId!.Value : 0,  // ✅ แก้ไข: ใช้ .Value
+                                                          UnitPrice = ri.UnitPrice,
+                                                          TotalPrice = ri.TotalPrice,
+                                                          Quantity = ri.Quantity,
+                                                          // ⭐ ใช้ IsCOM จาก ReceiptItems แทน IsComplimentary จาก History
+                                                          IsCOM = ri.IsCOM,
+                                                          CancellationReason = r.CancellationReason ?? ""
+                                                      };
 
-        // Apply coupon filters
-        if (SelectedBranch != null && SelectedBranch.Id != 0)
-            cancelledItemsQuery = cancelledItemsQuery.Where(x => x.BranchId == SelectedBranch.Id);
+                            // Apply coupon filters
+                            if (SelectedBranch != null && SelectedBranch.Id != 0)
+                                cancelledItemsQuery = cancelledItemsQuery.Where(x => x.BranchId == SelectedBranch.Id);
 
-        if (SelectedCoupon != null && SelectedCoupon.Id != 0)
-            cancelledItemsQuery = cancelledItemsQuery.Where(x => x.CouponDefinitionId == SelectedCoupon.Id);
+                            if (SelectedCoupon != null && SelectedCoupon.Id != 0)
+                                cancelledItemsQuery = cancelledItemsQuery.Where(x => x.CouponDefinitionId == SelectedCoupon.Id);
 
-        if (SelectedJob != null && SelectedJob.Id != 0)
-            cancelledItemsQuery = cancelledItemsQuery.Where(x => x.SaleEventId == SelectedJob.Id);
+                            if (SelectedJob != null && SelectedJob.Id != 0)
+                                cancelledItemsQuery = cancelledItemsQuery.Where(x => x.SaleEventId == SelectedJob.Id);
 
-        var cancelledItems = await cancelledItemsQuery.ToListAsync();
+                            var cancelledItems = await cancelledItemsQuery.ToListAsync();
 
-        results = cancelledItems.Select(x => new SalesReportItem
-        {
-            ReceiptDate = x.ReceiptDate,
-            ReceiptCode = x.ReceiptCode,
-            ReceiptStatus = x.ReceiptStatus,
-            CustomerName = x.CustomerName ?? "ไม่ระบุ",
-            CustomerPhone = x.CustomerPhone ?? string.Empty,
-            SalesPersonName = x.SalesPersonName ?? string.Empty,
-            CouponName = x.CouponName ?? "ไม่พบข้อมูล",
-            BranchTypeName = x.BranchTypeName ?? string.Empty,
-            PaymentMethodName = x.PaymentMethodName ?? string.Empty,
-            Quantity = x.Quantity,  // ⭐ ใช้ Quantity จริง
-            // ⭐ ถ้าเป็น COM ราคาจะเป็น 0
-            UnitPrice = x.IsCOM ? 0m : x.UnitPrice,
-            TotalPrice = x.IsCOM ? 0m : x.TotalPrice,
-            GeneratedCode = x.GeneratedCode,
-            ExpiresAt = x.ExpiresAt,
-            IsComplimentary = x.IsCOM,  // ⭐ ใช้ IsCOM แทน IsComplimentary
-            SaleEventName = (x.SaleEventId != 0 && saleEventDict.TryGetValue(x.SaleEventId, out var cn)) ? cn : string.Empty,
-            CancellationReason = x.CancellationReason
-        })
-        .OrderBy(x => x.ReceiptDate)
-        .ThenBy(x => x.ReceiptCode)
-        .ThenBy(x => x.CouponName)
-        .ToList();
-    }
-}
-else if (ReportMode == ReportModes.UnlimitedGrouped)
-{
-    // ** แก้ไข: ดึงข้อมูลคูปองไม่จำกัดจาก ReceiptItems โดยตรง **
-    var unlimitedItemsQuery = from ri in context.ReceiptItems
-          join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
-          join cd in context.CouponDefinitions on ri.CouponId equals cd.Id into cdj
-          from cd in cdj.DefaultIfEmpty()
-          join ct in context.Branches on cd.BranchId equals ct.Id into ctj
-          from ct in ctj.DefaultIfEmpty()
-          join sp in context.SalesPerson on r.SalesPersonId equals sp.ID into spj
-          from sp in spj.DefaultIfEmpty()
-          join pm in context.PaymentMethods on r.PaymentMethodId equals pm.Id into pmj
-          from pm in pmj.DefaultIfEmpty()
-          where r.ReceiptDate >= startDateTime && r.ReceiptDate < endDateTime
-               && r.Status == "Active"
-               && cd != null && cd.IsLimited == false  // กรองเฉพาะคูปองไม่จำกัด
-          select new
-          {
-              ReceiptDate = r.ReceiptDate,
-              ReceiptCode = r.ReceiptCode,
-              ReceiptStatus = r.Status,
-              CustomerName = r.CustomerName,
-              CustomerPhone = r.CustomerPhoneNumber,
-              SalesPersonName = sp != null ? sp.Name : null,
-              CouponDefinitionId = cd != null ? cd.Id : 0,
-              CouponName = cd != null ? cd.Name : null,
-              BranchTypeName = ct != null ? ct.Name : string.Empty,
-              BranchId = ct != null ? ct.Id : 0,
-              IsLimited = cd != null ? cd.IsLimited : false,
-              ExpiresAt = cd != null ? cd.ValidTo : (DateTime?)null,
-              UnitPrice = ri.UnitPrice,
-              TotalPrice = ri.TotalPrice,
-              Quantity = ri.Quantity,
-              PaymentMethodName = pm != null ? pm.Name : null,
-              PaymentMethodId = pm != null ? pm.Id : 0,
-              SaleEventId = cd != null ? cd.SaleEventId : 0,
-              IsCOM = ri.IsCOM  // ⭐ เพิ่ม IsCOM
-          };
+                            results = cancelledItems.Select(x => new SalesReportItem
+                            {
+                                ReceiptDate = x.ReceiptDate,
+                                ReceiptCode = x.ReceiptCode,
+                                ReceiptStatus = x.ReceiptStatus,
+                                CustomerName = x.CustomerName ?? "ไม่ระบุ",
+                                CustomerPhone = x.CustomerPhone ?? string.Empty,
+                                SalesPersonName = x.SalesPersonName ?? string.Empty,
+                                CouponName = x.CouponName ?? "ไม่พบข้อมูล",
+                                BranchTypeName = x.BranchTypeName ?? string.Empty,
+                                PaymentMethodName = x.PaymentMethodName ?? string.Empty,
+                                Quantity = x.Quantity,  // ⭐ ใช้ Quantity จริง
+                                                        // ⭐ ถ้าเป็น COM ราคาจะเป็น 0
+                                UnitPrice = x.IsCOM ? 0m : x.UnitPrice,
+                                TotalPrice = x.IsCOM ? 0m : x.TotalPrice,
+                                GeneratedCode = x.GeneratedCode,
+                                ExpiresAt = x.ExpiresAt,
+                                IsComplimentary = x.IsCOM,  // ⭐ ใช้ IsCOM แทน IsComplimentary
+                                IsCOM = x.IsCOM,  // ✅ เพิ่มบรรทัดนี้
+                                SaleEventName = (x.SaleEventId != 0 && saleEventDict.TryGetValue(x.SaleEventId, out var cn)) ? cn : string.Empty,
+                                CancellationReason = x.CancellationReason
+                            })
+                            .OrderBy(x => x.ReceiptDate)
+                            .ThenBy(x => x.ReceiptCode)
+                            .ThenBy(x => x.CouponName)
+                            .ToList();
+                        }
+                    }
+                    else if (ReportMode == ReportModes.UnlimitedGrouped)
+                    {
+                        // ** แก้ไข: ดึงข้อมูลคูปองไม่จำกัดจาก ReceiptItems โดยตรง **
+                        var unlimitedItemsQuery = from ri in context.ReceiptItems
+                                                  join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
+                                                  join cd in context.CouponDefinitions on ri.CouponId equals cd.Id into cdj
+                                                  from cd in cdj.DefaultIfEmpty()
+                                                  join ct in context.Branches on cd.BranchId equals ct.Id into ctj
+                                                  from ct in ctj.DefaultIfEmpty()
+                                                  join sp in context.SalesPerson on r.SalesPersonId equals sp.ID into spj
+                                                  from sp in spj.DefaultIfEmpty()
+                                                  join pm in context.PaymentMethods on r.PaymentMethodId equals pm.Id into pmj
+                                                  from pm in pmj.DefaultIfEmpty()
+                                                  where r.ReceiptDate >= startDateTime && r.ReceiptDate < endDateTime
+                                                       && r.Status == "Active"
+                                                       && cd != null && cd.IsLimited == false  // กรองเฉพาะคูปองไม่จำกัด
+                                                  select new
+                                                  {
+                                                      ReceiptDate = r.ReceiptDate,
+                                                      ReceiptCode = r.ReceiptCode,
+                                                      ReceiptStatus = r.Status,
+                                                      CustomerName = r.CustomerName,
+                                                      CustomerPhone = r.CustomerPhoneNumber,
+                                                      SalesPersonName = sp != null ? sp.Name : null,
+                                                      CouponDefinitionId = cd != null ? cd.Id : 0,
+                                                      CouponName = cd != null ? cd.Name : null,
+                                                      BranchTypeName = ct != null ? ct.Name : string.Empty,
+                                                      BranchId = ct != null ? ct.Id : 0,
+                                                      IsLimited = cd != null ? cd.IsLimited : false,
+                                                      ExpiresAt = cd != null ? cd.ValidTo : (DateTime?)null,
+                                                      UnitPrice = ri.UnitPrice,
+                                                      TotalPrice = ri.TotalPrice,
+                                                      Quantity = ri.Quantity,
+                                                      PaymentMethodName = pm != null ? pm.Name : null,
+                                                      PaymentMethodId = pm != null ? pm.Id : 0,
+                                                      SaleEventId = cd != null ? cd.SaleEventId : 0,
+                                                      IsCOM = ri.IsCOM  // ⭐ เพิ่ม IsCOM
+                                                  };
 
-    // Apply filters
-    if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
-        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.SalesPersonName == SelectedSalesPerson.Name);
-    if (SelectedBranch != null && SelectedBranch.Id != 0)
-        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.BranchId == SelectedBranch.Id);
-    if (SelectedCoupon != null && SelectedCoupon.Id != 0)
-        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.CouponDefinitionId == SelectedCoupon.Id);
-    if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
-        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.PaymentMethodId == SelectedPaymentMethod.Id);
+                        // Apply filters
+                        if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
+                            unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.SalesPersonName == SelectedSalesPerson.Name);
+                        if (SelectedBranch != null && SelectedBranch.Id != 0)
+                            unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.BranchId == SelectedBranch.Id);
+                        if (SelectedCoupon != null && SelectedCoupon.Id != 0)
+                            unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.CouponDefinitionId == SelectedCoupon.Id);
+                        if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
+                            unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.PaymentMethodId == SelectedPaymentMethod.Id);
 
-    if (SelectedJob != null && SelectedJob.Id != 0)
-        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.SaleEventId == SelectedJob.Id);
+                        if (SelectedJob != null && SelectedJob.Id != 0)
+                            unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.SaleEventId == SelectedJob.Id);
 
-    var unlimitedItems = await unlimitedItemsQuery.ToListAsync();
+                        var unlimitedItems = await unlimitedItemsQuery.ToListAsync();
 
-    results = unlimitedItems.Select(x => new SalesReportItem
-    {
-        ReceiptDate = x.ReceiptDate,
-        ReceiptCode = x.ReceiptCode,
-        ReceiptStatus = x.ReceiptStatus,
-        CustomerName = x.CustomerName ?? "ไม่ระบุ",
-        CustomerPhone = x.CustomerPhone ?? string.Empty,
-        SalesPersonName = x.SalesPersonName ?? string.Empty,
-        CouponName = x.CouponName ?? "ไม่พบข้อมูล",
-        BranchTypeName = x.BranchTypeName ?? string.Empty,
-        PaymentMethodName = x.PaymentMethodName ?? string.Empty,
-        Quantity = x.Quantity,
-        UnitPrice = x.UnitPrice,
-        TotalPrice = x.TotalPrice,
-        ExpiresAt = x.ExpiresAt,
-        IsComplimentary = x.IsCOM,  // ⭐ ใช้ IsCOM แทน IsComplimentary
-        SaleEventName = (x.SaleEventId.HasValue && x.SaleEventId.Value != 0 && saleEventDict.TryGetValue(x.SaleEventId.Value, out var un)) ? un : string.Empty
-    })
-    .OrderBy(x => x.ReceiptDate)
-    .ThenBy(x => x.ReceiptCode)
-    .ThenBy(x => x.CouponName)
-    .ToList();
-}
-else
-{
-    // โค้ดเดิมสำหรับ LimitedCoupons (Active receipts only)
-    var gcQuery = from gc in context.GeneratedCoupons
-                  where gc.ReceiptItemId != null
-                  join ri in context.ReceiptItems on gc.ReceiptItemId equals ri.ReceiptItemId
-                  join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
-                  join cd in context.CouponDefinitions on gc.CouponDefinitionId equals cd.Id into cdj
-                  from cd in cdj.DefaultIfEmpty()
-                  join ct in context.Branches on cd.BranchId equals ct.Id into ctj
-                  from ct in ctj.DefaultIfEmpty()
-                  join sp in context.SalesPerson on r.SalesPersonId equals sp.ID into spj
-                  from sp in spj.DefaultIfEmpty()
-                  join pm in context.PaymentMethods on r.PaymentMethodId equals pm.Id into pmj
-                  from pm in pmj.DefaultIfEmpty()
-                  where r.ReceiptDate >= startDateTime && r.ReceiptDate < endDateTime
-                          && r.Status == "Active"
-                  select new
-                  {
-                      ReceiptDate = r.ReceiptDate,
-                      ReceiptCode = r.ReceiptCode,
-                      ReceiptStatus = r.Status,
-                      CustomerName = r.CustomerName,
-                      CustomerPhone = r.CustomerPhoneNumber,
-                      SalesPersonName = sp != null ? sp.Name : null,
-                      CouponDefinitionId = cd != null ? cd.Id : 0,
-                      CouponName = cd != null ? cd.Name : null,
-                      BranchTypeName = ct != null ? ct.Name : string.Empty,
-                      BranchId = ct != null ? ct.Id : 0,
-                      IsLimited = cd != null ? cd.IsLimited : false,
-                      GeneratedCode = gc.GeneratedCode,
-                      ExpiresAt = gc.ExpiresAt,
-                      UnitPrice = cd != null ? cd.Price : 0m,
-                      TotalPrice = cd != null ? cd.Price : 0m,
-                      PaymentMethodName = pm != null ? pm.Name : null,
-                      PaymentMethodId = pm != null ? pm.Id : 0,
-                      SaleEventId = cd != null ? cd.SaleEventId : 0,
-                      // ⭐ เปลี่ยนจาก gc.IsComplimentary เป็น ri.IsCOM
-                      IsComplimentary = ri != null ? ri.IsCOM : false
-                  };
+                        results = unlimitedItems.Select(x => new SalesReportItem
+                        {
+                            ReceiptDate = x.ReceiptDate,
+                            ReceiptCode = x.ReceiptCode,
+                            ReceiptStatus = x.ReceiptStatus,
+                            CustomerName = x.CustomerName ?? "ไม่ระบุ",
+                            CustomerPhone = x.CustomerPhone ?? string.Empty,
+                            SalesPersonName = x.SalesPersonName ?? string.Empty,
+                            CouponName = x.CouponName ?? "ไม่พบข้อมูล",
+                            BranchTypeName = x.BranchTypeName ?? string.Empty,
+                            PaymentMethodName = x.PaymentMethodName ?? string.Empty,
+                            Quantity = x.Quantity,
+                            UnitPrice = x.UnitPrice,
+                            TotalPrice = x.TotalPrice,
+                            ExpiresAt = x.ExpiresAt,
+                            IsComplimentary = x.IsCOM,  // ⭐ ใช้ IsCOM แทน IsComplimentary
+                            IsCOM = x.IsCOM,  // ✅ เพิ่มบรรทัดนี้
+                            SaleEventName = (x.SaleEventId.HasValue && x.SaleEventId.Value != 0 && saleEventDict.TryGetValue(x.SaleEventId.Value, out var un)) ? un : string.Empty
+                        })
+                        .OrderBy(x => x.ReceiptDate)
+                        .ThenBy(x => x.ReceiptCode)
+                        .ThenBy(x => x.CouponName)
+                        .ToList();
+                    }
+                    else
+                    {
+                        // โค้ดเดิมสำหรับ LimitedCoupons (Active receipts only)
+                        var gcQuery = from gc in context.GeneratedCoupons
+                                      where gc.ReceiptItemId != null
+                                      join ri in context.ReceiptItems on gc.ReceiptItemId equals ri.ReceiptItemId
+                                      join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
+                                      join cd in context.CouponDefinitions on gc.CouponDefinitionId equals cd.Id into cdj
+                                      from cd in cdj.DefaultIfEmpty()
+                                      join ct in context.Branches on cd.BranchId equals ct.Id into ctj
+                                      from ct in ctj.DefaultIfEmpty()
+                                      join sp in context.SalesPerson on r.SalesPersonId equals sp.ID into spj
+                                      from sp in spj.DefaultIfEmpty()
+                                      join pm in context.PaymentMethods on r.PaymentMethodId equals pm.Id into pmj
+                                      from pm in pmj.DefaultIfEmpty()
+                                      where r.ReceiptDate >= startDateTime && r.ReceiptDate < endDateTime
+                                              && r.Status == "Active"
+                                      select new
+                                      {
+                                          ReceiptDate = r.ReceiptDate,
+                                          ReceiptCode = r.ReceiptCode,
+                                          ReceiptStatus = r.Status,
+                                          CustomerName = r.CustomerName,
+                                          CustomerPhone = r.CustomerPhoneNumber,
+                                          SalesPersonName = sp != null ? sp.Name : null,
+                                          CouponDefinitionId = cd != null ? cd.Id : 0,
+                                          CouponName = cd != null ? cd.Name : null,
+                                          BranchTypeName = ct != null ? ct.Name : string.Empty,
+                                          BranchId = ct != null ? ct.Id : 0,
+                                          IsLimited = cd != null ? cd.IsLimited : false,
+                                          GeneratedCode = gc.GeneratedCode,
+                                          ExpiresAt = gc.ExpiresAt,
+                                          UnitPrice = cd != null ? cd.Price : 0m,
+                                          TotalPrice = cd != null ? cd.Price : 0m,
+                                          PaymentMethodName = pm != null ? pm.Name : null,
+                                          PaymentMethodId = pm != null ? pm.Id : 0,
+                                          SaleEventId = cd != null ? cd.SaleEventId : 0,
+                                          // ⭐ เปลี่ยนจาก gc.IsComplimentary เป็น ri.IsCOM
+                                          IsComplimentary = ri != null ? ri.IsCOM : false
+                                      };
 
-    // Apply filters
-    if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
-        gcQuery = gcQuery.Where(x => x.SalesPersonName == SelectedSalesPerson.Name);
-    if (SelectedBranch != null && SelectedBranch.Id != 0)
-        gcQuery = gcQuery.Where(x => x.BranchId == SelectedBranch.Id);
-    if (SelectedCoupon != null && SelectedCoupon.Id != 0)
-        gcQuery = gcQuery.Where(x => x.CouponDefinitionId == SelectedCoupon.Id);
-    if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
-        gcQuery = gcQuery.Where(x => x.PaymentMethodId == SelectedPaymentMethod.Id);
+                        // Apply filters
+                        if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
+                            gcQuery = gcQuery.Where(x => x.SalesPersonName == SelectedSalesPerson.Name);
+                        if (SelectedBranch != null && SelectedBranch.Id != 0)
+                            gcQuery = gcQuery.Where(x => x.BranchId == SelectedBranch.Id);
+                        if (SelectedCoupon != null && SelectedCoupon.Id != 0)
+                            gcQuery = gcQuery.Where(x => x.CouponDefinitionId == SelectedCoupon.Id);
+                        if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
+                            gcQuery = gcQuery.Where(x => x.PaymentMethodId == SelectedPaymentMethod.Id);
 
-    if (SelectedJob != null && SelectedJob.Id != 0)
-        gcQuery = gcQuery.Where(x => x.SaleEventId == SelectedJob.Id);
+                        if (SelectedJob != null && SelectedJob.Id != 0)
+                            gcQuery = gcQuery.Where(x => x.SaleEventId == SelectedJob.Id);
 
-    // Filter by coupon type (limited/unlimited) based on report mode
-    if (ReportMode == ReportModes.LimitedCoupons)
-    {
-        gcQuery = gcQuery.Where(x => x.IsLimited == true);
-    }
-    else if (ReportMode == ReportModes.UnlimitedGrouped)
-    {
-        gcQuery = gcQuery.Where(x => x.IsLimited == false);
-    }
+                        // Filter by coupon type (limited/unlimited) based on report mode
+                        if (ReportMode == ReportModes.LimitedCoupons)
+                        {
+                            gcQuery = gcQuery.Where(x => x.IsLimited == true);
+                        }
+                        else if (ReportMode == ReportModes.UnlimitedGrouped)
+                        {
+                            gcQuery = gcQuery.Where(x => x.IsLimited == false);
+                        }
 
-    var usedCodes = await gcQuery.ToListAsync();
+                        var usedCodes = await gcQuery.ToListAsync();
 
-    // Map live generated coupons
-    results = usedCodes.Select(x => new SalesReportItem
-    {
-        ReceiptDate = x.ReceiptDate,
-        ReceiptCode = x.ReceiptCode,
-        ReceiptStatus = x.ReceiptStatus,
-        CustomerName = x.CustomerName ?? "ไม่ระบุ",
-        CustomerPhone = x.CustomerPhone ?? string.Empty,
-        SalesPersonName = x.SalesPersonName ?? string.Empty,
-        CouponName = x.CouponName ?? "ไม่พบข้อมูล",
-        BranchTypeName = x.BranchTypeName ?? string.Empty,
-        PaymentMethodName = x.PaymentMethodName ?? string.Empty,
-        Quantity = 1,
-        // ⭐ ไม่ต้องเปลี่ยนเป็น 0 แล้ว - แสดงราคาดั้งเดิม
-        UnitPrice = x.UnitPrice,
-        TotalPrice = x.TotalPrice,
-        GeneratedCode = x.GeneratedCode,
-        ExpiresAt = x.ExpiresAt,
-        // set IsComplimentary so the UI can color the GeneratedCode when needed
-        IsComplimentary = x.IsComplimentary,
-        // Sale event name
-        SaleEventName = (x.SaleEventId.HasValue && x.SaleEventId.Value != 0 && saleEventDict.TryGetValue(x.SaleEventId.Value, out var ln)) ? ln : string.Empty
-    })
-    .OrderBy(x => x.ReceiptDate)
-    .ThenBy(x => x.ReceiptCode)
-    .ThenBy(x => x.CouponName)
-    .ToList();  // ✅ เพิ่ม .ToList() และกำหนดให้ results
+                        // Map live generated coupons
+                        results = usedCodes.Select(x => new SalesReportItem
+                        {
+                            ReceiptDate = x.ReceiptDate,
+                            ReceiptCode = x.ReceiptCode,
+                            ReceiptStatus = x.ReceiptStatus,
+                            CustomerName = x.CustomerName ?? "ไม่ระบุ",
+                            CustomerPhone = x.CustomerPhone ?? string.Empty,
+                            SalesPersonName = x.SalesPersonName ?? string.Empty,
+                            CouponName = x.CouponName ?? "ไม่พบข้อมูล",
+                            BranchTypeName = x.BranchTypeName ?? string.Empty,
+                            PaymentMethodName = x.PaymentMethodName ?? string.Empty,
+                            Quantity = 1,
+                            // ⭐ ไม่ต้องเปลี่ยนเป็น 0 แล้ว - แสดงราคาดั้งเดิม
+                            UnitPrice = x.UnitPrice,
+                            TotalPrice = x.TotalPrice,
+                            GeneratedCode = x.GeneratedCode,
+                            ExpiresAt = x.ExpiresAt,
+                            // ✅ set ทั้ง IsComplimentary และ IsCOM เพื่อให้ทั้ง UI และ PDF ใช้ได้
+                            IsComplimentary = x.IsComplimentary,
+                            IsCOM = x.IsComplimentary, // ✅ เพิ่มบรรทัดนี้
+                                                       // Sale event name
+                            SaleEventName = (x.SaleEventId.HasValue && x.SaleEventId.Value != 0 && saleEventDict.TryGetValue(x.SaleEventId.Value, out var ln)) ? ln : string.Empty
+                        })
+                        .OrderBy(x => x.ReceiptDate)
+                        .ThenBy(x => x.ReceiptCode)
+                        .ThenBy(x => x.CouponName)
+                        .ToList();  // ✅ เพิ่ม .ToList() และกำหนดให้ results
+                    }
                 }
+                else if (ReportMode == ReportModes.SummaryByCoupon)
+                {
+                    // Summary (only Active)
+                    var statusFilter = "Active";
+
+                    // ⭐ Unlimited coupons aggregation - แยก COM และไม่ COM
+                    var unlimitedItemsQuery = from ri in context.ReceiptItems
+                                              join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
+                                              join cd in context.CouponDefinitions on ri.CouponId equals cd.Id into cdj
+                                              from cd in cdj.DefaultIfEmpty()
+                                              join ct in context.Branches on cd.BranchId equals ct.Id into ctj
+                                              from ct in ctj.DefaultIfEmpty()
+                                              join sp in context.SalesPerson on r.SalesPersonId equals sp.ID into spj
+                                              from sp in spj.DefaultIfEmpty()
+                                              join pm in context.PaymentMethods on r.PaymentMethodId equals pm.Id into pmj
+                                              from pm in pmj.DefaultIfEmpty()
+                                              where r.ReceiptDate >= startDateTime && r.ReceiptDate < endDateTime
+                                                   && r.Status == statusFilter
+                                                   && cd != null && cd.IsLimited == false
+                                              select new
+                                              {
+                                                  CouponId = cd.Id,
+                                                  CouponName = cd.Name,
+                                                  BranchName = ct != null ? ct.Name : string.Empty,
+                                                  BranchId = ct != null ? ct.Id : 0,
+                                                  SaleEventId = cd.SaleEventId ?? 0,
+                                                  Quantity = ri.Quantity,
+                                                  UnitPrice = ri.UnitPrice,
+                                                  TotalPrice = ri.TotalPrice,
+                                                  IsCOM = ri.IsCOM,  // ⭐ เพิ่ม IsCOM
+                                                  SalesPersonName = sp != null ? sp.Name : null,
+                                                  PaymentMethodId = pm != null ? pm.Id : 0
+                                              };
+
+                    // Apply filters
+                    if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
+                        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.SalesPersonName == SelectedSalesPerson.Name);
+                    if (SelectedBranch != null && SelectedBranch.Id != 0)
+                        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.BranchId == SelectedBranch.Id);
+                    if (SelectedCoupon != null && SelectedCoupon.Id != 0)
+                        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.CouponId == SelectedCoupon.Id);
+                    if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
+                        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.PaymentMethodId == SelectedPaymentMethod.Id);
+                    if (SelectedJob != null && SelectedJob.Id != 0)
+                        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.SaleEventId == SelectedJob.Id);
+
+                    var unlimitedItems = await unlimitedItemsQuery.ToListAsync();
+
+                    // ⭐ Aggregate โดยแยก COM และไม่ COM
+                    var unlimitedAgg = unlimitedItems
+                        .GroupBy(x => new { x.CouponId, x.CouponName, x.BranchName, x.SaleEventId })
+                        .Select(g => new
+                        {
+                            CouponId = g.Key.CouponId,
+                            CouponName = g.Key.CouponName,
+                            BranchName = g.Key.BranchName,
+                            SaleEventId = g.Key.SaleEventId,
+                            SoldCount = g.Where(x => !x.IsCOM).Sum(x => x.Quantity),      // ⭐ นับเฉพาะที่ไม่ COM
+                            FreeCount = g.Where(x => x.IsCOM).Sum(x => x.Quantity),       // ⭐ นับเฉพาะที่ COM
+                            PaidAmount = g.Where(x => !x.IsCOM).Sum(x => x.TotalPrice),   // ⭐ ราคาที่ขาย
+                            FreeAmount = g.Where(x => x.IsCOM).Sum(x => x.UnitPrice * x.Quantity), // ⭐ มูลค่า COM
+                            IsLimited = false
+                        }).ToList();
+
+                    // Limited coupons aggregation (from GeneratedCoupons), include SaleEventId from CouponDefinition
+                    var limitedQuery = from gc in context.GeneratedCoupons
+                                       where gc.ReceiptItemId != null
+                                       join ri in context.ReceiptItems on gc.ReceiptItemId equals ri.ReceiptItemId
+                                       join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
+                                       join cd in context.CouponDefinitions on gc.CouponDefinitionId equals cd.Id into cdj
+                                       from cd in cdj.DefaultIfEmpty()
+                                       join ct in context.Branches on cd.BranchId equals ct.Id into ctj
+                                       from ct in ctj.DefaultIfEmpty()
+                                       join sp in context.SalesPerson on r.SalesPersonId equals sp.ID into spj
+                                       from sp in spj.DefaultIfEmpty()
+                                       join pm in context.PaymentMethods on r.PaymentMethodId equals pm.Id into pmj
+                                       from pm in pmj.DefaultIfEmpty()
+                                       where r.ReceiptDate >= startDateTime && r.ReceiptDate < endDateTime && r.Status == statusFilter
+                                       select new
+                                       {
+                                           CouponId = cd != null ? cd.Id : 0,
+                                           CouponName = cd != null ? cd.Name : string.Empty,
+                                           BranchName = ct != null ? ct.Name : string.Empty,
+                                           BranchId = ct != null ? ct.Id : 0,
+                                           Price = cd != null ? cd.Price : 0m,
+                                           IsComplimentary = gc != null ? gc.IsComplimentary : false,
+                                           SaleEventId = (cd != null && cd.SaleEventId.HasValue) ? cd.SaleEventId!.Value : 0,
+                                           SalesPersonName = sp != null ? sp.Name : null,
+                                           PaymentMethodId = pm != null ? pm.Id : 0
+                                       };
+
+                    // Apply filters to limitedQuery (same as other modes)
+                    if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
+                        limitedQuery = limitedQuery.Where(x => x.SalesPersonName == SelectedSalesPerson.Name);
+                    if (SelectedBranch != null && SelectedBranch.Id != 0)
+                        limitedQuery = limitedQuery.Where(x => x.BranchId == SelectedBranch.Id);
+                    if (SelectedCoupon != null && SelectedCoupon.Id != 0)
+                        limitedQuery = limitedQuery.Where(x => x.CouponId == SelectedCoupon.Id);
+                    if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
+                        limitedQuery = limitedQuery.Where(x => x.PaymentMethodId == SelectedPaymentMethod.Id);
+                    if (SelectedJob != null && SelectedJob.Id != 0)
+                        limitedQuery = limitedQuery.Where(x => x.SaleEventId == SelectedJob.Id);
+
+                    var limitedData = await limitedQuery.ToListAsync();
+
+                    var limitedAgg = limitedData
+                        .Where(x => x.CouponId != 0)
+                        .GroupBy(x => new { x.CouponId, x.CouponName, x.BranchName, x.Price, x.SaleEventId })
+                        .Select(g => new
+                        {
+                            CouponId = g.Key.CouponId,
+                            CouponName = g.Key.CouponName,
+                            BranchName = g.Key.BranchName,
+                            Price = g.Key.Price,
+                            SaleEventId = g.Key.SaleEventId,
+                            FreeCount = g.Count(x => x.IsComplimentary),
+                            SoldCount = g.Count(x => !x.IsComplimentary),
+                            IsLimited = true
+                        }).ToList();
+
+                    // ⭐ Merge unlimited + limited รวม FreeCount และ FreeAmount
+                    var map = new Dictionary<int, (string Name, string Branch, bool IsLimited, int SoldCount, int FreeCount, decimal PaidAmount, decimal FreeAmount, int SaleEventId)>();
+
+                    foreach (var u in unlimitedAgg)
+                    {
+                        map[u.CouponId] = (
+                            u.CouponName ?? "ไม่พบข้อมูล",
+                            u.BranchName ?? string.Empty,
+                            u.IsLimited,
+                            u.SoldCount,      // ⭐ จำนวนที่ขาย
+                            u.FreeCount,      // ⭐ จำนวน COM
+                            u.PaidAmount,     // ⭐ ราคาที่ขายได้
+                            u.FreeAmount,     // ⭐ มูลค่า COM
+                            u.SaleEventId
+                        );
+                    }
+
+                    foreach (var l in limitedAgg)
+                    {
+                        var paid = l.SoldCount * l.Price;
+                        var freeAmt = l.FreeCount * l.Price;
+
+                        if (map.TryGetValue(l.CouponId, out var existing))
+                        {
+                            var saleEventId = existing.SaleEventId != 0 ? existing.SaleEventId : l.SaleEventId;
+                            map[l.CouponId] = (
+                                existing.Name,
+                                existing.Branch,
+                                existing.IsLimited || l.IsLimited,
+                                existing.SoldCount + l.SoldCount,      // ⭐ รวมจำนวนที่ขาย
+                                existing.FreeCount + l.FreeCount,      // ⭐ รวมจำนวน COM
+                                existing.PaidAmount + paid,            // ⭐ รวมราคาที่ขาย
+                                existing.FreeAmount + freeAmt,         // ⭐ รวมมูลค่า COM
+                                saleEventId
+                            );
+                        }
+                        else
+                        {
+                            map[l.CouponId] = (
+                                l.CouponName ?? "ไม่พบข้อมูล",
+                                l.BranchName ?? string.Empty,
+                                l.IsLimited,
+                                l.SoldCount,
+                                l.FreeCount,
+                                paid,
+                                freeAmt,
+                                l.SaleEventId
+                            );
+                        }
+                    }
+
+                    // ✅ แก้ไขส่วน SummaryByCoupon results mapping (ประมาณบรรทัด 1510-1535)
+                    results = map.Select(kv =>
+                    {
+                        var saleEventName = string.Empty;
+                        if (kv.Value.SaleEventId != 0 && saleEventDict.TryGetValue(kv.Value.SaleEventId, out var evName))
+                            saleEventName = evName;
+
+                        return new SalesReportItem
+                        {
+                            ReceiptDate = DateTime.MinValue,
+                            ReceiptCode = string.Empty,
+                            CustomerName = string.Empty,
+                            SalesPersonName = string.Empty,
+                            CouponName = kv.Value.Name,
+                            BranchTypeName = kv.Value.Branch,
+                            IsLimited = kv.Value.IsLimited,
+                            Quantity = kv.Value.SoldCount,                          // จำนวนคูปองที่ขาย
+                            FreeCouponCount = kv.Value.FreeCount,                   // จำนวนคูปองที่ฟรี
+                            TotalCouponCount = kv.Value.SoldCount + kv.Value.FreeCount, // จำนวนทั้งหมด
+                            PaidCouponPrice = kv.Value.PaidAmount,                  // ราคาที่ขายได้
+                            FreeCouponPrice = kv.Value.FreeAmount,                  // ราคาของคูปองฟรี
+                            GrandTotalPrice = kv.Value.PaidAmount + kv.Value.FreeAmount,  // ✅ เพิ่มบรรทัดนี้
+                            TotalPrice = kv.Value.PaidAmount + kv.Value.FreeAmount, // มูลค่ารวม (เก็บไว้สำหรับ backward compatibility)
+                            SaleEventName = saleEventName
+                        };
+                    })
+                    .OrderBy(x => x.BranchTypeName)
+                    .ThenBy(x => x.CouponName)
+                    .ToList();
+                }
+                else if (ReportMode == ReportModes.RemainingCoupons)
+                {
+                    // ✅ RemainingCoupons - แสดงคูปองที่คงเหลือ โดยนับเฉพาะที่ขายในช่วงวันที่เลือก
+                    var limitedCoupons = await (from cd in context.CouponDefinitions
+                                                join ct in context.Branches on cd.BranchId equals ct.Id into ctj
+                                                from ct in ctj.DefaultIfEmpty()
+                                                where cd.IsLimited == true
+                                                select new
+                                                {
+                                                    CouponId = cd.Id,
+                                                    CouponCode = cd.Code,
+                                                    CouponName = cd.Name,
+                                                    BranchTypeName = ct != null ? ct.Name : string.Empty,
+                                                    BranchId = ct != null ? ct.Id : 0,
+                                                    UnitPrice = cd.Price,
+                                                    SaleEventId = cd.SaleEventId
+                                                }).ToListAsync();
+
+                    System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] limitedCoupons.Count={limitedCoupons.Count}");
+                    foreach (var c in limitedCoupons)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] CouponId={c.CouponId}, Code={c.CouponCode}, BranchId={c.BranchId}, Branch='{c.BranchTypeName}'");
+                    }
+
+                    // Apply filters (existing)
+                    if (SelectedBranch != null && SelectedBranch.Id != 0)
+                        limitedCoupons = limitedCoupons.Where(x => x.BranchId == SelectedBranch.Id).ToList();
+
+                    if (SelectedCoupon != null && SelectedCoupon.Id != 0)
+                        limitedCoupons = limitedCoupons.Where(x => x.CouponId == SelectedCoupon.Id).ToList();
+
+                    if (SelectedJob != null && SelectedJob.Id != 0)
+                        limitedCoupons = limitedCoupons.Where(x => x.SaleEventId == SelectedJob.Id).ToList();
+
+                    System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] After filters: count={limitedCoupons.Count}");
+
+                    // Build results and log counts
+                    foreach (var coupon in limitedCoupons)
+                    {
+                        // ✅ จำนวนคูปองทั้งหมดที่สร้างไว้
+                        var totalCount = await context.GeneratedCoupons
+                                                     .Where(gc => gc.CouponDefinitionId == coupon.CouponId)
+                                                     .CountAsync();
+
+                        // ✅ จำนวนคูปองที่ขายในช่วงวันที่ที่เลือก (กรองด้วย ReceiptDate)
+                        var soldCount = await (from gc in context.GeneratedCoupons
+                                               where gc.CouponDefinitionId == coupon.CouponId
+                                                    && gc.ReceiptItemId != null
+                                               join ri in context.ReceiptItems on gc.ReceiptItemId equals ri.ReceiptItemId
+                                               join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
+                                               where r.ReceiptDate >= startDateTime
+                                                    && r.ReceiptDate < endDateTime
+                                                    && r.Status == "Active"  // นับเฉพาะใบเสร็จที่ยังไม่ยกเลิก
+                                               select gc).CountAsync();
+
+                        var remaining = totalCount - soldCount;
+
+                        System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] CouponId={coupon.CouponId} Total={totalCount} Sold={soldCount} (in date range) Remaining={remaining}");
+
+                        results.Add(new SalesReportItem
+                        {
+                            CouponCode = coupon.CouponCode,
+                            CouponName = coupon.CouponName,
+                            BranchTypeName = coupon.BranchTypeName,
+                            UnitPrice = coupon.UnitPrice,
+                            TotalQuantity = totalCount,
+                            SoldQuantity = soldCount,
+                            RemainingQuantity = remaining,
+                            SaleEventName = (coupon.SaleEventId.HasValue && coupon.SaleEventId.Value != 0 && saleEventDict.TryGetValue(coupon.SaleEventId.Value, out var rn)) ? rn : string.Empty
+                        });
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] results list count={results.Count}");
+                }
+
+                // IMPORTANT: we don't assign results directly to ReportData anymore.
+                // Instead, we set the full results list and apply pagination.
+                SetFullResults(results);
             }
-            else if (ReportMode == ReportModes.SummaryByCoupon)
+            catch (Exception ex)
             {
-                // Summary (only Active)
-                var statusFilter = "Active";
-
-                // ⭐ Unlimited coupons aggregation - แยก COM และไม่ COM
-                var unlimitedItemsQuery = from ri in context.ReceiptItems
-                             join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
-                             join cd in context.CouponDefinitions on ri.CouponId equals cd.Id into cdj
-                             from cd in cdj.DefaultIfEmpty()
-                             join ct in context.Branches on cd.BranchId equals ct.Id into ctj
-                             from ct in ctj.DefaultIfEmpty()
-                             join sp in context.SalesPerson on r.SalesPersonId equals sp.ID into spj
-                             from sp in spj.DefaultIfEmpty()
-                             join pm in context.PaymentMethods on r.PaymentMethodId equals pm.Id into pmj
-                             from pm in pmj.DefaultIfEmpty()
-                             where r.ReceiptDate >= startDateTime && r.ReceiptDate < endDateTime
-                                  && r.Status == statusFilter
-                                  && cd != null && cd.IsLimited == false
-                             select new
-                             {
-                                 CouponId = cd.Id,
-                                 CouponName = cd.Name,
-                                 BranchName = ct != null ? ct.Name : string.Empty,
-                                 BranchId = ct != null ? ct.Id : 0,
-                                 SaleEventId = cd.SaleEventId ?? 0,
-                                 Quantity = ri.Quantity,
-                                 UnitPrice = ri.UnitPrice,
-                                 TotalPrice = ri.TotalPrice,
-                                 IsCOM = ri.IsCOM,  // ⭐ เพิ่ม IsCOM
-                                 SalesPersonName = sp != null ? sp.Name : null,
-                                 PaymentMethodId = pm != null ? pm.Id : 0
-                             };
-
-    // Apply filters
-    if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
-        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.SalesPersonName == SelectedSalesPerson.Name);
-    if (SelectedBranch != null && SelectedBranch.Id != 0)
-        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.BranchId == SelectedBranch.Id);
-    if (SelectedCoupon != null && SelectedCoupon.Id != 0)
-        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.CouponId == SelectedCoupon.Id);
-    if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
-        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.PaymentMethodId == SelectedPaymentMethod.Id);
-    if (SelectedJob != null && SelectedJob.Id != 0)
-        unlimitedItemsQuery = unlimitedItemsQuery.Where(x => x.SaleEventId == SelectedJob.Id);
-
-    var unlimitedItems = await unlimitedItemsQuery.ToListAsync();
-
-    // ⭐ Aggregate โดยแยก COM และไม่ COM
-    var unlimitedAgg = unlimitedItems
-        .GroupBy(x => new { x.CouponId, x.CouponName, x.BranchName, x.SaleEventId })
-        .Select(g => new
-        {
-            CouponId = g.Key.CouponId,
-            CouponName = g.Key.CouponName,
-            BranchName = g.Key.BranchName,
-            SaleEventId = g.Key.SaleEventId,
-            SoldCount = g.Where(x => !x.IsCOM).Sum(x => x.Quantity),      // ⭐ นับเฉพาะที่ไม่ COM
-            FreeCount = g.Where(x => x.IsCOM).Sum(x => x.Quantity),       // ⭐ นับเฉพาะที่ COM
-            PaidAmount = g.Where(x => !x.IsCOM).Sum(x => x.TotalPrice),   // ⭐ ราคาที่ขาย
-            FreeAmount = g.Where(x => x.IsCOM).Sum(x => x.UnitPrice * x.Quantity), // ⭐ มูลค่า COM
-            IsLimited = false
-        }).ToList();
-
-    // Limited coupons aggregation (from GeneratedCoupons), include SaleEventId from CouponDefinition
-    var limitedQuery = from gc in context.GeneratedCoupons
-                       where gc.ReceiptItemId != null
-                       join ri in context.ReceiptItems on gc.ReceiptItemId equals ri.ReceiptItemId
-                       join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
-                       join cd in context.CouponDefinitions on gc.CouponDefinitionId equals cd.Id into cdj
-                       from cd in cdj.DefaultIfEmpty()
-                       join ct in context.Branches on cd.BranchId equals ct.Id into ctj
-                       from ct in ctj.DefaultIfEmpty()
-                       join sp in context.SalesPerson on r.SalesPersonId equals sp.ID into spj
-                       from sp in spj.DefaultIfEmpty()
-                       join pm in context.PaymentMethods on r.PaymentMethodId equals pm.Id into pmj
-                       from pm in pmj.DefaultIfEmpty()
-                       where r.ReceiptDate >= startDateTime && r.ReceiptDate < endDateTime && r.Status == statusFilter
-                       select new
-                       {
-                           CouponId = cd != null ? cd.Id : 0,
-                           CouponName = cd != null ? cd.Name : string.Empty,
-                           BranchName = ct != null ? ct.Name : string.Empty,
-                           BranchId = ct != null ? ct.Id : 0,
-                           Price = cd != null ? cd.Price : 0m,
-                           IsComplimentary = gc != null ? gc.IsComplimentary : false,
-                           SaleEventId = (cd != null && cd.SaleEventId.HasValue) ? cd.SaleEventId!.Value : 0,
-                           SalesPersonName = sp != null ? sp.Name : null,
-                           PaymentMethodId = pm != null ? pm.Id : 0
-                       };
-
-    // Apply filters to limitedQuery (same as other modes)
-    if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
-        limitedQuery = limitedQuery.Where(x => x.SalesPersonName == SelectedSalesPerson.Name);
-    if (SelectedBranch != null && SelectedBranch.Id != 0)
-        limitedQuery = limitedQuery.Where(x => x.BranchId == SelectedBranch.Id);
-    if (SelectedCoupon != null && SelectedCoupon.Id != 0)
-        limitedQuery = limitedQuery.Where(x => x.CouponId == SelectedCoupon.Id);
-    if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
-        limitedQuery = limitedQuery.Where(x => x.PaymentMethodId == SelectedPaymentMethod.Id);
-    if (SelectedJob != null && SelectedJob.Id != 0)
-        limitedQuery = limitedQuery.Where(x => x.SaleEventId == SelectedJob.Id);
-
-    var limitedData = await limitedQuery.ToListAsync();
-
-    var limitedAgg = limitedData
-        .Where(x => x.CouponId != 0)
-        .GroupBy(x => new { x.CouponId, x.CouponName, x.BranchName, x.Price, x.SaleEventId })
-        .Select(g => new
-        {
-            CouponId = g.Key.CouponId,
-            CouponName = g.Key.CouponName,
-            BranchName = g.Key.BranchName,
-            Price = g.Key.Price,
-            SaleEventId = g.Key.SaleEventId,
-            FreeCount = g.Count(x => x.IsComplimentary),
-            SoldCount = g.Count(x => !x.IsComplimentary),
-            IsLimited = true
-        }).ToList();
-
-    // ⭐ Merge unlimited + limited รวม FreeCount และ FreeAmount
-    var map = new Dictionary<int, (string Name, string Branch, bool IsLimited, int SoldCount, int FreeCount, decimal PaidAmount, decimal FreeAmount, int SaleEventId)>();
-
-    foreach (var u in unlimitedAgg)
-    {
-        map[u.CouponId] = (
-            u.CouponName ?? "ไม่พบข้อมูล", 
-            u.BranchName ?? string.Empty, 
-            u.IsLimited, 
-            u.SoldCount,      // ⭐ จำนวนที่ขาย
-            u.FreeCount,      // ⭐ จำนวน COM
-            u.PaidAmount,     // ⭐ ราคาที่ขายได้
-            u.FreeAmount,     // ⭐ มูลค่า COM
-            u.SaleEventId
-        );
-    }
-
-    foreach (var l in limitedAgg)
-    {
-        var paid = l.SoldCount * l.Price;
-        var freeAmt = l.FreeCount * l.Price;
-
-        if (map.TryGetValue(l.CouponId, out var existing))
-        {
-            var saleEventId = existing.SaleEventId != 0 ? existing.SaleEventId : l.SaleEventId;
-            map[l.CouponId] = (
-                existing.Name, 
-                existing.Branch, 
-                existing.IsLimited || l.IsLimited, 
-                existing.SoldCount + l.SoldCount,      // ⭐ รวมจำนวนที่ขาย
-                existing.FreeCount + l.FreeCount,      // ⭐ รวมจำนวน COM
-                existing.PaidAmount + paid,            // ⭐ รวมราคาที่ขาย
-                existing.FreeAmount + freeAmt,         // ⭐ รวมมูลค่า COM
-                saleEventId
-            );
+                // log full exception including stack trace to Output
+                System.Diagnostics.Debug.WriteLine($"Error searching data: {ex}");
+                // optionally surface to user (call ShowErrorDialog via page) — or raise event
+            }
         }
-        else
+
+        public void ClearFilters()
         {
-            map[l.CouponId] = (
-                l.CouponName ?? "ไม่พบข้อมูล", 
-                l.BranchName ?? string.Empty, 
-                l.IsLimited, 
-                l.SoldCount, 
-                l.FreeCount, 
-                paid, 
-                freeAmt, 
-                l.SaleEventId
-            );
-        }
-    }
-
-    // ✅ แก้ไขส่วน SummaryByCoupon results mapping (ประมาณบรรทัด 1510-1535)
-    results = map.Select(kv =>
-    {
-        var saleEventName = string.Empty;
-        if (kv.Value.SaleEventId != 0 && saleEventDict.TryGetValue(kv.Value.SaleEventId, out var evName))
-            saleEventName = evName;
-
-        return new SalesReportItem
-        {
-            ReceiptDate = DateTime.MinValue,
-            ReceiptCode = string.Empty,
-            CustomerName = string.Empty,
-            SalesPersonName = string.Empty,
-            CouponName = kv.Value.Name,
-            BranchTypeName = kv.Value.Branch,
-            IsLimited = kv.Value.IsLimited,
-            Quantity = kv.Value.SoldCount,                          // จำนวนคูปองที่ขาย
-            FreeCouponCount = kv.Value.FreeCount,                   // จำนวนคูปองที่ฟรี
-            TotalCouponCount = kv.Value.SoldCount + kv.Value.FreeCount, // จำนวนทั้งหมด
-            PaidCouponPrice = kv.Value.PaidAmount,                  // ราคาที่ขายได้
-            FreeCouponPrice = kv.Value.FreeAmount,                  // ราคาของคูปองฟรี
-            GrandTotalPrice = kv.Value.PaidAmount + kv.Value.FreeAmount,  // ✅ เพิ่มบรรทัดนี้
-            TotalPrice = kv.Value.PaidAmount + kv.Value.FreeAmount, // มูลค่ารวม (เก็บไว้สำหรับ backward compatibility)
-            SaleEventName = saleEventName
-        };
-    })
-    .OrderBy(x => x.BranchTypeName)
-    .ThenBy(x => x.CouponName)
-    .ToList();
-}
-else if (ReportMode == ReportModes.RemainingCoupons)
-{
-    // ✅ RemainingCoupons - แสดงคูปองที่คงเหลือ โดยนับเฉพาะที่ขายในช่วงวันที่เลือก
-    var limitedCoupons = await (from cd in context.CouponDefinitions
-                                join ct in context.Branches on cd.BranchId equals ct.Id into ctj
-                                from ct in ctj.DefaultIfEmpty()
-                                where cd.IsLimited == true
-                                select new
-                                {
-                                    CouponId = cd.Id,
-                                    CouponCode = cd.Code,
-                                    CouponName = cd.Name,
-                                    BranchTypeName = ct != null ? ct.Name : string.Empty,
-                                    BranchId = ct != null ? ct.Id : 0,
-                                    UnitPrice = cd.Price,
-                                    SaleEventId = cd.SaleEventId
-                                }).ToListAsync();
-
-    System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] limitedCoupons.Count={limitedCoupons.Count}");
-    foreach (var c in limitedCoupons)
-    {
-        System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] CouponId={c.CouponId}, Code={c.CouponCode}, BranchId={c.BranchId}, Branch='{c.BranchTypeName}'");
-    }
-
-    // Apply filters (existing)
-    if (SelectedBranch != null && SelectedBranch.Id != 0)
-        limitedCoupons = limitedCoupons.Where(x => x.BranchId == SelectedBranch.Id).ToList();
-
-    if (SelectedCoupon != null && SelectedCoupon.Id != 0)
-        limitedCoupons = limitedCoupons.Where(x => x.CouponId == SelectedCoupon.Id).ToList();
-
-    if (SelectedJob != null && SelectedJob.Id != 0)
-        limitedCoupons = limitedCoupons.Where(x => x.SaleEventId == SelectedJob.Id).ToList();
-
-    System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] After filters: count={limitedCoupons.Count}");
-
-    // Build results and log counts
-    foreach (var coupon in limitedCoupons)
-    {
-        // ✅ จำนวนคูปองทั้งหมดที่สร้างไว้
-        var totalCount = await context.GeneratedCoupons
-                                     .Where(gc => gc.CouponDefinitionId == coupon.CouponId)
-                                     .CountAsync();
-
-        // ✅ จำนวนคูปองที่ขายในช่วงวันที่ที่เลือก (กรองด้วย ReceiptDate)
-        var soldCount = await (from gc in context.GeneratedCoupons
-                               where gc.CouponDefinitionId == coupon.CouponId 
-                                    && gc.ReceiptItemId != null
-                               join ri in context.ReceiptItems on gc.ReceiptItemId equals ri.ReceiptItemId
-                               join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
-                               where r.ReceiptDate >= startDateTime 
-                                    && r.ReceiptDate < endDateTime
-                                    && r.Status == "Active"  // นับเฉพาะใบเสร็จที่ยังไม่ยกเลิก
-                               select gc).CountAsync();
-
-        var remaining = totalCount - soldCount;
-
-        System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] CouponId={coupon.CouponId} Total={totalCount} Sold={soldCount} (in date range) Remaining={remaining}");
-
-        results.Add(new SalesReportItem
-        {
-            CouponCode = coupon.CouponCode,
-            CouponName = coupon.CouponName,
-            BranchTypeName = coupon.BranchTypeName,
-            UnitPrice = coupon.UnitPrice,
-            TotalQuantity = totalCount,
-            SoldQuantity = soldCount,
-            RemainingQuantity = remaining,
-            SaleEventName = (coupon.SaleEventId.HasValue && coupon.SaleEventId.Value != 0 && saleEventDict.TryGetValue(coupon.SaleEventId.Value, out var rn)) ? rn : string.Empty
-        });
-    }
-
-    System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] results list count={results.Count}");
-}
-
-// IMPORTANT: we don't assign results directly to ReportData anymore.
-// Instead, we set the full results list and apply pagination.
-SetFullResults(results);
-        }
-        catch (Exception ex)
-        {
-            // log full exception including stack trace to Output
-            System.Diagnostics.Debug.WriteLine($"Error searching data: {ex}");
-            // optionally surface to user (call ShowErrorDialog via page) — or raise event
-        }
-    }
-
-    public void ClearFilters()
-    {
-        _isUpdatingFilters = true;
-        try
-        {
-            StartDate = DateTime.Today.AddDays(-30);
-            EndDate = DateTime.Today;
-            SelectedSalesPerson = SalesPersons.FirstOrDefault(); // เลือก "ทั้งหมด"
-            SelectedBranch = Branches.FirstOrDefault(); // เลือก "ทั้งหมด"
-            SelectedCoupon = FilteredCoupons.FirstOrDefault(); // เลือก "ทั้งหมด"
-            SelectedPaymentMethod = PaymentMethods.FirstOrDefault(); // เลือก "ทั้งหมด"
-            SelectedJob = Jobs.FirstOrDefault(); // เลือก "ทั้งหมด"
+            _isUpdatingFilters = true;
+            try
+            {
+                StartDate = DateTime.Today.AddDays(-30);
+                EndDate = DateTime.Today;
+                SelectedSalesPerson = SalesPersons.FirstOrDefault(); // เลือก "ทั้งหมด"
+                SelectedBranch = Branches.FirstOrDefault(); // เลือก "ทั้งหมด"
+                SelectedCoupon = FilteredCoupons.FirstOrDefault(); // เลือก "ทั้งหมด"
+                SelectedPaymentMethod = PaymentMethods.FirstOrDefault(); // เลือก "ทั้งหมด"
+                SelectedJob = Jobs.FirstOrDefault(); // เลือก "ทั้งหมด"
                                                      // ไม่ลบ ReportData ที่นี่ เพราะจะค้นหาใหม่
+            }
+            finally
+            {
+                _isUpdatingFilters = false;
+            }
+
+            // เรียกค้นหาข้อมูลใหม่หลังจากล้าง filter (นอก try-finally)
+            ResetToFirstPage();
+            _ = SearchDataAsync();
         }
-        finally
+
+        // ✅ แก้ไข UpdateSummary() method (แทนที่บรรทัด 1770-1813)
+        private void UpdateSummary()
         {
-            _isUpdatingFilters = false;
+            if (_totalItems == 0)
+            {
+                TotalRecordsText = "ไม่มีข้อมูล";
+                TotalAmountText = "";
+                TotalFreeCouponPriceText = "";
+                TotalPaidCouponPriceText = "";
+                TotalGrandPriceText = "";
+            }
+            else
+            {
+                TotalRecordsText = $"จำนวนรายการ: {_totalItems:N0} รายการ";
+
+                decimal totalFree = 0m;
+                decimal totalPaid = 0m;
+                decimal totalGrand = 0m;
+
+                // ✅ คำนวณสำหรับทุกประเภทรายงาน
+                if (ReportMode == ReportModes.ByReceipt ||
+                    ReportMode == ReportModes.CancelledReceipts ||
+                    ReportMode == ReportModes.SummaryByCoupon)
+                {
+                    // รายงานที่มี FreeCouponPrice, PaidCouponPrice, GrandTotalPrice
+                    totalFree = _allResults.Sum(x => x.FreeCouponPrice);
+                    totalPaid = _allResults.Sum(x => x.PaidCouponPrice);
+                    totalGrand = _allResults.Sum(x => x.GrandTotalPrice);
+                }
+                else if (ReportMode == ReportModes.LimitedCoupons ||
+                         ReportMode == ReportModes.UnlimitedGrouped ||
+                         ReportMode == ReportModes.CancelledCoupons)
+                {
+                    totalFree = _allResults.Where(x => x.IsComplimentary).Sum(x => x.TotalPrice);
+                    totalPaid = _allResults.Where(x => !x.IsComplimentary).Sum(x => x.TotalPrice);
+                    totalGrand = totalFree + totalPaid;
+                }
+                else if (ReportMode == ReportModes.RemainingCoupons)
+                {
+                    totalFree = 0m;
+                    totalPaid = _allResults.Sum(x => x.UnitPrice * x.SoldQuantity);
+                    totalGrand = totalPaid;
+                }
+
+                // ✅ แสดงผลแบบเดียวกันทุกรายงาน
+                TotalFreeCouponPriceText = $"ราคาคูปองฟรี (รวมทุกรายการ): {totalFree:N2} บาท";
+                TotalPaidCouponPriceText = $"ราคาที่จ่าย (รวมทุกรายการ): {totalPaid:N2} บาท";
+                TotalGrandPriceText = $"มูลค่ารวมสุทธิ ({totalFree:N2} + {totalPaid:N2}): {totalGrand:N2} บาท";
+                TotalAmountText = ""; // ไม่ใช้แล้ว
+            }
+
+            OnPropertyChanged(nameof(TotalRecordsText));
+            OnPropertyChanged(nameof(TotalAmountText));
+            OnPropertyChanged(nameof(TotalFreeCouponPriceText));
+            OnPropertyChanged(nameof(TotalPaidCouponPriceText));
+            OnPropertyChanged(nameof(TotalGrandPriceText));
         }
 
-        // เรียกค้นหาข้อมูลใหม่หลังจากล้าง filter (นอก try-finally)
-        ResetToFirstPage();
-        _ = SearchDataAsync();
-    }
-
-    // ✅ แก้ไข UpdateSummary() method (แทนที่บรรทัด 1770-1813)
-private void UpdateSummary()
-{
-    if (_totalItems == 0)
-    {
-        TotalRecordsText = "ไม่มีข้อมูล";
-        TotalAmountText = "";
-        TotalFreeCouponPriceText = "";
-        TotalPaidCouponPriceText = "";
-        TotalGrandPriceText = "";
-    }
-    else
-    {
-        TotalRecordsText = $"จำนวนรายการ: {_totalItems:N0} รายการ";
-        
-        decimal totalFree = 0m;
-        decimal totalPaid = 0m;
-        decimal totalGrand = 0m;
-        
-        // ✅ คำนวณสำหรับทุกประเภทรายงาน
-        if (ReportMode == ReportModes.ByReceipt || 
-            ReportMode == ReportModes.CancelledReceipts || 
-            ReportMode == ReportModes.SummaryByCoupon)
+        public string GetFilterSummary()
         {
-            // รายงานที่มี FreeCouponPrice, PaidCouponPrice, GrandTotalPrice
-            totalFree = _allResults.Sum(x => x.FreeCouponPrice);
-            totalPaid = _allResults.Sum(x => x.PaidCouponPrice);
-            totalGrand = _allResults.Sum(x => x.GrandTotalPrice);
+            var filters = new List<string>();
+
+            if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
+                filters.Add($"เซล{SelectedSalesPerson.Name}");
+
+            if (SelectedBranch != null && SelectedBranch.Id != 0)
+                filters.Add($"สาขา{SelectedBranch.Name}");
+
+            if (SelectedCoupon != null && SelectedCoupon.Id != 0)
+                filters.Add($"คูปอง{SelectedCoupon.Name}");
+
+            if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
+                filters.Add($"ชำระ{SelectedPaymentMethod.Name}");
+
+            if (SelectedJob != null && SelectedJob.Id != 0)
+                filters.Add($"งาน{SelectedJob.Name}");
+
+            filters.Add(ReportMode.ToString());
+            return string.Join("_", filters);
         }
-        else if (ReportMode == ReportModes.LimitedCoupons || 
-                 ReportMode == ReportModes.UnlimitedGrouped || 
-                 ReportMode == ReportModes.CancelledCoupons)
+
+        // Replace the existing ExportToCsvAsync method in SalesReportViewModel with this implementation
+        public async Task ExportToCsvAsync(StorageFile file)
         {
-            // ✅ รายงานที่มี TotalPrice - แยกตาม IsComplimentary
-            totalFree = _allResults.Where(x => x.IsComplimentary).Sum(x => x.TotalPrice);
-            totalPaid = _allResults.Where(x => !x.IsComplimentary).Sum(x => x.TotalPrice);
-            totalGrand = totalFree + totalPaid;
-        }
-        else if (ReportMode == ReportModes.RemainingCoupons)
-        {
-            // ✅ RemainingCoupons - คำนวณจาก UnitPrice * quantities
-            totalFree = 0m; // ไม่มีคูปองฟรี
-            totalPaid = _allResults.Sum(x => x.UnitPrice * x.SoldQuantity);
-            totalGrand = totalPaid;
-        }
-        
-        // ✅ แสดงผลแบบเดียวกันทุกรายงาน
-        TotalFreeCouponPriceText = $"ราคาคูปองฟรี (รวมทุกรายการ): {totalFree:N2} บาท";
-        TotalPaidCouponPriceText = $"ราคาที่จ่าย (รวมทุกรายการ): {totalPaid:N2} บาท";
-        TotalGrandPriceText = $"มูลค่ารวมสุทธิ ({totalFree:N2} + {totalPaid:N2}): {totalGrand:N2} บาท";
-        TotalAmountText = ""; // ไม่ใช้แล้ว
-    }
+            var csvContent = new StringBuilder();
 
-    OnPropertyChanged(nameof(TotalRecordsText));
-    OnPropertyChanged(nameof(TotalAmountText));
-    OnPropertyChanged(nameof(TotalFreeCouponPriceText));
-    OnPropertyChanged(nameof(TotalPaidCouponPriceText));
-    OnPropertyChanged(nameof(TotalGrandPriceText));
-}
+            // Add header with filter information
+            csvContent.AppendLine($"\"รายงานการขาย - {DateTime.Now:dd/MM/yyyy HH:mm}\"");
+            csvContent.AppendLine($"\"ช่วงวันที่: {StartDate?.ToString("dd/MM/yyyy")} - {EndDate?.ToString("dd/MM/yyyy")}\"");
 
-    public string GetFilterSummary()
-    {
-        var filters = new List<string>();
+            // Add filter details if any
+            if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
+                csvContent.AppendLine($"\"เซลที่เลือก: {SelectedSalesPerson.Name}\"");
+            if (SelectedBranch != null && SelectedBranch.Id != 0)
+                csvContent.AppendLine($"\"สาขา: {SelectedBranch.Name}\"");
+            if (SelectedCoupon != null && SelectedCoupon.Id != 0)
+                csvContent.AppendLine($"\"คูปอง: {SelectedCoupon.Name}\"");
+            if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
+                csvContent.AppendLine($"\"วิธีการชำระเงิน: {SelectedPaymentMethod.Name}\"");
+            if (SelectedJob != null && SelectedJob.Id != 0)
+                csvContent.AppendLine($"\"ชื่องาน: {SelectedJob.Name}\"");
 
-        if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
-            filters.Add($"เซล{SelectedSalesPerson.Name}");
+            csvContent.AppendLine($"\"รายงานแบบ: {ReportMode}\"");
 
-        if (SelectedBranch != null && SelectedBranch.Id != 0)
-            filters.Add($"สาขา{SelectedBranch.Name}");
+            // ✅ คำนวณยอดรวมตามประเภทรายงาน (เหมือน UpdateSummary())
+            decimal totalFree = 0m;
+            decimal totalPaid = 0m;
+            decimal totalGrand = 0m;
 
-        if (SelectedCoupon != null && SelectedCoupon.Id != 0)
-            filters.Add($"คูปอง{SelectedCoupon.Name}");
+            if (ReportMode == ReportModes.ByReceipt ||
+                ReportMode == ReportModes.CancelledReceipts ||
+                ReportMode == ReportModes.SummaryByCoupon)
+            {
+                totalFree = AllResults.Sum(x => x.FreeCouponPrice);
+                totalPaid = AllResults.Sum(x => x.PaidCouponPrice);
+                totalGrand = AllResults.Sum(x => x.GrandTotalPrice);
+            }
+            else if (ReportMode == ReportModes.LimitedCoupons ||
+                     ReportMode == ReportModes.UnlimitedGrouped ||
+                     ReportMode == ReportModes.CancelledCoupons)
+            {
+                totalFree = AllResults.Where(x => x.IsComplimentary).Sum(x => x.TotalPrice);
+                totalPaid = AllResults.Where(x => !x.IsComplimentary).Sum(x => x.TotalPrice);
+                totalGrand = totalFree + totalPaid;
+            }
+            else if (ReportMode == ReportModes.RemainingCoupons)
+            {
+                totalFree = 0m;
+                totalPaid = AllResults.Sum(x => x.UnitPrice * x.SoldQuantity);
+                totalGrand = totalPaid;
+            }
 
-        if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
-            filters.Add($"ชำระ{SelectedPaymentMethod.Name}");
+            // ✅ แสดงผลเหมือนกันทุกรายงาน
+            csvContent.AppendLine($"\"จำนวนรายการทั้งหมด: {TotalItems:N0} รายการ\"");
+            csvContent.AppendLine($"\"ราคาคูปองฟรี (รวมทุกรายการ): {totalFree:N2} บาท\"");
+            csvContent.AppendLine($"\"ราคาที่จ่าย (รวมทุกรายการ): {totalPaid:N2} บาท\"");
+            csvContent.AppendLine($"\"มูลค่ารวมสุทธิ ({totalFree:N2} + {totalPaid:N2}): {totalGrand:N2} บาท\"");
 
-        if (SelectedJob != null && SelectedJob.Id != 0)
-            filters.Add($"งาน{SelectedJob.Name}");
+            csvContent.AppendLine(); // Empty line
 
-        filters.Add(ReportMode.ToString());
-        return string.Join("_", filters);
-    }
-
-    // Replace the existing ExportToCsvAsync method in SalesReportViewModel with this implementation
-public async Task ExportToCsvAsync(StorageFile file)
-{
-    var csvContent = new StringBuilder();
-
-    // Add header with filter information
-    csvContent.AppendLine($"\"รายงานการขาย - {DateTime.Now:dd/MM/yyyy HH:mm}\"");
-    csvContent.AppendLine($"\"ช่วงวันที่: {StartDate?.ToString("dd/MM/yyyy")} - {EndDate?.ToString("dd/MM/yyyy")}\"");
-
-    // Add filter details if any
-    if (SelectedSalesPerson != null && SelectedSalesPerson.ID != 0)
-        csvContent.AppendLine($"\"เซลที่เลือก: {SelectedSalesPerson.Name}\"");
-    if (SelectedBranch != null && SelectedBranch.Id != 0)
-        csvContent.AppendLine($"\"สาขา: {SelectedBranch.Name}\"");
-    if (SelectedCoupon != null && SelectedCoupon.Id != 0)
-        csvContent.AppendLine($"\"คูปอง: {SelectedCoupon.Name}\"");
-    if (SelectedPaymentMethod != null && SelectedPaymentMethod.Id != 0)
-        csvContent.AppendLine($"\"วิธีการชำระเงิน: {SelectedPaymentMethod.Name}\"");
-    if (SelectedJob != null && SelectedJob.Id != 0)
-        csvContent.AppendLine($"\"ชื่องาน: {SelectedJob.Name}\"");
-
-    csvContent.AppendLine($"\"รายงานแบบ: {ReportMode}\"");
-
-    // ✅ คำนวณยอดรวมตามประเภทรายงาน (เหมือน UpdateSummary())
-    decimal totalFree = 0m;
-    decimal totalPaid = 0m;
-    decimal totalGrand = 0m;
-
-    if (ReportMode == ReportModes.ByReceipt || 
-        ReportMode == ReportModes.CancelledReceipts || 
-        ReportMode == ReportModes.SummaryByCoupon)
-    {
-        totalFree = AllResults.Sum(x => x.FreeCouponPrice);
-        totalPaid = AllResults.Sum(x => x.PaidCouponPrice);
-        totalGrand = AllResults.Sum(x => x.GrandTotalPrice);
-    }
-    else if (ReportMode == ReportModes.LimitedCoupons || 
-             ReportMode == ReportModes.UnlimitedGrouped || 
-             ReportMode == ReportModes.CancelledCoupons)
-    {
-        totalFree = AllResults.Where(x => x.IsComplimentary).Sum(x => x.TotalPrice);
-        totalPaid = AllResults.Where(x => !x.IsComplimentary).Sum(x => x.TotalPrice);
-        totalGrand = totalFree + totalPaid;
-    }
-    else if (ReportMode == ReportModes.RemainingCoupons)
-    {
-        totalFree = 0m;
-        totalPaid = AllResults.Sum(x => x.UnitPrice * x.SoldQuantity);
-        totalGrand = totalPaid;
-    }
-
-    // ✅ แสดงผลเหมือนกันทุกรายงาน
-    csvContent.AppendLine($"\"จำนวนรายการทั้งหมด: {TotalItems:N0} รายการ\"");
-    csvContent.AppendLine($"\"ราคาคูปองฟรี (รวมทุกรายการ): {totalFree:N2} บาท\"");
-    csvContent.AppendLine($"\"ราคาที่จ่าย (รวมทุกรายการ): {totalPaid:N2} บาท\"");
-    csvContent.AppendLine($"\"มูลค่ารวมสุทธิ ({totalFree:N2} + {totalPaid:N2}): {totalGrand:N2} บาท\"");
-
-    csvContent.AppendLine(); // Empty line
-
-    // Column headers and rows vary by report mode (match XAML columns)
-    if (ReportMode == ReportModes.ByReceipt)
-    {
-        // Match XAML ByReceipt columns (Active receipts - no cancellation reason)
-        var headers = new[]
-        {
+            // Column headers and rows vary by report mode (match XAML columns)
+            if (ReportMode == ReportModes.ByReceipt)
+            {
+                // Match XAML ByReceipt columns (Active receipts - no cancellation reason)
+                var headers = new[]
+                {
             "วันที่", "เลขที่ใบเสร็จ", "ลูกค้า", "เบอร์โทร", "เซล", "การชำระเงิน",
             "จำนวนคูปองที่จ่าย", "จำนวนคูปองฟรี", "จำนวนทั้งหมด",
             "ราคาคูปองฟรี", "ราคาที่จ่าย", "มูลค่ารวม"
         };
-        csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
+                csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
 
-        foreach (var item in AllResults)
-        {
-            var row = new[]
-            {
+                foreach (var item in AllResults)
+                {
+                    var row = new[]
+                    {
                 item.ReceiptDateDisplay,
                 item.ReceiptCode,
                 item.CustomerName,
@@ -1943,34 +1944,34 @@ public async Task ExportToCsvAsync(StorageFile file)
                 item.PaidCouponPrice.ToString("F2"),
                 item.GrandTotalPrice.ToString("F2")
             };
-            csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
-        }
-        
-        // ✅ เพิ่มแถวสรุปท้ายตาราง
-        csvContent.AppendLine(); // Empty line before summary
-        csvContent.AppendLine($"\"รวม\",\"\",\"\",\"\",\"\",\"\"," +
-            $"\"{AllResults.Sum(x => x.PaidCouponCount)}\"," +
-            $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
-            $"\"{AllResults.Sum(x => x.TotalCouponCount)}\"," +
-            $"\"{AllResults.Sum(x => x.FreeCouponPrice):F2}\"," +
-            $"\"{AllResults.Sum(x => x.PaidCouponPrice):F2}\"," +
-            $"\"{AllResults.Sum(x => x.GrandTotalPrice):F2}\"");
-    }
-    else if (ReportMode == ReportModes.CancelledReceipts)
-    {
-        // ⭐ Match XAML CancelledReceipts columns (include cancellation reason)
-        var headers = new[]
-        {
+                    csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
+                }
+
+                // ✅ เพิ่มแถวสรุปท้ายตาราง
+                csvContent.AppendLine(); // Empty line before summary
+                csvContent.AppendLine($"\"รวม\",\"\",\"\",\"\",\"\",\"\"," +
+                    $"\"{AllResults.Sum(x => x.PaidCouponCount)}\"," +
+                    $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
+                    $"\"{AllResults.Sum(x => x.TotalCouponCount)}\"," +
+                    $"\"{AllResults.Sum(x => x.FreeCouponPrice):F2}\"," +
+                    $"\"{AllResults.Sum(x => x.PaidCouponPrice):F2}\"," +
+                    $"\"{AllResults.Sum(x => x.GrandTotalPrice):F2}\"");
+            }
+            else if (ReportMode == ReportModes.CancelledReceipts)
+            {
+                // ⭐ Match XAML CancelledReceipts columns (include cancellation reason)
+                var headers = new[]
+                {
             "วันที่", "เลขที่ใบเสร็จ", "ลูกค้า", "เบอร์โทร", "เซล", "การชำระเงิน",
             "จำนวนคูปองที่จ่าย", "จำนวนคูปองฟรี", "จำนวนทั้งหมด",
             "ราคาคูปองฟรี", "ราคาที่จ่าย", "มูลค่ารวม", "เหตุผลยกเลิก"
         };
-        csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
+                csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
 
-        foreach (var item in AllResults)
-        {
-            var row = new[]
-            {
+                foreach (var item in AllResults)
+                {
+                    var row = new[]
+                    {
                 item.ReceiptDateDisplay,
                 item.ReceiptCode,
                 item.CustomerName,
@@ -1985,50 +1986,50 @@ public async Task ExportToCsvAsync(StorageFile file)
                 item.GrandTotalPrice.ToString("F2"),
                 item.CancellationReason  // ⭐ เพิ่มเหตุผลยกเลิก
             };
-            csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
-        }
-        
-        // ✅ เพิ่มแถวสรุปท้ายตาราง
-        csvContent.AppendLine(); // Empty line before summary
-        csvContent.AppendLine($"\"รวม\",\"\",\"\",\"\",\"\",\"\"," +
-            $"\"{AllResults.Sum(x => x.PaidCouponCount)}\"," +
-            $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
-            $"\"{AllResults.Sum(x => x.TotalCouponCount)}\"," +
-            $"\"{AllResults.Sum(x => x.FreeCouponPrice):F2}\"," +
-            $"\"{AllResults.Sum(x => x.PaidCouponPrice):F2}\"," +
-            $"\"{AllResults.Sum(x => x.GrandTotalPrice):F2}\"," +
-            $"\"\"");  // Empty cell for cancellation reason
-    }
-    else if (ReportMode == ReportModes.LimitedCoupons || ReportMode == ReportModes.CancelledCoupons)
-    {
-        // Match XAML LimitedCoupons/CancelledCoupons columns (added SaleEvent)
-        var headers = new[]
-        {
+                    csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
+                }
+
+                // ✅ เพิ่มแถวสรุปท้ายตาราง
+                csvContent.AppendLine(); // Empty line before summary
+                csvContent.AppendLine($"\"รวม\",\"\",\"\",\"\",\"\",\"\"," +
+                    $"\"{AllResults.Sum(x => x.PaidCouponCount)}\"," +
+                    $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
+                    $"\"{AllResults.Sum(x => x.TotalCouponCount)}\"," +
+                    $"\"{AllResults.Sum(x => x.FreeCouponPrice):F2}\"," +
+                    $"\"{AllResults.Sum(x => x.PaidCouponPrice):F2}\"," +
+                    $"\"{AllResults.Sum(x => x.GrandTotalPrice):F2}\"," +
+                    $"\"\"");  // Empty cell for cancellation reason
+            }
+            else if (ReportMode == ReportModes.LimitedCoupons || ReportMode == ReportModes.CancelledCoupons)
+            {
+                // Match XAML LimitedCoupons/CancelledCoupons columns (added SaleEvent)
+                var headers = new[]
+                {
             "วันที่", "เลขที่ใบเสร็จ", "รหัสคูปอง", "คูปอง", "ลูกค้า", "เบอร์โทร",
             "เซล", "วันหมดอายุ", "ราคา", "งานที่ออกขาย", "สถานะ"  // ✅ เพิ่มคอลัมน์สถานะ
         };
-        
-        // ⭐ เพิ่มเหตุผลยกเลิกสำหรับ CancelledCoupons
-        if (ReportMode == ReportModes.CancelledCoupons)
-        {
-            headers = new[]
-            {
+
+                // ⭐ เพิ่มเหตุผลยกเลิกสำหรับ CancelledCoupons
+                if (ReportMode == ReportModes.CancelledCoupons)
+                {
+                    headers = new[]
+                    {
                 "วันที่", "เลขที่ใบเสร็จ", "รหัสคูปอง", "คูปอง", "ลูกค้า", "เบอร์โทร",
                 "เซล", "วันหมดอายุ", "ราคา", "งานที่ออกขาย", "สถานะ", "เหตุผลยกเลิก"
             };
-        }
-        
-        csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
+                }
 
-        foreach (var item in AllResults)
-        {
-            // ✅ ถ้า IsCOM ให้ราคาเป็น 0 และระบุสถานะ
-            var displayPrice = item.IsComplimentary ? "0.00" : item.TotalPrice.ToString("F2");
-            var status = item.IsComplimentary ? "COM (ฟรี)" : "ขายปกติ";
-            
-            var row = ReportMode == ReportModes.CancelledCoupons
-                ? new[]
+                csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
+
+                foreach (var item in AllResults)
                 {
+                    // ✅ ถ้า IsCOM ให้ราคาเป็น 0 และระบุสถานะ
+                    var displayPrice = item.IsComplimentary ? "0.00" : item.TotalPrice.ToString("F2");
+                    var status = item.IsComplimentary ? "COM (ฟรี)" : "ขายปกติ";
+
+                    var row = ReportMode == ReportModes.CancelledCoupons
+                        ? new[]
+                        {
                     item.ReceiptDateDisplay,
                     item.ReceiptCode,
                     item.GeneratedCode,
@@ -2041,9 +2042,9 @@ public async Task ExportToCsvAsync(StorageFile file)
                     item.SaleEventName,
                     status,  // ✅ เพิ่มสถานะ
                     item.CancellationReason
-                }
-                : new[]
-                {
+                        }
+                        : new[]
+                        {
                     item.ReceiptDateDisplay,
                     item.ReceiptCode,
                     item.GeneratedCode,
@@ -2055,28 +2056,28 @@ public async Task ExportToCsvAsync(StorageFile file)
                     displayPrice,  // ✅ ใช้ displayPrice แทน item.TotalPrice
                     item.SaleEventName,
                     status  // ✅ เพิ่มสถานะ
-                };
-            csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
-        }
-    }
-    else if (ReportMode == ReportModes.UnlimitedGrouped)
-    {
-        // Match XAML UnlimitedGrouped columns
-        var headers = new[]
-        {
+                        };
+                    csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
+                }
+            }
+            else if (ReportMode == ReportModes.UnlimitedGrouped)
+            {
+                // Match XAML UnlimitedGrouped columns
+                var headers = new[]
+                {
             "วันที่", "เลขที่ใบเสร็จ", "คูปอง", "ลูกค้า", "เบอร์โทร",
             "เซล", "วันหมดอายุ", "จำนวน", "รวม", "สถานะ"  // ✅ เพิ่มคอลัมน์สถานะ
         };
-        csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
+                csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
 
-        foreach (var item in AllResults)
-        {
-            // ✅ ถ้า IsCOM ให้ราคาเป็น 0 และระบุสถานะ
-            var displayPrice = item.IsComplimentary ? "0.00" : item.TotalPrice.ToString("F2");
-            var status = item.IsComplimentary ? "COM (ฟรี)" : "ขายปกติ";
-            
-            var row = new[]
-            {
+                foreach (var item in AllResults)
+                {
+                    // ✅ ถ้า IsCOM ให้ราคาเป็น 0 และระบุสถานะ
+                    var displayPrice = item.IsComplimentary ? "0.00" : item.TotalPrice.ToString("F2");
+                    var status = item.IsComplimentary ? "COM (ฟรี)" : "ขายปกติ";
+
+                    var row = new[]
+                    {
                 item.ReceiptDateDisplay,
                 item.ReceiptCode,
                 item.CouponName,
@@ -2088,24 +2089,24 @@ public async Task ExportToCsvAsync(StorageFile file)
                 displayPrice,  // ✅ ใช้ displayPrice แทน item.TotalPrice
                 status  // ✅ เพิ่มสถานะ
             };
-            csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
-        }
-    }
-    else if (ReportMode == ReportModes.SummaryByCoupon)
-    {
-        // Extended Summary to match XAML (includes SaleEvent, free count, totals, paid/free amounts)
-        var headers = new[]
-        {
+                    csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
+                }
+            }
+            else if (ReportMode == ReportModes.SummaryByCoupon)
+            {
+                // Extended Summary to match XAML (includes SaleEvent, free count, totals, paid/free amounts)
+                var headers = new[]
+                {
             "คูปอง", "สาขา", "งานที่ออกขาย", "จำกัด/ไม่จำกัด",
             "จำนวนคูปองที่ขาย", "จำนวนคูปองที่ฟรี", "จำนวนคูปองทั้งหมด",
             "ราคาที่ขายได้", "ราคาของคูปองฟรี", "มูลค่ารวม"
         };
-        csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
+                csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
 
-        foreach (var item in AllResults)
-        {
-            var row = new[]
-            {
+                foreach (var item in AllResults)
+                {
+                    var row = new[]
+                    {
                 item.CouponName,
                 item.BranchTypeName,
                 item.SaleEventName,
@@ -2117,19 +2118,19 @@ public async Task ExportToCsvAsync(StorageFile file)
                 item.FreeCouponPrice.ToString("F2"),     // free amount
                 item.GrandTotalPrice.ToString("F2")      // ✅ เปลี่ยนจาก TotalPrice เป็น GrandTotalPrice
             };
-            csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
-        }
-        
-        // ✅ เพิ่มแถวสรุปท้ายตาราง
-        csvContent.AppendLine(); // Empty line before summary
-        csvContent.AppendLine($"\"รวม\",\"\",\"\",\"\"," +
-            $"\"{AllResults.Sum(x => x.Quantity)}\"," +
-            $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
-            $"\"{AllResults.Sum(x => x.TotalCouponCount)}\"," +
-            $"\"{AllResults.Sum(x => x.PaidCouponPrice):F2}\"," +
-            $"\"{AllResults.Sum(x => x.FreeCouponPrice):F2}\"," +
-            $"\"{AllResults.Sum(x => x.GrandTotalPrice):F2}\"");
-    }
+                    csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
+                }
+
+                // ✅ เพิ่มแถวสรุปท้ายตาราง
+                csvContent.AppendLine(); // Empty line before summary
+                csvContent.AppendLine($"\"รวม\",\"\",\"\",\"\"," +
+                    $"\"{AllResults.Sum(x => x.Quantity)}\"," +
+                    $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
+                    $"\"{AllResults.Sum(x => x.TotalCouponCount)}\"," +
+                    $"\"{AllResults.Sum(x => x.PaidCouponPrice):F2}\"," +
+                    $"\"{AllResults.Sum(x => x.FreeCouponPrice):F2}\"," +
+                    $"\"{AllResults.Sum(x => x.GrandTotalPrice):F2}\"");
+            }
             else if (ReportMode == ReportModes.RemainingCoupons)
             {
                 // Match XAML RemainingCoupons columns
@@ -2168,7 +2169,7 @@ public async Task ExportToCsvAsync(StorageFile file)
             }
 
             await FileIO.WriteTextAsync(file, csvContent.ToString(), Windows.Storage.Streams.UnicodeEncoding.Utf8);
-}
+        }
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -2203,19 +2204,22 @@ public async Task ExportToCsvAsync(StorageFile file)
 
         public int TotalCouponCount { get; set; }
         public int FreeCouponCount { get; set; }
-        
+
         // ✅ เปลี่ยนเป็น property ที่ set ได้
         public int PaidCouponCount { get; set; }
 
         public decimal FreeCouponPrice { get; set; }
         public decimal PaidCouponPrice { get; set; }
-        
+
         // ✅ เปลี่ยนเป็น property ที่ set ได้
         public decimal GrandTotalPrice { get; set; }
 
         public int TotalQuantity { get; set; }
         public int SoldQuantity { get; set; }
         public int RemainingQuantity { get; set; }
+
+        // ✅ เพิ่ม property IsCOM สำหรับระบุว่าเป็นคูปองฟรี (COM) หรือไม่
+        public bool IsCOM { get; set; } = false;
 
         public string IsLimitedDisplay => IsLimited ? "จำกัด" : "ไม่จำกัด";
         public string ReceiptStatusDisplay => ReceiptStatus == "Cancelled" ? "ยกเลิก" : "ใช้งาน";
@@ -2250,7 +2254,8 @@ public async Task ExportToCsvAsync(StorageFile file)
             {
                 var defaultBrush = Application.Current.Resources["SystemControlForegroundBaseHighBrush"] as Microsoft.UI.Xaml.Media.Brush
                            ?? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black);
-                if (IsComplimentary)
+                // ✅ ใช้ IsCOM แทน IsComplimentary
+                if (IsCOM)
                 {
                     return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Yellow);
                 }
@@ -2265,8 +2270,8 @@ public async Task ExportToCsvAsync(StorageFile file)
                 var defaultBrush = Application.Current.Resources["SystemControlForegroundBaseHighBrush"] as Microsoft.UI.Xaml.Media.Brush
                            ?? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black);
 
-                // color price yellow when price equals 0 (user requested) — applies for TotalPrice or UnitPrice
-                if (TotalPrice == 0m || UnitPrice == 0m)
+                // ✅ color price yellow when IsCOM = true or price equals 0
+                if (IsCOM || TotalPrice == 0m || UnitPrice == 0m)
                     return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Yellow);
 
                 return defaultBrush;
