@@ -752,6 +752,9 @@ namespace BootCoupon
 
         public string TotalRecordsText { get; private set; } = "ไม่มีข้อมูล";
         public string TotalAmountText { get; private set; } = "";
+        public string TotalFreeCouponPriceText { get; private set; } = "";
+        public string TotalPaidCouponPriceText { get; private set; } = "";
+        public string TotalGrandPriceText { get; private set; } = "";
 
         public async Task LoadDataAsync()
         {
@@ -1121,7 +1124,7 @@ namespace BootCoupon
                     System.Diagnostics.Debug.WriteLine($"[{ReportMode}] Found {grouped.Count} receipt groups");
                     foreach (var gg in grouped.Take(3))
                     {
-                        System.Diagnostics.Debug.WriteLine($"  Receipt {gg.ReceiptId}: paidGen={gg.PaidGeneratedCount}, freeGen={gg.FreeGeneratedCount}, paidUnlimited={gg.UnlimitedCount}, freeUnlimited={gg.FreeUnlimitedCount}");
+                        System.Diagnostics.Debug.WriteLine($"  ReceiptId={gg.ReceiptId}: paidGen={gg.PaidGeneratedCount}, freeGen={gg.FreeGeneratedCount}, paidUnlimited={gg.UnlimitedCount}, freeUnlimited={gg.FreeUnlimitedCount}");
                     }
 
                     // Map receipts to report rows - โค้ดเดิมยังคงเหมือนเดิม
@@ -1167,7 +1170,7 @@ namespace BootCoupon
                             PaidCouponCount = paidCouponCount,           // ✅ เพิ่มบรรทัดนี้
                             FreeCouponCount = freeCouponCount,
                             TotalCouponCount = totalCouponCount,
-                            
+
                             PaidCouponPrice = paidCouponPrice,           // ✅ เพิ่มบรรทัดนี้
                             FreeCouponPrice = freeCouponPrice,
                             GrandTotalPrice = grandTotalPrice,           // ✅ เพิ่มบรรทัดนี้
@@ -1628,6 +1631,7 @@ else
         }
     }
 
+    // ✅ แก้ไขส่วน SummaryByCoupon results mapping (ประมาณบรรทัด 1510-1535)
     results = map.Select(kv =>
     {
         var saleEventName = string.Empty;
@@ -1643,12 +1647,13 @@ else
             CouponName = kv.Value.Name,
             BranchTypeName = kv.Value.Branch,
             IsLimited = kv.Value.IsLimited,
-            Quantity = kv.Value.SoldCount,             // จำนวนคูปองที่ขาย
-            FreeCouponCount = kv.Value.FreeCount,      // จำนวนคูปองที่ฟรี
+            Quantity = kv.Value.SoldCount,                          // จำนวนคูปองที่ขาย
+            FreeCouponCount = kv.Value.FreeCount,                   // จำนวนคูปองที่ฟรี
             TotalCouponCount = kv.Value.SoldCount + kv.Value.FreeCount, // จำนวนทั้งหมด
-            PaidCouponPrice = kv.Value.PaidAmount,     // ราคาที่ขายได้
-            FreeCouponPrice = kv.Value.FreeAmount,     // ราคาของคูปองฟรี
-            TotalPrice = kv.Value.PaidAmount + kv.Value.FreeAmount,     // มูลค่ารวม
+            PaidCouponPrice = kv.Value.PaidAmount,                  // ราคาที่ขายได้
+            FreeCouponPrice = kv.Value.FreeAmount,                  // ราคาของคูปองฟรี
+            GrandTotalPrice = kv.Value.PaidAmount + kv.Value.FreeAmount,  // ✅ เพิ่มบรรทัดนี้
+            TotalPrice = kv.Value.PaidAmount + kv.Value.FreeAmount, // มูลค่ารวม (เก็บไว้สำหรับ backward compatibility)
             SaleEventName = saleEventName
         };
     })
@@ -1658,7 +1663,7 @@ else
 }
 else if (ReportMode == ReportModes.RemainingCoupons)
 {
-    // ✅ RemainingCoupons - แสดงคูปองที่คงเหลือ โดยนับเฉพาะที่ขายในช่วงวันที่ที่เลือก
+    // ✅ RemainingCoupons - แสดงคูปองที่คงเหลือ โดยนับเฉพาะที่ขายในช่วงวันที่เลือก
     var limitedCoupons = await (from cd in context.CouponDefinitions
                                 join ct in context.Branches on cd.BranchId equals ct.Id into ctj
                                 from ct in ctj.DefaultIfEmpty()
@@ -1767,26 +1772,65 @@ SetFullResults(results);
         _ = SearchDataAsync();
     }
 
-    private void UpdateSummary()
+    // ✅ แก้ไข UpdateSummary() method (แทนที่บรรทัด 1770-1813)
+private void UpdateSummary()
+{
+    if (_totalItems == 0)
     {
-        if (_totalItems == 0)
-        {
-            TotalRecordsText = "ไม่มีข้อมูล";
-            TotalAmountText = "";
-        }
-        else
-        {
-            var totalAmount = _allResults.Sum(x => x.TotalPrice);
-            var totalDiscount = _allResults.Sum(x => x.Discount);
-            var netAmount = totalAmount - totalDiscount;
-            TotalRecordsText = $"จำนวนรายการ: {_totalItems:N0} รายการ";
-            // Show calculation: รวม - ลดราคา = ยอดรวม
-            TotalAmountText = $"ยอดรวม: {netAmount:N2} บาท";
-        }
-
-        OnPropertyChanged(nameof(TotalRecordsText));
-        OnPropertyChanged(nameof(TotalAmountText));
+        TotalRecordsText = "ไม่มีข้อมูล";
+        TotalAmountText = "";
+        TotalFreeCouponPriceText = "";
+        TotalPaidCouponPriceText = "";
+        TotalGrandPriceText = "";
     }
+    else
+    {
+        TotalRecordsText = $"จำนวนรายการ: {_totalItems:N0} รายการ";
+        
+        decimal totalFree = 0m;
+        decimal totalPaid = 0m;
+        decimal totalGrand = 0m;
+        
+        // ✅ คำนวณสำหรับทุกประเภทรายงาน
+        if (ReportMode == ReportModes.ByReceipt || 
+            ReportMode == ReportModes.CancelledReceipts || 
+            ReportMode == ReportModes.SummaryByCoupon)
+        {
+            // รายงานที่มี FreeCouponPrice, PaidCouponPrice, GrandTotalPrice
+            totalFree = _allResults.Sum(x => x.FreeCouponPrice);
+            totalPaid = _allResults.Sum(x => x.PaidCouponPrice);
+            totalGrand = _allResults.Sum(x => x.GrandTotalPrice);
+        }
+        else if (ReportMode == ReportModes.LimitedCoupons || 
+                 ReportMode == ReportModes.UnlimitedGrouped || 
+                 ReportMode == ReportModes.CancelledCoupons)
+        {
+            // ✅ รายงานที่มี TotalPrice - แยกตาม IsComplimentary
+            totalFree = _allResults.Where(x => x.IsComplimentary).Sum(x => x.TotalPrice);
+            totalPaid = _allResults.Where(x => !x.IsComplimentary).Sum(x => x.TotalPrice);
+            totalGrand = totalFree + totalPaid;
+        }
+        else if (ReportMode == ReportModes.RemainingCoupons)
+        {
+            // ✅ RemainingCoupons - คำนวณจาก UnitPrice * quantities
+            totalFree = 0m; // ไม่มีคูปองฟรี
+            totalPaid = _allResults.Sum(x => x.UnitPrice * x.SoldQuantity);
+            totalGrand = totalPaid;
+        }
+        
+        // ✅ แสดงผลแบบเดียวกันทุกรายงาน
+        TotalFreeCouponPriceText = $"ราคาคูปองฟรี (รวมทุกรายการ): {totalFree:N2} บาท";
+        TotalPaidCouponPriceText = $"ราคาที่จ่าย (รวมทุกรายการ): {totalPaid:N2} บาท";
+        TotalGrandPriceText = $"มูลค่ารวมสุทธิ ({totalFree:N2} + {totalPaid:N2}): {totalGrand:N2} บาท";
+        TotalAmountText = ""; // ไม่ใช้แล้ว
+    }
+
+    OnPropertyChanged(nameof(TotalRecordsText));
+    OnPropertyChanged(nameof(TotalAmountText));
+    OnPropertyChanged(nameof(TotalFreeCouponPriceText));
+    OnPropertyChanged(nameof(TotalPaidCouponPriceText));
+    OnPropertyChanged(nameof(TotalGrandPriceText));
+}
 
     public string GetFilterSummary()
     {
@@ -1834,9 +1878,40 @@ public async Task ExportToCsvAsync(StorageFile file)
 
     csvContent.AppendLine($"\"รายงานแบบ: {ReportMode}\"");
 
-    // Use full-results count and totals
+    // ✅ คำนวณยอดรวมตามประเภทรายงาน (เหมือน UpdateSummary())
+    decimal totalFree = 0m;
+    decimal totalPaid = 0m;
+    decimal totalGrand = 0m;
+
+    if (ReportMode == ReportModes.ByReceipt || 
+        ReportMode == ReportModes.CancelledReceipts || 
+        ReportMode == ReportModes.SummaryByCoupon)
+    {
+        totalFree = AllResults.Sum(x => x.FreeCouponPrice);
+        totalPaid = AllResults.Sum(x => x.PaidCouponPrice);
+        totalGrand = AllResults.Sum(x => x.GrandTotalPrice);
+    }
+    else if (ReportMode == ReportModes.LimitedCoupons || 
+             ReportMode == ReportModes.UnlimitedGrouped || 
+             ReportMode == ReportModes.CancelledCoupons)
+    {
+        totalFree = AllResults.Where(x => x.IsComplimentary).Sum(x => x.TotalPrice);
+        totalPaid = AllResults.Where(x => !x.IsComplimentary).Sum(x => x.TotalPrice);
+        totalGrand = totalFree + totalPaid;
+    }
+    else if (ReportMode == ReportModes.RemainingCoupons)
+    {
+        totalFree = 0m;
+        totalPaid = AllResults.Sum(x => x.UnitPrice * x.SoldQuantity);
+        totalGrand = totalPaid;
+    }
+
+    // ✅ แสดงผลเหมือนกันทุกรายงาน
     csvContent.AppendLine($"\"จำนวนรายการทั้งหมด: {TotalItems:N0} รายการ\"");
-    csvContent.AppendLine($"\"ยอดรวมทั้งหมด (สุทธิ): {AllResults.Sum(x => x.TotalPrice - x.Discount):N2} บาท\"");
+    csvContent.AppendLine($"\"ราคาคูปองฟรี (รวมทุกรายการ): {totalFree:N2} บาท\"");
+    csvContent.AppendLine($"\"ราคาที่จ่าย (รวมทุกรายการ): {totalPaid:N2} บาท\"");
+    csvContent.AppendLine($"\"มูลค่ารวมสุทธิ ({totalFree:N2} + {totalPaid:N2}): {totalGrand:N2} บาท\"");
+
     csvContent.AppendLine(); // Empty line
 
     // Column headers and rows vary by report mode (match XAML columns)
@@ -1870,6 +1945,16 @@ public async Task ExportToCsvAsync(StorageFile file)
             };
             csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
         }
+        
+        // ✅ เพิ่มแถวสรุปท้ายตาราง
+        csvContent.AppendLine(); // Empty line before summary
+        csvContent.AppendLine($"\"รวม\",\"\",\"\",\"\",\"\",\"\"," +
+            $"\"{AllResults.Sum(x => x.PaidCouponCount)}\"," +
+            $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
+            $"\"{AllResults.Sum(x => x.TotalCouponCount)}\"," +
+            $"\"{AllResults.Sum(x => x.FreeCouponPrice):F2}\"," +
+            $"\"{AllResults.Sum(x => x.PaidCouponPrice):F2}\"," +
+            $"\"{AllResults.Sum(x => x.GrandTotalPrice):F2}\"");
     }
     else if (ReportMode == ReportModes.CancelledReceipts)
     {
@@ -1902,6 +1987,17 @@ public async Task ExportToCsvAsync(StorageFile file)
             };
             csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
         }
+        
+        // ✅ เพิ่มแถวสรุปท้ายตาราง
+        csvContent.AppendLine(); // Empty line before summary
+        csvContent.AppendLine($"\"รวม\",\"\",\"\",\"\",\"\",\"\"," +
+            $"\"{AllResults.Sum(x => x.PaidCouponCount)}\"," +
+            $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
+            $"\"{AllResults.Sum(x => x.TotalCouponCount)}\"," +
+            $"\"{AllResults.Sum(x => x.FreeCouponPrice):F2}\"," +
+            $"\"{AllResults.Sum(x => x.PaidCouponPrice):F2}\"," +
+            $"\"{AllResults.Sum(x => x.GrandTotalPrice):F2}\"," +
+            $"\"\"");  // Empty cell for cancellation reason
     }
     else if (ReportMode == ReportModes.LimitedCoupons || ReportMode == ReportModes.CancelledCoupons)
     {
@@ -1909,7 +2005,7 @@ public async Task ExportToCsvAsync(StorageFile file)
         var headers = new[]
         {
             "วันที่", "เลขที่ใบเสร็จ", "รหัสคูปอง", "คูปอง", "ลูกค้า", "เบอร์โทร",
-            "เซล", "วันหมดอายุ", "ราคา", "งานที่ออกขาย"
+            "เซล", "วันหมดอายุ", "ราคา", "งานที่ออกขาย", "สถานะ"  // ✅ เพิ่มคอลัมน์สถานะ
         };
         
         // ⭐ เพิ่มเหตุผลยกเลิกสำหรับ CancelledCoupons
@@ -1918,7 +2014,7 @@ public async Task ExportToCsvAsync(StorageFile file)
             headers = new[]
             {
                 "วันที่", "เลขที่ใบเสร็จ", "รหัสคูปอง", "คูปอง", "ลูกค้า", "เบอร์โทร",
-                "เซล", "วันหมดอายุ", "ราคา", "งานที่ออกขาย", "เหตุผลยกเลิก"
+                "เซล", "วันหมดอายุ", "ราคา", "งานที่ออกขาย", "สถานะ", "เหตุผลยกเลิก"
             };
         }
         
@@ -1926,6 +2022,10 @@ public async Task ExportToCsvAsync(StorageFile file)
 
         foreach (var item in AllResults)
         {
+            // ✅ ถ้า IsCOM ให้ราคาเป็น 0 และระบุสถานะ
+            var displayPrice = item.IsComplimentary ? "0.00" : item.TotalPrice.ToString("F2");
+            var status = item.IsComplimentary ? "COM (ฟรี)" : "ขายปกติ";
+            
             var row = ReportMode == ReportModes.CancelledCoupons
                 ? new[]
                 {
@@ -1937,9 +2037,10 @@ public async Task ExportToCsvAsync(StorageFile file)
                     item.CustomerPhone,
                     item.SalesPersonName,
                     item.ExpiresAtDisplay,
-                    item.TotalPrice.ToString("F2"),
+                    displayPrice,  // ✅ ใช้ displayPrice แทน item.TotalPrice
                     item.SaleEventName,
-                    item.CancellationReason  // ⭐ เพิ่มเหตุผลยกเลิก
+                    status,  // ✅ เพิ่มสถานะ
+                    item.CancellationReason
                 }
                 : new[]
                 {
@@ -1951,8 +2052,9 @@ public async Task ExportToCsvAsync(StorageFile file)
                     item.CustomerPhone,
                     item.SalesPersonName,
                     item.ExpiresAtDisplay,
-                    item.TotalPrice.ToString("F2"),
-                    item.SaleEventName
+                    displayPrice,  // ✅ ใช้ displayPrice แทน item.TotalPrice
+                    item.SaleEventName,
+                    status  // ✅ เพิ่มสถานะ
                 };
             csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
         }
@@ -1963,12 +2065,16 @@ public async Task ExportToCsvAsync(StorageFile file)
         var headers = new[]
         {
             "วันที่", "เลขที่ใบเสร็จ", "คูปอง", "ลูกค้า", "เบอร์โทร",
-            "เซล", "วันหมดอายุ", "จำนวน", "รวม"
+            "เซล", "วันหมดอายุ", "จำนวน", "รวม", "สถานะ"  // ✅ เพิ่มคอลัมน์สถานะ
         };
         csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
 
         foreach (var item in AllResults)
         {
+            // ✅ ถ้า IsCOM ให้ราคาเป็น 0 และระบุสถานะ
+            var displayPrice = item.IsComplimentary ? "0.00" : item.TotalPrice.ToString("F2");
+            var status = item.IsComplimentary ? "COM (ฟรี)" : "ขายปกติ";
+            
             var row = new[]
             {
                 item.ReceiptDateDisplay,
@@ -1979,7 +2085,8 @@ public async Task ExportToCsvAsync(StorageFile file)
                 item.SalesPersonName,
                 item.ExpiresAtDisplay,
                 item.Quantity.ToString(),
-                item.TotalPrice.ToString("F2")
+                displayPrice,  // ✅ ใช้ displayPrice แทน item.TotalPrice
+                status  // ✅ เพิ่มสถานะ
             };
             csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
         }
@@ -2008,43 +2115,59 @@ public async Task ExportToCsvAsync(StorageFile file)
                 item.TotalCouponCount.ToString(),        // total
                 item.PaidCouponPrice.ToString("F2"),     // paid amount
                 item.FreeCouponPrice.ToString("F2"),     // free amount
-                item.TotalPrice.ToString("F2")           // grand total
+                item.GrandTotalPrice.ToString("F2")      // ✅ เปลี่ยนจาก TotalPrice เป็น GrandTotalPrice
             };
             csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
         }
-    }
-    else if (ReportMode == ReportModes.RemainingCoupons)
-    {
-        // ⭐ เพิ่มคำอธิบายให้ชัดเจนว่าช่วงวันที่หมายถึงอะไร
-        csvContent.AppendLine($"\"หมายเหตุ: 'ขายแล้ว' = จำนวนคูปองที่ขายในช่วงวันที่ {StartDate?.ToString("dd/MM/yyyy")} - {EndDate?.ToString("dd/MM/yyyy")}\"");
-        csvContent.AppendLine();  // Empty line
         
-        var headers = new[] { "รหัส", "ชื่อคูปอง", "สาขา", "จำนวนรวม", "ขายแล้ว (ในช่วงวันที่)", "คงเหลือ", "ราคา/ใบ" };
-        csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
-
-        foreach (var item in AllResults)
-        {
-            var row = new[]
+        // ✅ เพิ่มแถวสรุปท้ายตาราง
+        csvContent.AppendLine(); // Empty line before summary
+        csvContent.AppendLine($"\"รวม\",\"\",\"\",\"\"," +
+            $"\"{AllResults.Sum(x => x.Quantity)}\"," +
+            $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
+            $"\"{AllResults.Sum(x => x.TotalCouponCount)}\"," +
+            $"\"{AllResults.Sum(x => x.PaidCouponPrice):F2}\"," +
+            $"\"{AllResults.Sum(x => x.FreeCouponPrice):F2}\"," +
+            $"\"{AllResults.Sum(x => x.GrandTotalPrice):F2}\"");
+    }
+            else if (ReportMode == ReportModes.RemainingCoupons)
             {
+                // Match XAML RemainingCoupons columns
+                var headers = new[]
+                {
+            "รหัสคูปอง", "ชื่อคูปอง", "สาขา", "ราคา",
+            "จำนวนทั้งหมด", "จำนวนที่ขายแล้ว", "จำนวนคงเหลือ",
+            "งานที่ออกขาย"
+        };
+                csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
+
+                foreach (var item in AllResults)
+                {
+                    var row = new[]
+                    {
                 item.CouponCode,
                 item.CouponName,
                 item.BranchTypeName,
+                item.UnitPrice.ToString("F2"),
                 item.TotalQuantity.ToString(),
                 item.SoldQuantity.ToString(),
                 item.RemainingQuantity.ToString(),
-                item.UnitPrice.ToString("F2")
+                item.SaleEventName
             };
-            csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
-        }
-    }
+                    csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
+                }
 
-    // Add summary at the end
-    csvContent.AppendLine();
-    csvContent.AppendLine($"\"สรุป\"");
-    csvContent.AppendLine($"\"จำนวนรายการ: {TotalItems:N0}\"");
-    csvContent.AppendLine($"\"ยอดรวมสุทธิ: {AllResults.Sum(x => x.TotalPrice - x.Discount):N2} บาท\"");
+                // เพิ่มแถวสรุปท้ายตาราง
+                csvContent.AppendLine(); // Empty line before summary
+                csvContent.AppendLine($"\"รวม\",\"\",\"\"," +
+                    $"\"{AllResults.Sum(x => x.UnitPrice * x.TotalQuantity):F2}\"," +
+                    $"\"{AllResults.Sum(x => x.TotalQuantity)}\"," +
+                    $"\"{AllResults.Sum(x => x.SoldQuantity)}\"," +
+                    $"\"{AllResults.Sum(x => x.RemainingQuantity)}\"," +
+                    $"\"\"");
+            }
 
-    await FileIO.WriteTextAsync(file, csvContent.ToString(), Windows.Storage.Streams.UnicodeEncoding.Utf8);
+            await FileIO.WriteTextAsync(file, csvContent.ToString(), Windows.Storage.Streams.UnicodeEncoding.Utf8);
 }
 
         public event PropertyChangedEventHandler? PropertyChanged;

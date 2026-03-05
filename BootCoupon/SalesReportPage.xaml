@@ -166,12 +166,12 @@
                     <Button x:Name="ExportExcelButton" Content="ส่งออก Excel (CSV)" 
                             Click="ExportExcelButton_Click"
                             MinWidth="140"/>
-                    <Button x:Name="ExportPdfButton" Content="ส่งออก PDF (Print to PDF)" 
+                    <!--<Button x:Name="ExportPdfButton" Content="ส่งออก PDF (Print to PDF)" 
                             Click="ExportPdfButton_Click"
                             MinWidth="160"/>
                     <Button x:Name="PrintButton" Content="พิมพ์" 
                             Click="PrintButton_Click"
-                            MinWidth="120"/>
+                            MinWidth="120"/>-->
                 </StackPanel>
             </Grid>
         </Border>
@@ -188,11 +188,36 @@
                 </Grid.RowDefinitions>
 
                 <!-- Summary -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="30" Margin="0,0,0,15">
+                <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="8" Margin="0,0,0,15">
+                    <!-- บรรทัดแรก: จำนวนรายการ -->
                     <TextBlock Text="{x:Bind ViewModel.TotalRecordsText, Mode=OneWay}" 
-                               FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center"/>
+                               FontWeight="SemiBold" 
+                               HorizontalAlignment="Left" 
+                               TextAlignment="Left"/>
+                    
+                    <!-- ✅ แสดงรายละเอียดราคาเฉพาะรายงาน ByReceipt, CancelledReceipts, SummaryByCoupon -->
+                    <StackPanel Orientation="Horizontal" Spacing="30">
+                        <!-- ราคาคูปองฟรี -->
+                        <TextBlock Text="{x:Bind ViewModel.TotalFreeCouponPriceText, Mode=OneWay}" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="Orange"/>
+                        
+                        <!-- ราคาที่จ่าย -->
+                        <TextBlock Text="{x:Bind ViewModel.TotalPaidCouponPriceText, Mode=OneWay}" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="Green"/>
+                        
+                        <!-- มูลค่ารวมสุทธิ -->
+                        <TextBlock Text="{x:Bind ViewModel.TotalGrandPriceText, Mode=OneWay}" 
+                                   FontWeight="Bold" 
+                                   Foreground="{ThemeResource SystemAccentColor}" 
+                                   FontSize="16"/>
+                    </StackPanel>
+                    
+                    <!-- ✅ สำหรับรายงานอื่นๆ แสดงยอดรวมเดิม -->
                     <TextBlock Text="{x:Bind ViewModel.TotalAmountText, Mode=OneWay}" 
-                               FontWeight="SemiBold" Foreground="{ThemeResource SystemAccentColor}" HorizontalAlignment="Center" TextAlignment="Center"/>
+                               FontWeight="SemiBold" 
+                               Foreground="{ThemeResource SystemAccentColor}"/>
                 </StackPanel>
 
                 <!-- Job selector in header (filters receipts by selected job) + paging controls -->
