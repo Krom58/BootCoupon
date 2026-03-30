@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "CouponManagement (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "CouponManagement (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

@@ -1,0 +1,858 @@
+﻿using CouponManagement.Shared.Models;
+using CouponManagement.Shared.Services;
+using CouponManagement.Dialogs;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Navigation;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading.Tasks;
+using Windows.Foundation;
+using Windows.Foundation.Collections;
+using Microsoft.UI.Dispatching; // เพิ่ม namespace สำหรับ DispatcherQueue
+using CouponManagement.Shared; // Added to resolve CouponContext symbol
+using Microsoft.EntityFrameworkCore; // <--- Add this to enable EF Core async extensions (ToListAsync, CountAsync, etc.)
+
+namespace CouponManagement
+{
+    /// <summary>
+    /// An empty page that can be used on its own or navigated to within a Frame.
+    /// </summary>
+    public class StatusColorConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            var color = value?.ToString() switch
+            {
+                "ใช้งานได้" => Microsoft.UI.Colors.Green,
+                "ไม่ใช้งาน" => Microsoft.UI.Colors.Gray,
+                "หมดอายุ" => Microsoft.UI.Colors.Red,
+                "ยังไม่เริ่ม" => Microsoft.UI.Colors.Orange,
+                _ => Microsoft.UI.Colors.Gray
+            };
+
+            return new SolidColorBrush(color);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class CurrencyConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is decimal price)
+                return $"{price:N2} บาท";
+            return "0.00 บาท";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class DateConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is DateTime date)
+                return date.ToString("dd/MM/yyyy");
+            return "";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class ActiveToggleConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            return (bool)value ? "ปิดใช้งาน" : "เปิดใช้งาน";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    // New converter to map bool -> Visibility
+    public class BoolToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is bool b && b)
+                return Visibility.Visible;
+            return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            if (value is Visibility v)
+                return v == Visibility.Visible;
+            return false;
+        }
+    }
+
+    public sealed partial class CouponDefinitionPage : Page
+    {
+        private readonly CouponDefinitionService _service;
+        private readonly CouponService _couponService;
+        public ObservableCollection<CouponDefinition> CouponDefinitions { get; set; }
+
+        // สำหรับแสดงข้อความสถานะ
+        private InfoBar? _statusInfoBar;
+
+        // สำหรับบันทึกตำแหน่ง scroll
+        private double _savedScrollPosition = 0;
+        private int? _selectedCouponDefinitionId = null;
+
+        // Suppress selection changed while populating the TypeFilterComboBox
+        private bool _suppressTypeFilterChanged = false;
+        // Suppress selection changed while populating the SaleEventFilterComboBox
+        private bool _suppressSaleEventFilterChanged = false;
+
+        public CouponDefinitionPage()
+        {
+            this.InitializeComponent();
+
+            // Add converters to resources
+            this.Resources["StatusColorConverter"] = new StatusColorConverter();
+            this.Resources["CurrencyConverter"] = new CurrencyConverter();
+            this.Resources["DateConverter"] = new DateConverter();
+            this.Resources["ActiveToggleConverter"] = new ActiveToggleConverter();
+            this.Resources["BoolToVisibilityConverter"] = new BoolToVisibilityConverter();
+
+            _service = new CouponDefinitionService();
+            _couponService = new CouponService();
+            CouponDefinitions = new ObservableCollection<CouponDefinition>();
+            CouponDefinitionsListView.ItemsSource = CouponDefinitions;
+
+            // เพิ่ม InfoBar สำหรับแสดงข้อความสถานะ
+            CreateStatusInfoBar();
+
+            Loaded += CouponDefinitionPage_Loaded;
+        }
+
+        private void CreateStatusInfoBar()
+        {
+            _statusInfoBar = new InfoBar
+            {
+                IsOpen = false,
+                Margin = new Thickness(8),
+                VerticalAlignment = VerticalAlignment.Top,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+
+            // หา main grid จาก XAML
+            if (Content is Grid mainGrid)
+            {
+                // เพิ่ม row definition สำหรับ InfoBar
+                mainGrid.RowDefinitions.Insert(0, new RowDefinition { Height = GridLength.Auto });
+
+                // ปรับ row index ของ element อื่นๆ
+                foreach (FrameworkElement child in mainGrid.Children)
+                {
+                    var currentRow = Grid.GetRow(child);
+                    Grid.SetRow(child, currentRow + 1);
+                }
+
+                // เพิ่ม InfoBar
+                Grid.SetRow(_statusInfoBar, 0);
+                mainGrid.Children.Insert(0, _statusInfoBar);
+            }
+        }
+
+        private void ShowStatusMessage(string message, InfoBarSeverity severity = InfoBarSeverity.Informational, int autoHideDelayMs = 3000)
+        {
+            if (_statusInfoBar == null) return;
+
+            _statusInfoBar.Message = message;
+            _statusInfoBar.Severity = severity;
+            _statusInfoBar.IsOpen = true;
+
+            // Auto hide after delay
+            if (autoHideDelayMs > 0)
+            {
+                var timer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(autoHideDelayMs)
+                };
+                timer.Tick += (s, e) =>
+                {
+                    timer.Stop();
+                    if (_statusInfoBar != null)
+                        _statusInfoBar.IsOpen = false;
+                };
+                timer.Start();
+            }
+        }
+
+        private void ShowSuccessMessage(string message)
+        {
+            ShowStatusMessage(message, InfoBarSeverity.Success);
+        }
+
+        private void ShowErrorMessage(string message)
+        {
+            ShowStatusMessage(message, InfoBarSeverity.Error, 5000); // Error แสดงนานกว่า
+        }
+
+        private void ShowWarningMessage(string message)
+        {
+            ShowStatusMessage(message, InfoBarSeverity.Warning);
+        }
+
+        private async void CouponDefinitionPage_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Load coupon types and sale events from database first, then data
+            await LoadBranchesAndSaleEventsAsync();
+            await LoadDataAsync();
+        }
+
+        private async Task LoadDataAsync()
+        {
+            try
+            {
+                var typeFilter = GetSelectedTag(TypeFilterComboBox);
+                var statusFilter = GetSelectedTag(StatusFilterComboBox);
+                var saleEventFilter = GetSelectedTag(SaleEventFilterComboBox);
+                var searchText = SearchTextBox.Text;
+
+                var data = await _service.GetAllAsync(typeFilter, statusFilter, searchText, saleEventFilter);
+
+                CouponDefinitions.Clear();
+                foreach (var item in data)
+                {
+                    // Load statistics for each limited coupon definition
+                    if (item.IsLimited)
+                    {
+                        try
+                        {
+                            var stats = await _service.GetStatisticsByDefinitionIdAsync(item.Id);
+                            item.StatTotalGenerated = stats.TotalGenerated;
+                            item.StatRemaining = stats.TotalRemaining;
+                            item.StatSold = stats.TotalSold;
+                            item.StatUsed = stats.TotalUsed;
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error loading statistics for CouponDefinition {item.Id}: {ex.Message}");
+                            // Set to 0 if error
+                            item.StatTotalGenerated = 0;
+                            item.StatRemaining = 0;
+                            item.StatSold = 0;
+                            item.StatUsed = 0;
+                        }
+                    }
+
+                    CouponDefinitions.Add(item);
+                }
+
+                // กลับไปยังตำแหน่ง scroll ที่บันทึกไว้
+                await RestoreScrollPositionAsync();
+            }
+            catch (OverflowException ex)
+            {
+                ShowErrorMessage($"เกิดข้อผิดพลาดด้านตัวเลข: ราคาหรือจำนวนเกินขีดจำกัด - {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                ShowErrorMessage($"เกิดข้อผิดพลาดในการโหลดข้อมูล: {ex.Message}");
+            }
+        }
+
+        private string GetSelectedTag(ComboBox comboBox)
+        {
+            return (comboBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "ALL";
+        }
+
+        private async Task LoadBranchesAndSaleEventsAsync()
+        {
+            try
+            {
+                _suppressTypeFilterChanged = true;
+                _suppressSaleEventFilterChanged = true;
+
+                var types = await _couponService.GetAllBranchesAsync();
+
+                TypeFilterComboBox.Items.Clear();
+                TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = "ทั้งหมด", Tag = "ALL" });
+
+                if (types.Count > 0)
+                {
+                    foreach (var t in types)
+                    {
+                        TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = t.Name, Tag = t.Id.ToString() });
+                    }
+                }
+                else
+                {
+                    TypeFilterComboBox.Items.Add(new ComboBoxItem { Content = "(ไม่มีสาขา)", Tag = "ALL" });
+                }
+
+                if (TypeFilterComboBox.Items.Count > 0)
+                {
+                    TypeFilterComboBox.SelectedIndex = 0;
+                }
+
+                // Load sale events
+                using var ctx = new CouponContext();
+                var events = await ctx.SaleEvents
+                    .AsNoTracking()
+                    .OrderBy(e => e.Name)
+                    .ToListAsync();
+
+                SaleEventFilterComboBox.Items.Clear();
+                SaleEventFilterComboBox.Items.Add(new ComboBoxItem { Content = "ทั้งหมด", Tag = "ALL" });
+
+                if (events.Count > 0)
+                {
+                    foreach (var ev in events)
+                    {
+                        SaleEventFilterComboBox.Items.Add(new ComboBoxItem { Content = ev.Name, Tag = ev.Id.ToString() });
+                    }
+                }
+                else
+                {
+                    SaleEventFilterComboBox.Items.Add(new ComboBoxItem { Content = "(ไม่มีชื่องาน)", Tag = "ALL" });
+                }
+
+                if (SaleEventFilterComboBox.Items.Count > 0)
+                {
+                    SaleEventFilterComboBox.SelectedIndex = 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowErrorMessage($"ไม่สามารถโหลดข้อมูลสาขาหรือชื่องานได้: {ex.Message}");
+            }
+            finally
+            {
+                _suppressTypeFilterChanged = false;
+                _suppressSaleEventFilterChanged = false;
+            }
+        }
+
+        private async void TypeFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressTypeFilterChanged) return;
+
+            if (IsLoaded)
+                await LoadDataAsync();
+        }
+
+        private async void SaleEventFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressSaleEventFilterChanged) return;
+
+            if (IsLoaded)
+                await LoadDataAsync();
+        }
+
+        private async void StatusFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (IsLoaded)
+                await LoadDataAsync();
+        }
+
+        private async void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (IsLoaded)
+                await LoadDataAsync();
+        }
+
+        private async void SearchButton_Click(object sender, RoutedEventArgs e)
+        {
+            await LoadDataAsync();
+        }
+
+        private async void RefreshButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowStatusMessage("กำลังรีเฟรชข้อมูล...", InfoBarSeverity.Informational);
+            await LoadDataAsync();
+            ShowSuccessMessage("รีเฟรชข้อมูลเรียบร้อย");
+        }
+
+        private async void CreateButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Disable button ระหว่างเปิด dialog
+                CreateButton.IsEnabled = false;
+                CreateButton.Content = "กำลังเปิด...";
+
+                var dialog = new CouponDefinitionDialog();
+                dialog.XamlRoot = this.XamlRoot;
+
+                var result = await dialog.ShowAsync();
+
+                if (dialog.WasSaved)
+                {
+                    ShowSuccessMessage("สร้างคำนิยามคูปองเรียบร้อย");
+                }
+
+                // Always refresh data after dialog closes to ensure UI is up-to-date
+                await LoadDataAsync();
+            }
+            catch (OverflowException ex)
+            {
+                ShowErrorMessage($"ข้อผิดพลาดด้านตัวเลข: ราคาหรือจำนวนเกินขีดจำกัด - {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                ShowErrorMessage($"เกิดข้อผิดพลาดในการสร้างคูปอง: {ex.Message}");
+            }
+            finally
+            {
+                // Reset button
+                CreateButton.IsEnabled = true;
+                CreateButton.Content = "สร้างใหม่";
+            }
+        }
+
+        private async void EditButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is CouponDefinition definition)
+            {
+                try
+                {
+                    // บันทึกตำแหน่ง scroll ปัจจุบันและ ID ที่เลือก
+                    SaveScrollPosition();
+                    _selectedCouponDefinitionId = definition.Id;
+
+                    // Disable button ระหว่างเปิด dialog
+                    button.IsEnabled = false;
+                    var originalContent = button.Content;
+                    button.Content = "กำลังเปิด...";
+
+                    var dialog = new CouponDefinitionDialog(definition);
+                    dialog.XamlRoot = this.XamlRoot;
+
+                    var result = await dialog.ShowAsync();
+
+                    if (dialog.WasSaved)
+                    {
+                        ShowSuccessMessage("แก้ไขคำนิยามคูปองเรียบร้อย");
+                    }
+
+                    // Always refresh after dialog closes to ensure latest data
+                    await LoadDataAsync();
+                }
+                catch (OverflowException ex)
+                {
+                    ShowErrorMessage($"ข้อผิดพลาดด้านตัวเลข: ราคาหรือจำนวนเกินขีดจำกัด - {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    ShowErrorMessage($"เกิดข้อผิดพลาดในการแก้ไขคูปอง: {ex.Message}");
+                }
+                finally
+                {
+                    // Reset button
+                    button.IsEnabled = true;
+                    button.Content = "แก้ไข";
+                }
+            }
+        }
+
+        private async void GenerateButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is CouponDefinition definition)
+            {
+                // Prevent generation for unlimited coupons
+                if (!definition.IsLimited)
+                {
+                    ShowWarningMessage("คูปองนี้เป็นแบบไม่จำกัดจำนวน — ไม่มีรหัสให้สร้าง");
+                    return;
+                }
+
+                try
+                {
+                    // บันทึกตำแหน่ง scroll ปัจจุบันและ ID ที่เลือก
+                    SaveScrollPosition();
+                    _selectedCouponDefinitionId = definition.Id;
+
+                    // Disable button ระหว่างเปิด dialog
+                    button.IsEnabled = false;
+                    var originalContent = button.Content;
+                    button.Content = "กำลังเปิด...";
+
+                    var dialog = new GenerateCouponDialog(definition);
+                    dialog.XamlRoot = this.XamlRoot;
+
+                    var result = await dialog.ShowAsync();
+                    if (result == ContentDialogResult.Primary)
+                    {
+                        ShowSuccessMessage("สร้างคูปองเรียบร้อย");
+                        // Refresh data immediately to update statistics
+                        await LoadDataAsync();
+                    }
+                    else
+                    {
+                        // If dialog was closed without saving, still refresh to ensure UI is up-to-date
+                        await LoadDataAsync();
+                    }
+                }
+                catch (OverflowException ex)
+                {
+                    ShowErrorMessage($"ข้อผิดพลาดด้านตัวเลข: ราคาหรือจำนวนเกินขีดจำกัด - {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    ShowErrorMessage($"เกิดข้อผิดพลาดในการสร้างคูปอง: {ex.Message}");
+                }
+                finally
+                {
+                    // Reset button
+                    button.IsEnabled = true;
+                    button.Content = "สร้างคูปอง";
+                }
+            }
+        }
+
+        private async void ActiveToggle_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is ToggleButton toggle && toggle.Tag is CouponDefinition definition)
+            {
+                var originalContent = toggle.Content;
+                var newState = toggle.IsChecked ?? false;
+
+                try
+                {
+                    // แสดงสถานะกำลังทำงาน
+                    toggle.IsEnabled = false;
+                    toggle.Content = "กำลังประมวลผล...";
+
+                    ShowStatusMessage($"กำลัง{(newState ? "เปิด" : "ปิด")}การใช้งานคูปอง...", InfoBarSeverity.Informational);
+
+                    var success = await _service.SetActiveAsync(definition.Id, newState, Environment.UserName);
+
+                    if (success)
+                    {
+                        ShowSuccessMessage($"{(newState ? "เปิด" : "ปิด")}การใช้งานคูปองเรียบร้อย");
+                        await LoadDataAsync();
+                    }
+                    else
+                    {
+                        ShowErrorMessage("ไม่สามารถเปลี่ยนสถานะได้ - ไม่พบข้อมูลคูปอง");
+                        toggle.IsChecked = !newState; // Revert
+                    }
+                }
+                catch (OverflowException ex)
+                {
+                    ShowErrorMessage($"ข้อผิดพลาดด้านตัวเลข: ราคาหรือจำนวนเกินขีดจำกัด - {ex.Message}");
+                    toggle.IsChecked = !newState; // Revert
+                }
+                catch (Exception ex)
+                {
+                    ShowErrorMessage($"เกิดข้อผิดพลาดในการเปลี่ยนสถานะ: {ex.Message}");
+                    toggle.IsChecked = !newState; // Revert
+                }
+                finally
+                {
+                    // Reset toggle
+                    toggle.IsEnabled = true;
+                    toggle.Content = originalContent;
+                }
+            }
+        }
+
+        // New: Delete handler added to support deleting a coupon definition and its generated coupons
+        private async void DeleteButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button button || button.Tag is not CouponDefinition definition)
+                return;
+
+            try
+            {
+                // save scroll + selected id
+                SaveScrollPosition();
+                _selectedCouponDefinitionId = definition.Id;
+
+                // disable UI while preparing
+                button.IsEnabled = false;
+                var originalContent = button.Content;
+                button.Content = "กำลังโหลด...";
+
+                using var context = new CouponContext();
+
+                // Load only UNSOLD generated coupons (ReceiptItemId == null)
+                // Ordered ascending (จากน้อยไปมาก) by GeneratedCode, then by CreatedAt
+                var unsoldCoupons = await context.GeneratedCoupons
+                    .Where(gc => gc.CouponDefinitionId == definition.Id && gc.ReceiptItemId == null)
+                    .OrderBy(gc => gc.GeneratedCode)
+                    .ThenBy(gc => gc.CreatedAt)
+                    .ToListAsync();
+
+                if (!unsoldCoupons.Any())
+                {
+                    // nothing to delete
+                    button.IsEnabled = true;
+                    button.Content = originalContent;
+
+                    var dlg = new ContentDialog
+                    {
+                        Title = "ไม่มีคูปองที่ยังไม่ได้ขาย",
+                        Content = "ไม่มีคูปองที่สร้างจากคำนิยามนี้ที่ยังไม่ได้ขาย/ยังไม่ได้จัดสรรให้ลบ",
+                        CloseButtonText = "ตกลง",
+                        XamlRoot = this.XamlRoot
+                    };
+                    await dlg.ShowAsync();
+                    return;
+                }
+
+                // Build UI for selection
+                var rootPanel = new StackPanel { Spacing = 8, MaxWidth = 640 };
+
+                rootPanel.Children.Add(new TextBlock
+                {
+                    Text = $"เลือกคูปองที่ต้องการลบจากคำนิยาม '{definition.Name}' (เฉพาะคูปองที่ยังไม่ได้ขายเท่านั้น)",
+                    TextWrapping = TextWrapping.Wrap
+                });
+
+                var selectAll = new CheckBox { Content = "เลือกทั้งหมด", IsChecked = true, Margin = new Thickness(0, 6, 0, 6) };
+                rootPanel.Children.Add(selectAll);
+
+                var listPanel = new StackPanel { Spacing = 4 };
+                var checkboxList = new List<CheckBox>();
+
+                foreach (var gc in unsoldCoupons)
+                {
+                    var display = $"{gc.GeneratedCode}  ({gc.CreatedAt:dd/MM/yyyy HH:mm})";
+                    var cb = new CheckBox
+                    {
+                        Content = display,
+                        Tag = gc.Id,
+                        IsChecked = true
+                    };
+                    checkboxList.Add(cb);
+                    listPanel.Children.Add(cb);
+                }
+
+                var scroll = new ScrollViewer
+                {
+                    Content = listPanel,
+                    MaxHeight = 360,
+                    HorizontalScrollBarVisibility = Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Disabled,
+                    VerticalScrollBarVisibility = Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Auto
+                };
+                rootPanel.Children.Add(scroll);
+
+                // selectAll logic
+                selectAll.Checked += (_, _) => checkboxList.ForEach(c => c.IsChecked = true);
+                selectAll.Unchecked += (_, _) => checkboxList.ForEach(c => c.IsChecked = false);
+
+                // Confirmation dialog with selection UI
+                var confirmDialog = new ContentDialog
+                {
+                    Title = "ลบคูปองที่เลือก",
+                    Content = rootPanel,
+                    PrimaryButtonText = "ลบที่เลือก",
+                    CloseButtonText = "ยกเลิก",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
+
+                // Show dialog
+                var result = await confirmDialog.ShowAsync();
+                if (result != ContentDialogResult.Primary)
+                {
+                    button.IsEnabled = true;
+                    button.Content = originalContent;
+                    return;
+                }
+
+                // Collect selected ids
+                var selectedIds = checkboxList
+                    .Where(cb => cb.IsChecked == true)
+                    .Select(cb => (int)cb.Tag!)
+                    .ToList();
+
+                if (selectedIds.Count == 0)
+                {
+                    // nothing selected
+                    button.IsEnabled = true;
+                    button.Content = originalContent;
+
+                    var noneDlg = new ContentDialog
+                    {
+                        Title = "ไม่ได้เลือกคูปอง",
+                        Content = "กรุณาเลือกคูปองอย่างน้อย 1 รายการเพื่อลบ",
+                        CloseButtonText = "ตกลง",
+                        XamlRoot = this.XamlRoot
+                    };
+                    await noneDlg.ShowAsync();
+                    return;
+                }
+
+                // Perform delete in a transaction
+                button.Content = "กำลังลบ...";
+                ShowStatusMessage("กำลังลบคูปองที่เลือก...", InfoBarSeverity.Informational);
+
+                using var transaction = await context.Database.BeginTransactionAsync();
+                try
+                {
+                    var toDelete = await context.GeneratedCoupons
+                        .Where(gc => selectedIds.Contains(gc.Id))
+                        .ToListAsync();
+
+                    if (toDelete.Any())
+                    {
+                        context.GeneratedCoupons.RemoveRange(toDelete);
+                        await context.SaveChangesAsync();
+                    }
+
+                    await transaction.CommitAsync();
+
+                    ShowSuccessMessage($"ลบคูปองที่เลือกเรียบร้อย: {toDelete.Count} รายการ");
+                    await LoadDataAsync();
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    ShowErrorMessage($"เกิดข้อผิดพลาดขณะลบ: {ex.Message}");
+                }
+                finally
+                {
+                    button.IsEnabled = true;
+                    button.Content = originalContent;
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowErrorMessage($"เกิดข้อผิดพลาด: {ex.Message}");
+                if (sender is Button btn)
+                {
+                    btn.IsEnabled = true;
+                    btn.Content = "ลบ";
+                }
+            }
+        }
+
+        // Back button handler
+        private void BackButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (Frame.CanGoBack)
+            {
+                Frame.GoBack();
+            }
+            else
+            {
+                Frame.Navigate(typeof(CouponDefinitionPage));
+            }
+        }
+
+        // บันทึกตำแหน่ง scroll ปัจจุบัน
+        private void SaveScrollPosition()
+        {
+            try
+            {
+                var scrollViewer = FindScrollViewer(CouponDefinitionsListView);
+                if (scrollViewer != null)
+                {
+                    _savedScrollPosition = scrollViewer.VerticalOffset;
+                    System.Diagnostics.Debug.WriteLine($"Saved scroll position: {_savedScrollPosition}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error saving scroll position: {ex.Message}");
+            }
+        }
+
+        // กลับไปยังตำแหน่ง scroll ที่บันทึกไว้
+        private async Task RestoreScrollPositionAsync()
+        {
+            try
+            {
+                // รอให้ UI อัพเดทก่อน
+                await Task.Delay(100);
+
+                await this.DispatcherQueue.EnqueueAsync(() =>
+                {
+                    var scrollViewer = FindScrollViewer(CouponDefinitionsListView);
+                    if (scrollViewer != null && _savedScrollPosition > 0)
+                    {
+                        scrollViewer.ChangeView(null, _savedScrollPosition, null, disableAnimation: false);
+                        System.Diagnostics.Debug.WriteLine($"Restored scroll position: {_savedScrollPosition}");
+
+                        // ถ้ามี ID ที่เลือกไว้ ให้ highlight รายการนั้น
+                        if (_selectedCouponDefinitionId.HasValue)
+                        {
+                            var selectedItem = CouponDefinitions.FirstOrDefault(c => c.Id == _selectedCouponDefinitionId.Value);
+                            if (selectedItem != null)
+                            {
+                                CouponDefinitionsListView.SelectedItem = selectedItem;
+                                CouponDefinitionsListView.ScrollIntoView(selectedItem);
+                            }
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error restoring scroll position: {ex.Message}");
+            }
+        }
+
+        // หา ScrollViewer จาก ListView
+        private ScrollViewer? FindScrollViewer(DependencyObject element)
+        {
+            if (element == null) return null;
+
+            if (element is ScrollViewer scrollViewer)
+                return scrollViewer;
+
+            int childCount = VisualTreeHelper.GetChildrenCount(element);
+            for (int i = 0; i < childCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(element, i);
+                var result = FindScrollViewer(child);
+                if (result != null)
+                    return result;
+            }
+
+            return null;
+        }
+    }
+
+    // Extension method สำหรับ DispatcherQueue
+    public static class DispatcherQueueExtensions
+    {
+        public static Task EnqueueAsync(this DispatcherQueue dispatcher, Action action)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+
+            dispatcher.TryEnqueue(() =>
+              {
+                  try
+                  {
+                      action();
+                      tcs.SetResult(true);
+                  }
+                  catch (Exception ex)
+                  {
+                      tcs.SetException(ex);
+                  }
+              });
+
+            return tcs.Task;
+        }
+    }
+}

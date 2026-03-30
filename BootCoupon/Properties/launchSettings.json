@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "BootCoupon (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "BootCoupon (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

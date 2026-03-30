@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page x:Class="CouponManagement.CouponDefinitionPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="using:CouponManagement.Shared.Models"
+        xmlns:local="using:CouponManagement"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Page.Resources>
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+
+        <Style x:Key="PreviewTextStyle" TargetType="TextBlock">
+            <Setter Property="FontStyle" Value="Italic"/>
+            <Setter Property="Foreground" Value="{ThemeResource SystemColorGrayTextBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- Register converter so StaticResource can find it -->
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{ThemeResource SystemAccentColor}" Padding="20,15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Back button -->
+                <Button x:Name="BackButton"
+                        Grid.Column="0"
+                        Background="Transparent"
+                        Click="BackButton_Click"
+                        ToolTipService.ToolTip="กลับ"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <SymbolIcon Symbol="Back" Foreground="White"/>
+                    </StackPanel>
+                </Button>
+
+                <TextBlock Grid.Column="1"
+                           Text="จัดการคำนิยามคูปอง" 
+                           FontSize="28" 
+                           FontWeight="Bold" 
+                           Foreground="White"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,0"/>
+            </Grid>
+        </Border>
+
+        <!-- Toolbar -->
+        <Border Grid.Row="1" Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}" Padding="15,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Filter Type -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,15,0">
+                    <TextBlock Text="สาขา:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <ComboBox x:Name="TypeFilterComboBox" Width="150" SelectionChanged="TypeFilterComboBox_SelectionChanged">
+                        <ComboBoxItem Content="ทั้งหมด" Tag="ALL" IsSelected="True"/>
+                        <ComboBoxItem Content="คูปอง" Tag="COUPON"/>
+                        <ComboBoxItem Content="ซื้อ X แถม Y" Tag="BUY_X_FREE_Y"/>
+                        <ComboBoxItem Content="ซื้อ X + Y" Tag="BUY_X_PLUS_Y"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- Filter Status -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,15,0">
+                    <TextBlock Text="สถานะ:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <ComboBox x:Name="StatusFilterComboBox" Width="120" SelectionChanged="StatusFilterComboBox_SelectionChanged">
+                        <ComboBoxItem Content="ทั้งหมด" Tag="ALL" IsSelected="True"/>
+                        <ComboBoxItem Content="ใช้งานได้" Tag="ACTIVE"/>
+                        <ComboBoxItem Content="ไม่ใช้งาน" Tag="INACTIVE"/>
+                        <ComboBoxItem Content="หมดอายุ" Tag="EXPIRED"/>
+                        <ComboBoxItem Content="ยังไม่เริ่ม" Tag="UPCOMING"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- Search + SaleEvent filter -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,15,0" VerticalAlignment="Center" Spacing="8">
+                    <TextBlock Text="ค้นหา:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBox x:Name="SearchTextBox" Width="200" PlaceholderText="รหัสหรือชื่อคูปอง" TextChanged="SearchTextBox_TextChanged"/>
+                    <TextBlock Text="ชื่องาน:" VerticalAlignment="Center" Margin="8,0,5,0"/>
+                    <ComboBox x:Name="SaleEventFilterComboBox" Width="200" SelectionChanged="SaleEventFilterComboBox_SelectionChanged">
+                        <!-- Items populated dynamically -->
+                        <ComboBoxItem Content="ทั้งหมด" Tag="ALL" IsSelected="True"/>
+                    </ComboBox>
+                    <Button Content="🔍" Click="SearchButton_Click"/>
+                </StackPanel>
+
+                <!-- Actions -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal">
+                    <Button x:Name="CreateButton" Content="สร้างใหม่" 
+                            Style="{StaticResource AccentButtonStyle}" 
+                            Margin="0,0,10,0"
+                            Click="CreateButton_Click"/>
+                    <Button x:Name="RefreshButton" Content="รีเฟรช" Click="RefreshButton_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Data Grid -->
+        <ScrollViewer Grid.Row="2" ZoomMode="Disabled" HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto">
+            <ListView x:Name="CouponDefinitionsListView" SelectionMode="Single">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="models:CouponDefinition">
+                        <Border Style="{StaticResource CardBorderStyle}" Margin="8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Content -->
+                                <StackPanel Grid.Column="0" Spacing="8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="{x:Bind Code}" FontWeight="Bold" FontSize="16"/>
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Name}" FontSize="14" Margin="12,0,0,0"/>
+                                        <Border Grid.Column="2" Background="{x:Bind StatusText, Converter={StaticResource StatusColorConverter}}" 
+                                                CornerRadius="12" Padding="8,4">
+                                            <TextBlock Text="{x:Bind StatusText}" FontSize="12" Foreground="White"/>
+                                        </Border>
+                                    </Grid>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,20,0">
+                                            <TextBlock Text="ประเภท: " FontWeight="SemiBold" Margin="0,0,8,0"/>
+                                            <TextBlock Text="{x:Bind TypeDisplayText}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,20,0">
+                                            <TextBlock Text="ราคา: " FontWeight="SemiBold" Margin="0,0,8,0"/>
+                                            <TextBlock Text="{x:Bind Price, Converter={StaticResource CurrencyConverter}}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,20,0">
+                                            <TextBlock Text="วันหมดอายุ: " FontWeight="SemiBold" Margin="0,0,8,0"/>
+                                            <TextBlock Text="{x:Bind ValidTo, Converter={StaticResource DateConverter}}"/>
+                                        </StackPanel>
+
+                                        <!-- NEW: Sale event display -->
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                            <TextBlock Text="ชื่องานที่ออกขาย: " FontWeight="SemiBold" Margin="0,0,8,0"/>
+                                            <TextBlock Text="{x:Bind SaleEventName}" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <StackPanel Orientation="Horizontal" Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Text="รหัสถัดไป: " FontWeight="SemiBold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{x:Bind CodeGenerator.NextCode}"/>
+                                        <TextBlock Text=" | สร้างแล้ว: " Margin="8,0,8,0"/>
+                                        <TextBlock Text="{x:Bind CodeGenerator.GeneratedCount}"/>
+                                        <TextBlock Text=" คูปอง"/>
+                                    </StackPanel>
+
+                                    <!-- Statistics for Limited Coupons -->
+                                    <Grid Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}" Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,20,0">
+                                            <TextBlock Text="📊 สร้างแล้ว: " FontWeight="SemiBold" Foreground="{ThemeResource SystemAccentColor}"/>
+                                            <TextBlock Text="{x:Bind StatTotalGenerated}" Foreground="{ThemeResource SystemAccentColor}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,20,0">
+                                            <TextBlock Text="📦 คงเหลือ: " FontWeight="SemiBold" Foreground="Green"/>
+                                            <TextBlock Text="{x:Bind StatRemaining}" Foreground="Green"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,20,0">
+                                            <TextBlock Text="💰 ขายแล้ว: " FontWeight="SemiBold" Foreground="Orange"/>
+                                            <TextBlock Text="{x:Bind StatSold}" Foreground="Orange"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                            <TextBlock Text="✅ ใช้แล้ว: " FontWeight="SemiBold" Foreground="DarkCyan"/>
+                                            <TextBlock Text="{x:Bind StatUsed}" Foreground="DarkCyan"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Description preview -->
+                                    <TextBlock Text="{x:Bind DescriptionPreview}" Style="{StaticResource PreviewTextStyle}"/>
+                                </StackPanel>
+
+                                <!-- Actions -->
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <Button Content="แก้ไข" 
+                                            Click="EditButton_Click"
+                                            Tag="{x:Bind}"/>
+                                    <Button Content="สร้างคูปอง" 
+        Style="{StaticResource AccentButtonStyle}"
+        Click="GenerateButton_Click"
+        Tag="{x:Bind}"
+        Visibility="{x:Bind IsLimited, Converter={StaticResource BoolToVisibilityConverter}}"
+        IsEnabled="{x:Bind IsActive, Mode=OneWay}"/>
+                                    <ToggleButton Content="{x:Bind IsActive, Converter={StaticResource ActiveToggleConverter}}"
+                                      IsChecked="{x:Bind IsActive}"
+                                      Click="ActiveToggle_Click"
+                                      Tag="{x:Bind}"/>
+                                    <!--<Button Content="ลบคูปองที่ถูกสร้าง" 
+                                            Background="#DC3545"
+                                            Foreground="White"
+                                            Click="DeleteButton_Click"
+                                            Tag="{x:Bind}"
+                                            Visibility="{x:Bind HasGeneratedCoupons, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Button.Resources>
+                                            <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#C82333"/>
+                                            <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#BD2130"/>
+                                        </Button.Resources>
+                                    </Button>-->
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </ScrollViewer>
+    </Grid>
+</Page>

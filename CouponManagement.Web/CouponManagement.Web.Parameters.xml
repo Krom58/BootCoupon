@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<parameters>
+  <parameter name="IIS Web Application Name" description="" value="CouponManagement.Web" tags="IisApp">
+    <parameterEntry kind="ProviderPath" scope="IisApp" match="^C:\\Users\\crystal-POS\\source\\repos\\Krom58\\BootCoupon\\CouponManagement\.Web\\obj\\Release\\net8\.0-windows10\.0\.19041\\win-x86\\PubTmp\\Out\\$" />
+  </parameter>
+</parameters>
