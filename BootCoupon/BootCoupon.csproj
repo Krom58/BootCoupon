@@ -59,6 +59,7 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.250916003" />
     <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="1.8.250916003" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Windows.Extensions" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>
@@ -143,9 +144,7 @@
     <ItemGroup>
       <AssetsToPublish Include="Assets\**\*.*" />
     </ItemGroup>
-    <Copy SourceFiles="@(AssetsToPublish)" 
-          DestinationFolder="$(PublishDir)Assets\%(RecursiveDir)" 
-          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(AssetsToPublish)" DestinationFolder="$(PublishDir)Assets\%(RecursiveDir)" SkipUnchangedFiles="true" />
     <Message Text="Copied Assets to publish directory" Importance="high" />
   </Target>
 </Project>

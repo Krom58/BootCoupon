@@ -75,13 +75,13 @@ namespace CouponManagement.Shared.Models
         public string TypeDisplayText => GetTypeDisplayText();
 
         [NotMapped]
-        public bool IsExpired => ValidTo < DateTime.Now;
+        public bool IsExpired => DateTime.Now.Date > ValidTo.Date; // ✅ หมดอายุหลังจากวันที่ ValidTo เท่านั้น
 
         [NotMapped]
         public bool IsUpcoming => ValidFrom > DateTime.Now;
 
         [NotMapped]
-        public bool IsCurrentlyValid => DateTime.Now >= ValidFrom && DateTime.Now <= ValidTo && IsActive;
+        public bool IsCurrentlyValid => DateTime.Now.Date >= ValidFrom.Date && DateTime.Now.Date <= ValidTo.Date && IsActive; // ✅ ตรวจสอบเฉพาะวันที่
 
         [NotMapped]
         public CouponParameters? ParsedParams

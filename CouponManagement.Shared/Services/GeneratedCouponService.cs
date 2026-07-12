@@ -47,7 +47,8 @@ namespace CouponManagement.Shared.Services
                 return new RedeemResult(RedeemResultType.NotFound, "Coupon not found.");
 
             // Compare expiry against redeemed time (both treated as local/naive)
-            if (coupon.ExpiresAt.HasValue && coupon.ExpiresAt.Value < redeemedAtLocal.Value)
+            // (หมดอายุหลังจากเที่ยงคืนของวัน ExpiresAt)
+            if (coupon.ExpiresAt.HasValue && redeemedAtLocal.Value.Date > coupon.ExpiresAt.Value.Date)
                 return new RedeemResult(RedeemResultType.Expired, "Coupon has expired.");
 
             // If already marked used, cannot redeem
