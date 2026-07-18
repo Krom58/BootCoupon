@@ -7,7 +7,8 @@
  xmlns:models="using:CouponManagement.Shared.Models"
  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
- mc:Ignorable="d">
+ mc:Ignorable="d"
+ KeyDown="Page_KeyDown">
  <Page.Resources>
  <!-- Converter สำหรับแปลงสีตามสถานะหมด/เหลือ -->
  <local:BoolToColorConverter x:Key="BoolToColorConverter" />
@@ -73,8 +74,10 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />   <!-- SaleEventComboBox -->
-                            <ColumnDefinition Width="*" />   <!-- BranchComboBox (moved) -->
+                            <ColumnDefinition Width="*" />
+                            <!-- SaleEventComboBox -->
+                            <ColumnDefinition Width="*" />
+                            <!-- BranchComboBox (moved) -->
                         </Grid.ColumnDefinitions>
 
                         <!-- Search by Name -->
@@ -89,27 +92,10 @@
                         <ComboBox x:Name="SaleEventComboBox" Grid.Column="2" PlaceholderText="เลือกงานขาย" 
               Margin="4,0,8,0" SelectionChanged="SaleEventComboBox_SelectionChanged" FontSize="14"/>
 
-    <!-- Search by Branch -->
-    <ComboBox x:Name="BranchComboBox" Grid.Column="3" PlaceholderText="ค้นหาตามสาขา" 
+                        <!-- Search by Branch -->
+                        <ComboBox x:Name="BranchComboBox" Grid.Column="3" PlaceholderText="ค้นหาตามสาขา" 
               Margin="4,0,0,0" SelectionChanged="BranchComboBox_SelectionChanged" FontSize="14"/>
                     </Grid>
-
-                    <!-- เพิ่มใกล้กับ search controls -->
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,8,0,12" Background="{ThemeResource SystemControlAcrylicElementBrush}" Padding="12,8" CornerRadius="6">
-                        <TextBlock Text="🔍 สแกน Barcode:" 
-                                   VerticalAlignment="Center" 
-                                   FontSize="16" 
-                                   FontWeight="SemiBold"/>
-                        <TextBox x:Name="BarcodeInputBox"
-                                 PlaceholderText="วาง cursor ที่นี่แล้วสแกน barcode..."
-                                 Width="400"
-                                 KeyDown="BarcodeInputBox_KeyDown"
-                                 GotFocus="BarcodeInputBox_GotFocus"/>
-                        <TextBlock x:Name="BarcodeStatusText"
-                                   VerticalAlignment="Center"
-                                   FontSize="14"
-                                   Foreground="Green"/>
-                    </StackPanel>
 
                     <!-- CouponDefinitions ListView -->
                     <ListView x:Name="CouponDefinitionsListView" Grid.Row="3" SelectionMode="Single" BorderThickness="0"
