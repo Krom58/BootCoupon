@@ -16,12 +16,14 @@ namespace CouponManagement
         private readonly ObservableCollection<UserDisplay> _users = new();
         private readonly ObservableCollection<BranchDisplay> _branches = new();
         private readonly ObservableCollection<SaleEventDisplay> _saleEvents = new();
+        private readonly ObservableCollection<SalesPersonDisplay> _salesPersons = new(); // เพิ่ม
 
         private enum ManagementType
         {
             Users,
             Branches,
-            Events
+            Events,
+            Sales // เพิ่ม
         }
 
         private ManagementType _currentType = ManagementType.Users;
@@ -37,6 +39,7 @@ namespace CouponManagement
             UsersListView.ItemsSource = _users;
             BranchesListView.ItemsSource = _branches;
             EventsListView.ItemsSource = _saleEvents;
+            SalesListView.ItemsSource = _salesPersons; // เพิ่ม
         }
 
         // Make handler async and load data when selection changes so user doesn't need to press Refresh.
@@ -57,6 +60,8 @@ namespace CouponManagement
                 BranchesTableContainer.Visibility = Visibility.Collapsed;
             if (EventsTableContainer != null)
                 EventsTableContainer.Visibility = Visibility.Collapsed;
+            if (SalesTableContainer != null) // เพิ่ม
+                SalesTableContainer.Visibility = Visibility.Collapsed;
             if (CreateButton != null)
                 CreateButton.Content = "สร้าง";
 
@@ -82,6 +87,13 @@ namespace CouponManagement
                         EventsTableContainer.Visibility = Visibility.Visible;
                     if (CreateButton != null)
                         CreateButton.Content = "สร้างชื่องาน";
+                    break;
+                case "Sales": // เพิ่ม
+                    _currentType = ManagementType.Sales;
+                    if (SalesTableContainer != null)
+                        SalesTableContainer.Visibility = Visibility.Visible;
+                    if (CreateButton != null)
+                        CreateButton.Content = "สร้างชื่อเซลล์";
                     break;
                 default:
                     _currentType = ManagementType.Users;
@@ -114,6 +126,9 @@ namespace CouponManagement
                 case ManagementType.Events:
                     await CreateEventAsync();
                     break;
+                case ManagementType.Sales: // เพิ่ม
+                    await CreateSalesPersonAsync();
+                    break;
             }
         }
 
@@ -131,6 +146,9 @@ namespace CouponManagement
                         break;
                     case ManagementType.Events:
                         await LoadEventsAsync();
+                        break;
+                    case ManagementType.Sales: // เพิ่ม
+                        await LoadSalesPersonsAsync();
                         break;
                 }
             }
@@ -706,6 +724,248 @@ namespace CouponManagement
             }
         }
 
+        // ==================== SALES PERSON ==================== (เพิ่มส่วนนี้ทั้งหมด)
+
+        private async Task LoadSalesPersonsAsync()
+        {
+            _salesPersons.Clear();
+            using var ctx = new CouponContext();
+            var list = await ctx.SalesPerson
+                .AsNoTracking()
+                .OrderBy(s => s.Branch)
+                .ThenBy(s => s.Name)
+                .ToListAsync();
+
+            foreach (var s in list)
+            {
+                _salesPersons.Add(new SalesPersonDisplay(s));
+            }
+        }
+
+        private async Task CreateSalesPersonAsync()
+        {
+            // ดึงรายชื่อสาขาทั้งหมด
+            List<string> branchOptions;
+            try
+            {
+                using var ctx = new CouponContext();
+                branchOptions = await ctx.Branches
+                    .AsNoTracking()
+                    .OrderBy(b => b.Name)
+                    .Select(b => b.Name)
+                    .ToListAsync();
+            }
+            catch
+            {
+                branchOptions = new List<string>();
+            }
+
+            var panel = new StackPanel { Spacing = 8 };
+            panel.Children.Add(new TextBlock { Text = "สร้างชื่อเซลล์ใหม่", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+
+            var nameBox = new TextBox { PlaceholderText = "ชื่อเซลล์" };
+            var telephoneBox = new TextBox { PlaceholderText = "เบอร์โทรศัพท์" };
+            var branchCombo = new ComboBox { Width = 220, PlaceholderText = "เลือกสาขา" };
+
+            foreach (var branchOption in branchOptions)  // เปลี่ยนจาก branch เป็น branchOption
+                branchCombo.Items.Add(branchOption);
+
+            if (branchCombo.Items.Count > 0)
+                branchCombo.SelectedIndex = 0;
+
+            panel.Children.Add(new TextBlock { Text = "ชื่อเซลล์" });
+            panel.Children.Add(nameBox);
+            panel.Children.Add(new TextBlock { Text = "เบอร์โทรศัพท์" });
+            panel.Children.Add(telephoneBox);
+            panel.Children.Add(new TextBlock { Text = "สาขา" });
+            panel.Children.Add(branchCombo);
+
+            var dlg = new ContentDialog
+            {
+                Title = "สร้างชื่อเซลล์",
+                Content = panel,
+                PrimaryButtonText = "บันทึก",
+                CloseButtonText = "ยกเลิก",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await dlg.ShowAsync();
+            if (result != ContentDialogResult.Primary) return;
+
+            var name = nameBox.Text?.Trim();
+            var telephone = telephoneBox.Text?.Trim();
+            var branch = (branchCombo.SelectedItem as string) ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                await ShowErrorAsync("ข้อผิดพลาด", "ชื่อเซลล์จำเป็นต้องระบุ");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(branch))
+            {
+                await ShowErrorAsync("ข้อผิดพลาด", "กรุณาเลือกสาขา");
+                return;
+            }
+
+            try
+            {
+                using var ctx = new CouponContext();
+                var salesPerson = new SalesPerson
+                {
+                    Name = name,
+                    Telephone = telephone ?? string.Empty,
+                    Branch = branch
+                };
+
+                ctx.SalesPerson.Add(salesPerson);
+                await ctx.SaveChangesAsync();
+                await LoadSalesPersonsAsync();
+            }
+            catch (Exception ex)
+            {
+                await ShowErrorAsync("ไม่สามารถสร้างชื่อเซลล์", ex.Message);
+            }
+        }
+
+        private async void EditSalesButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.DataContext is not SalesPersonDisplay spd) return;
+
+            try
+            {
+                using var ctx = new CouponContext();
+                var salesPerson = await ctx.SalesPerson.FirstOrDefaultAsync(s => s.ID == spd.ID);
+                if (salesPerson == null)
+                {
+                    await ShowErrorAsync("ไม่พบชื่อเซลล์", "ไม่สามารถหา record ของเซลล์ได้");
+                    return;
+                }
+
+                // ดึงรายชื่อสาขา
+                List<string> branchOptions;
+                try
+                {
+                    branchOptions = await ctx.Branches.AsNoTracking().OrderBy(b => b.Name).Select(b => b.Name).ToListAsync();
+                }
+                catch
+                {
+                    branchOptions = new List<string>();
+                }
+
+                var panel = new StackPanel { Spacing = 8 };
+                panel.Children.Add(new TextBlock { Text = "แก้ไขชื่อเซลล์", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+
+                var nameBox = new TextBox { Text = salesPerson.Name ?? string.Empty };
+                var telephoneBox = new TextBox { Text = salesPerson.Telephone ?? string.Empty };
+                var branchCombo = new ComboBox { Width = 220 };
+
+                foreach (var branch in branchOptions)
+                    branchCombo.Items.Add(branch);
+
+                // เลือกสาขาปัจจุบัน
+                var currentBranch = salesPerson.Branch ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(currentBranch))
+                {
+                    for (int i = 0; i < branchCombo.Items.Count; i++)
+                    {
+                        if (string.Equals(branchCombo.Items[i] as string, currentBranch, StringComparison.OrdinalIgnoreCase))
+                        {
+                            branchCombo.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+                if (branchCombo.SelectedIndex < 0 && branchCombo.Items.Count > 0)
+                    branchCombo.SelectedIndex = 0;
+
+                panel.Children.Add(new TextBlock { Text = "ชื่อเซลล์" });
+                panel.Children.Add(nameBox);
+                panel.Children.Add(new TextBlock { Text = "เบอร์โทรศัพท์" });
+                panel.Children.Add(telephoneBox);
+                panel.Children.Add(new TextBlock { Text = "สาขา" });
+                panel.Children.Add(branchCombo);
+
+                var dlg = new ContentDialog
+                {
+                    Title = "แก้ไขชื่อเซลล์",
+                    Content = panel,
+                    PrimaryButtonText = "บันทึก",
+                    CloseButtonText = "ยกเลิก",
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = this.XamlRoot
+                };
+
+                var result = await dlg.ShowAsync();
+                if (result != ContentDialogResult.Primary) return;
+
+                var newName = nameBox.Text?.Trim();
+                var newTelephone = telephoneBox.Text?.Trim();
+                var newBranch = (branchCombo.SelectedItem as string) ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(newName))
+                {
+                    await ShowErrorAsync("ข้อผิดพลาด", "ชื่อเซลล์จำเป็นต้องระบุ");
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(newBranch))
+                {
+                    await ShowErrorAsync("ข้อผิดพลาด", "กรุณาเลือกสาขา");
+                    return;
+                }
+
+                salesPerson.Name = newName;
+                salesPerson.Telephone = newTelephone ?? string.Empty;
+                salesPerson.Branch = newBranch;
+
+                await ctx.SaveChangesAsync();
+                await LoadSalesPersonsAsync();
+            }
+            catch (Exception ex)
+            {
+                await ShowErrorAsync("ไม่สามารถแก้ไขชื่อเซลล์", ex.Message);
+            }
+        }
+
+        private async void DeleteSalesButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.DataContext is not SalesPersonDisplay spd) return;
+
+            var confirmDlg = new ContentDialog
+            {
+                Title = "ยืนยันการลบ",
+                Content = $"คุณต้องการลบเซลล์ '{spd.Name}' ใช่หรือไม่?",
+                PrimaryButtonText = "ลบ",
+                CloseButtonText = "ยกเลิก",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+
+            var confirmResult = await confirmDlg.ShowAsync();
+            if (confirmResult != ContentDialogResult.Primary) return;
+
+            try
+            {
+                using var ctx = new CouponContext();
+                var salesPerson = await ctx.SalesPerson.FirstOrDefaultAsync(s => s.ID == spd.ID);
+                if (salesPerson == null)
+                {
+                    await ShowErrorAsync("ไม่พบชื่อเซลล์", "ไม่สามารถหา record ของเซลล์ได้");
+                    return;
+                }
+
+                ctx.SalesPerson.Remove(salesPerson);
+                await ctx.SaveChangesAsync();
+                await LoadSalesPersonsAsync();
+            }
+            catch (Exception ex)
+            {
+                await ShowErrorAsync("ไม่สามารถลบชื่อเซลล์", ex.Message);
+            }
+        }
+
         // ==================== HELPERS ====================
 
         private void BackButton_Click(object sender, RoutedEventArgs e)
@@ -805,6 +1065,22 @@ namespace CouponManagement
                 CreatedAt = createdAt;
                 UpdatedBy = updatedBy;
                 UpdatedAt = updatedAt;
+            }
+        }
+
+        private class SalesPersonDisplay
+        {
+            public int ID { get; }
+            public string Branch { get; }
+            public string Name { get; }
+            public string Telephone { get; }
+
+            public SalesPersonDisplay(SalesPerson s)
+            {
+                ID = s.ID;
+                Branch = s.Branch ?? string.Empty;
+                Name = s.Name ?? string.Empty;
+                Telephone = s.Telephone ?? string.Empty;
             }
         }
     }
