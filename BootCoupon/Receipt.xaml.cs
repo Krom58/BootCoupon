@@ -2858,7 +2858,85 @@ namespace BootCoupon
             var completionSource = new TaskCompletionSource<bool>();
 
             cancelButton.Click += (s, e) => completionSource.TrySetResult(false);
-            okButton.Click += (s, e) => completionSource.TrySetResult(true);
+            // ⚠️ เพิ่มการตรวจสอบซ้ำก่อนเพิ่มเข้ารายการ
+            okButton.Click += async (s, e) =>
+            {
+                // ✅ เช็คซ้ำอีกครั้งก่อนยืนยัน
+                var revalidationErrors = new List<string>();
+                var validItems = new List<ScannedCouponItem>();
+
+                foreach (var item in resultItems)
+                {
+                    var gc = await _context.GeneratedCoupons
+                        .Include(gc => gc.CouponDefinition)
+                        .FirstOrDefaultAsync(gc => gc.Id == item.GeneratedId);
+
+                    // ⚠️ ตรวจสอบว่าใช้แล้วหรือยัง
+                    if (gc == null || gc.IsUsed || gc.ReceiptItemId != null)
+                    {
+                        revalidationErrors.Add($"❌ {item.GeneratedCode} - ถูกใช้งานแล้ว");
+                        continue;
+                    }
+
+                    // ⚠️ ตรวจสอบว่าถูกเลือกโดยคนอื่นหรือไม่
+                    var alreadySelected = _selectedItems
+                        .Where(it => it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Any())
+                        .SelectMany(it => it.SelectedGeneratedIds!)
+                        .Contains(gc.Id);
+
+                    if (alreadySelected)
+                    {
+                        revalidationErrors.Add($"⚠️ {item.GeneratedCode} - ถูกเลือกไปแล้ว");
+                        continue;
+                    }
+
+                    // ⚠️ ตรวจสอบว่าคูปองยังใช้งานได้หรือไม่
+                    if (gc.CouponDefinition == null || !gc.CouponDefinition.IsActive ||
+                        gc.CouponDefinition.ValidTo < DateTime.Now)
+                    {
+                        revalidationErrors.Add($"❌ {item.GeneratedCode} - หมดอายุหรือไม่ active");
+                        continue;
+                    }
+
+                    validItems.Add(item);
+                }
+
+                // แสดงข้อผิดพลาดถ้ามี
+                if (revalidationErrors.Any())
+                {
+                    var errorDialog = new ContentDialog
+                    {
+                        Title = "⚠️ พบปัญหาบางรายการ",
+                        Content = string.Join("\n", revalidationErrors) +
+                                 $"\n\n✅ จะเพิ่มเฉพาะรายการที่ถูกต้อง ({validItems.Count} รายการ)",
+                        PrimaryButtonText = validItems.Any() ? "ดำเนินการต่อ" : null,
+                        CloseButtonText = "ยกเลิก",
+                        XamlRoot = this.XamlRoot
+                    };
+
+                    var dialogResult = await errorDialog.ShowAsync();
+                    if (dialogResult != ContentDialogResult.Primary && validItems.Any())
+                    {
+                        return; // ยกเลิกการเพิ่ม
+                    }
+                }
+
+                if (!validItems.Any())
+                {
+                    CloseDialog();
+                    return;
+                }
+
+                // ✅ เพิ่มเฉพาะรายการที่ผ่านการตรวจสอบ
+                completionSource.TrySetResult(true);
+
+                // Store valid items for processing
+                resultItems.Clear();
+                foreach (var item in validItems)
+                {
+                    resultItems.Add(item);
+                }
+            };
             overlay.Tapped += (s, e) =>
             {
                 if (e.OriginalSource == overlay)
