@@ -732,8 +732,7 @@ namespace CouponManagement
             using var ctx = new CouponContext();
             var list = await ctx.SalesPerson
                 .AsNoTracking()
-                .OrderBy(s => s.Branch)
-                .ThenBy(s => s.Name)
+                .OrderBy(s => s.ID) // เรียงตามรหัส ID จากน้อยไปมาก
                 .ToListAsync();
 
             foreach (var s in list)
