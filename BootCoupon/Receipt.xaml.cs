@@ -27,6 +27,7 @@ using WinRT.Interop;
 using System.Data;
 using Microsoft.Data.SqlClient;
 using System.Media;
+using CouponManagement;
 
 namespace BootCoupon
 {
@@ -337,7 +338,7 @@ namespace BootCoupon
                 // ✅ เพิ่ม: Preload logo ล่วงหน้าเพื่อให้พร้อมก่อนพิมพ์
                 await ReceiptPrintService.ForceReloadLogoAsync();
                 Debug.WriteLine("✅ Logo preloaded in Receipt page");
-                
+
                 await LoadAllCouponDefinitions();
                 await LoadSalesPersons();
                 await LoadBranchTypes();
@@ -747,61 +748,61 @@ namespace BootCoupon
                     })
                     .ToListAsync();
 
-            // Populate master list
-            _allCouponDefinitionDisplays.Clear();
-            foreach (var r in rows)
-            {
-                // If coupon is NOT attached to a SaleEvent => skip (per requested rule)
-                if (!r.SaleEventId.HasValue)
+                // Populate master list
+                _allCouponDefinitionDisplays.Clear();
+                foreach (var r in rows)
                 {
-                    continue;
-                }
-
-                // Skip sale events that are inactive or ended or not yet started
-                if (r.SaleEventIsActive != true
-                    || (r.SaleEventEnd.HasValue && r.SaleEventEnd.Value.Date < today)
-                    || (r.SaleEventStart.HasValue && r.SaleEventStart.Value.Date > today))
-                {
-                    continue;
-                }
-
-                var totalGenerated = r.TotalGenerated;
-                var totalAllocatedOrUsed = r.TotalAllocatedOrUsed;
-                var availableCount = totalGenerated - totalAllocatedOrUsed;
-
-                if (totalGenerated == 0 || availableCount > 0)
-                {
-                    _allCouponDefinitionDisplays.Add(new CouponDefinitionDisplay
+                    // If coupon is NOT attached to a SaleEvent => skip (per requested rule)
+                    if (!r.SaleEventId.HasValue)
                     {
-                        CouponDefinition = r.Definition,
-                        TotalGenerated = totalGenerated,
-                        TotalUsed = totalAllocatedOrUsed
+                        continue;
+                    }
+
+                    // Skip sale events that are inactive or ended or not yet started
+                    if (r.SaleEventIsActive != true
+                        || (r.SaleEventEnd.HasValue && r.SaleEventEnd.Value.Date < today)
+                        || (r.SaleEventStart.HasValue && r.SaleEventStart.Value.Date > today))
+                    {
+                        continue;
+                    }
+
+                    var totalGenerated = r.TotalGenerated;
+                    var totalAllocatedOrUsed = r.TotalAllocatedOrUsed;
+                    var availableCount = totalGenerated - totalAllocatedOrUsed;
+
+                    if (totalGenerated == 0 || availableCount > 0)
+                    {
+                        _allCouponDefinitionDisplays.Add(new CouponDefinitionDisplay
+                        {
+                            CouponDefinition = r.Definition,
+                            TotalGenerated = totalGenerated,
+                            TotalUsed = totalAllocatedOrUsed
+                        });
+                    }
+                }
+
+                // Apply paging to display the first page of the result
+                ApplyPaging();
+
+                // Restore scroll position
+                try
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        var svAfter = FindScrollViewer(CouponDefinitionsListView);
+                        if (svAfter != null)
+                        {
+                            svAfter.ChangeView(null, _couponListVerticalOffset, null, disableAnimation: true);
+                        }
                     });
                 }
+                catch { }
             }
-
-            // Apply paging to display the first page of the result
-            ApplyPaging();
-
-            // Restore scroll position
-            try
+            catch (Exception ex)
             {
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    var svAfter = FindScrollViewer(CouponDefinitionsListView);
-                    if (svAfter != null)
-                    {
-                        svAfter.ChangeView(null, _couponListVerticalOffset, null, disableAnimation: true);
-                    }
-                });
+                Debug.WriteLine($"ข้อผิดพลาดในการค้นหา: {ex.Message}");
             }
-            catch { }
         }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"ข้อผิดพลาดในการค้นหา: {ex.Message}");
-        }
-    }
 
         private string GetSelectedTag(ComboBox comboBox)
         {
@@ -1002,32 +1003,32 @@ namespace BootCoupon
                 freeQuantityBox.ValueChanged += (s, args) => RecalcTotal();
 
                 var contentPanel = new StackPanel { Spacing = 8 };
-                contentPanel.Children.Add(new TextBlock 
-                { 
-                    Text = $"คูปอง: {selectedDefinition.Name}", 
-                    FontSize = 18, 
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold 
+                contentPanel.Children.Add(new TextBlock
+                {
+                    Text = $"คูปอง: {selectedDefinition.Name}",
+                    FontSize = 18,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                 });
                 contentPanel.Children.Add(priceTextBlock);
 
                 // ส่วนจำนวนปกติ
-                contentPanel.Children.Add(new TextBlock 
-                { 
-                    Text = "จำนวนที่ซื้อ (คิดเงิน):", 
-                    FontSize = 16, 
+                contentPanel.Children.Add(new TextBlock
+                {
+                    Text = "จำนวนที่ซื้อ (คิดเงิน):",
+                    FontSize = 16,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Margin = new Thickness(0, 8, 0, 4) 
+                    Margin = new Thickness(0, 8, 0, 4)
                 });
                 contentPanel.Children.Add(quantityBox);
 
                 // ส่วนจำนวนฟรี (COM)
-                contentPanel.Children.Add(new TextBlock 
-                { 
-                    Text = "🎁 จำนวนฟรี (COM - ไม่คิดเงิน):", 
-                    FontSize = 16, 
+                contentPanel.Children.Add(new TextBlock
+                {
+                    Text = "🎁 จำนวนฟรี (COM - ไม่คิดเงิน):",
+                    FontSize = 16,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                     Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Orange),
-                    Margin = new Thickness(0, 12, 0, 4) 
+                    Margin = new Thickness(0, 12, 0, 4)
                 });
                 contentPanel.Children.Add(freeQuantityBox);
 
@@ -1059,11 +1060,11 @@ namespace BootCoupon
                     // เพิ่มจำนวนปกติ (คิดเงิน)
                     if (quantity > 0)
                     {
-                        var existingItem = _selectedItems.FirstOrDefault(it => 
-                            it.CouponDefinition.Id == selectedDefinition.Id && 
-                            !it.IsCOM && 
+                        var existingItem = _selectedItems.FirstOrDefault(it =>
+                            it.CouponDefinition.Id == selectedDefinition.Id &&
+                            !it.IsCOM &&
                             (it.SelectedGeneratedIds == null || !it.SelectedGeneratedIds.Any()));
-                        
+
                         if (existingItem != null)
                         {
                             existingItem.Quantity += quantity;
@@ -1083,11 +1084,11 @@ namespace BootCoupon
                     // เพิ่มจำนวนฟรี (COM - ไม่คิดเงิน)
                     if (freeQuantity > 0)
                     {
-                        var existingComItem = _selectedItems.FirstOrDefault(it => 
-                            it.CouponDefinition.Id == selectedDefinition.Id && 
-                            it.IsCOM && 
+                        var existingComItem = _selectedItems.FirstOrDefault(it =>
+                            it.CouponDefinition.Id == selectedDefinition.Id &&
+                            it.IsCOM &&
                             (it.SelectedGeneratedIds == null || !it.SelectedGeneratedIds.Any()));
-                        
+
                         if (existingComItem != null)
                         {
                             existingComItem.Quantity += freeQuantity;
@@ -2375,172 +2376,523 @@ namespace BootCoupon
                 }
             }
         }
-        // เพิ่ม method ใหม่ต่อจาก EditItemButton_Click
-        private void BarcodeInputBox_GotFocus(object sender, RoutedEventArgs e)
-        {
-            // Clear text เมื่อได้รับ focus เพื่อพร้อมรับ input ใหม่
-            BarcodeInputBox.Text = string.Empty;
-            BarcodeStatusText.Text = string.Empty;
-        }
 
-        private async void BarcodeInputBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        // เพิ่มหลัง EditItemButton_Click
+
+        private void Page_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // เมื่อกด Enter (scanner ส่ง Enter หลังสแกนเสร็จ)
-            if (e.Key == Windows.System.VirtualKey.Enter)
+            // ตรวจสอบว่ากด F8
+            if (e.Key == Windows.System.VirtualKey.F8)
             {
                 e.Handled = true;
-
-                var scannedCode = BarcodeInputBox.Text?.Trim();
-
-                if (string.IsNullOrEmpty(scannedCode))
+                DispatcherQueue.TryEnqueue(async () =>
                 {
-                    BarcodeStatusText.Text = "❌ ไม่พบข้อมูล";
-                    BarcodeStatusText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
-                    return;
-                }
-
-                await ProcessScannedBarcodeAsync(scannedCode);
-
-                // Clear input สำหรับการสแกนครั้งถัดไป
-                BarcodeInputBox.Text = string.Empty;
+                    await ShowBarcodeSearchDialogAsync();
+                });
             }
         }
 
-        private async Task ProcessScannedBarcodeAsync(string scannedCode)
+        private async Task ShowBarcodeSearchDialogAsync()
         {
-            try
+            // เก็บรหัสที่สแกนไว้
+            var scannedCodesMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var comCodesSet = new HashSet<int>();
+
+            // UI containers
+            var mainStack = new StackPanel { Spacing = 12 };
+
+            // Header + Counter
+            var headerPanel = new Grid();
+            headerPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            headerPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var headerText = new TextBlock
             {
-                Debug.WriteLine($"🔍 Searching in GeneratedCoupons.GeneratedCode for: '{scannedCode}'");
+                Text = "📱 สแกนหรือพิมพ์หมายเลขคูปอง",
+                FontSize = 18,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(headerText, 0);
+            headerPanel.Children.Add(headerText);
 
-                // ✅ ค้นหาใน GeneratedCoupons.GeneratedCode
-                var generatedCoupon = await _context.GeneratedCoupons
+            // ตัวนับมุมขวาบน
+            var counterStack = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 12,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+
+            var totalCountText = new TextBlock
+            {
+                Text = "ทั้งหมด: 0",
+                FontSize = 14,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            };
+            var normalCountText = new TextBlock
+            {
+                Text = "ธรรมดา: 0",
+                FontSize = 14,
+                Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green)
+            };
+            var comCountText = new TextBlock
+            {
+                Text = "COM: 0",
+                FontSize = 14,
+                Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange)
+            };
+
+            counterStack.Children.Add(totalCountText);
+            counterStack.Children.Add(normalCountText);
+            counterStack.Children.Add(comCountText);
+            Grid.SetColumn(counterStack, 1);
+            headerPanel.Children.Add(counterStack);
+
+            mainStack.Children.Add(headerPanel);
+
+            // คำแนะนำ
+            var instructionText = new TextBlock
+            {
+                Text = "💡 วิธีใช้: สแกนหรือพิมพ์หมายเลขในช่องค้นหาด้านล่าง\n" +
+                       "   • สแกนหลายใบติดกัน → รายการจะถูกเพิ่มอัตโนมัติ\n" +
+                       "   • ลบหมายเลขออก → ยกเลิกการเลือกอัตโนมัติ\n" +
+                       "   • ติ๊ก COM เพื่อระบุตั๋วฟรี",
+                FontSize = 13,
+                Opacity = 0.8,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            mainStack.Children.Add(instructionText);
+
+            // Search box
+            var searchBox = new TextBox
+            {
+                PlaceholderText = "พิมพ์หรือสแกนหมายเลข (แยกด้วย Enter, Space, Comma)",
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                Height = 80,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            mainStack.Children.Add(searchBox);
+
+            // Status text
+            var statusText = new TextBlock
+            {
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            mainStack.Children.Add(statusText);
+
+            // Results StackPanel
+            var resultsScroll = new ScrollViewer { Height = 400 };
+            var resultsPanel = new StackPanel { Spacing = 4 };
+            resultsScroll.Content = resultsPanel;
+            mainStack.Children.Add(resultsScroll);
+
+            var resultItems = new ObservableCollection<ScannedCouponItem>();
+
+            // Helper: สร้าง UI สำหรับแต่ละ item
+            void AddItemToUI(ScannedCouponItem item)
+            {
+                var itemBorder = new Border
+                {
+                    Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                    BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Gray),
+                    BorderThickness = new Thickness(0, 0, 0, 1),
+                    Padding = new Thickness(8),
+                    Tag = item
+                };
+
+                var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var contentStack = new StackPanel();
+
+                var codeText = new TextBlock
+                {
+                    Text = item.DisplayText,
+                    FontSize = 16,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+                };
+
+                var detailText = new TextBlock
+                {
+                    Text = item.DetailText,
+                    FontSize = 13,
+                    Opacity = 0.8,
+                    Margin = new Thickness(0, 2, 0, 0)
+                };
+
+                contentStack.Children.Add(codeText);
+                contentStack.Children.Add(detailText);
+                Grid.SetColumn(contentStack, 0);
+                grid.Children.Add(contentStack);
+
+                var comCheckBox = new CheckBox
+                {
+                    Content = "COM",
+                    Margin = new Thickness(8, 0, 0, 0),
+                    IsChecked = item.IsCOM,
+                    Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange)
+                };
+
+                comCheckBox.Checked += (s, e) =>
+                {
+                    item.IsCOM = true;
+                    codeText.Text = item.DisplayText;
+                };
+
+                comCheckBox.Unchecked += (s, e) =>
+                {
+                    item.IsCOM = false;
+                    codeText.Text = item.DisplayText;
+                };
+
+                Grid.SetColumn(comCheckBox, 1);
+                grid.Children.Add(comCheckBox);
+
+                itemBorder.Child = grid;
+                resultsPanel.Children.Add(itemBorder);
+            }
+
+            // Helper: อัปเดตตัวนับ
+            void UpdateCounter()
+            {
+                int total = resultItems.Count;
+                int comCount = resultItems.Count(x => x.IsCOM);
+                int normalCount = total - comCount;
+
+                totalCountText.Text = $"ทั้งหมด: {total}";
+                normalCountText.Text = $"ธรรมดา: {normalCount}";
+                comCountText.Text = $"COM: {comCount}";
+            }
+
+            // Helper: แยก tokens จาก text
+            List<string> ParseTokens(string text)
+            {
+                if (string.IsNullOrWhiteSpace(text)) return new List<string>();
+
+                return text.Split(new[] { '\n', '\r', ',', ';', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.Trim())
+                    .Where(t => !string.IsNullOrEmpty(t))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            // Helper: ค้นหาและเพิ่มรายการ
+            async Task ProcessTokensAsync(List<string> tokens)
+            {
+                if (!tokens.Any())
+                {
+                    resultItems.Clear();
+                    resultsPanel.Children.Clear();
+                    scannedCodesMap.Clear();
+                    comCodesSet.Clear();
+                    statusText.Text = "";
+                    UpdateCounter();
+                    return;
+                }
+
+                var newTokens = tokens.Where(t => !scannedCodesMap.ContainsKey(t)).ToList();
+                var removedTokens = scannedCodesMap.Keys.Except(tokens, StringComparer.OrdinalIgnoreCase).ToList();
+
+                foreach (var removedToken in removedTokens)
+                {
+                    if (scannedCodesMap.TryGetValue(removedToken, out var removedId))
+                    {
+                        var itemToRemove = resultItems.FirstOrDefault(x => x.GeneratedId == removedId);
+                        if (itemToRemove != null)
+                        {
+                            resultItems.Remove(itemToRemove);
+                            var borderToRemove = resultsPanel.Children
+                                .OfType<Border>()
+                                .FirstOrDefault(b => (b.Tag as ScannedCouponItem)?.GeneratedId == removedId);
+                            if (borderToRemove != null)
+                            {
+                                resultsPanel.Children.Remove(borderToRemove);
+                            }
+                        }
+                        scannedCodesMap.Remove(removedToken);
+                        comCodesSet.Remove(removedId);
+                    }
+                }
+
+                if (!newTokens.Any())
+                {
+                    UpdateCounter();
+                    return;
+                }
+
+                var foundCoupons = await _context.GeneratedCoupons
                     .Include(gc => gc.CouponDefinition)
-                    .FirstOrDefaultAsync(gc => gc.GeneratedCode == scannedCode);
+                    .Where(gc => newTokens.Contains(gc.GeneratedCode))
+                    .ToListAsync();
 
-                if (generatedCoupon == null)
-                {
-                    Debug.WriteLine($"❌ Not found in GeneratedCoupons table");
-                    BarcodeStatusText.Text = $"❌ ไม่พบคูปองหมายเลข: {scannedCode}";
-                    BarcodeStatusText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
-                    PlayErrorSound();
-                    return;
-                }
-
-                Debug.WriteLine($"✅ Found GeneratedCoupon:");
-                Debug.WriteLine($"   - Id: {generatedCoupon.Id}");
-                Debug.WriteLine($"   - GeneratedCode: {generatedCoupon.GeneratedCode}");
-                Debug.WriteLine($"   - CouponDefinition.Id: {generatedCoupon.CouponDefinition?.Id}");
-                Debug.WriteLine($"   - CouponDefinition.Code: {generatedCoupon.CouponDefinition?.Code}");
-                Debug.WriteLine($"   - CouponDefinition.Name: {generatedCoupon.CouponDefinition?.Name}");
-
-                // ค้นหา GeneratedCoupon ที่ตรงกับ code ที่สแกน
-                //var generatedCoupon = await _context.GeneratedCoupons
-                //    .Include(gc => gc.CouponDefinition)
-                //    .FirstOrDefaultAsync(gc => gc.GeneratedCode == scannedCode);
-
-                //if (generatedCoupon == null)
-                //{
-                //    BarcodeStatusText.Text = $"❌ ไม่พบคูปองหมายเลข: {scannedCode}";
-                //    BarcodeStatusText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
-                //    PlayErrorSound();
-                //    return;
-                //}
-
-                // ตรวจสอบว่าคูปองถูกใช้งานแล้วหรือไม่
-                if (generatedCoupon.IsUsed || generatedCoupon.ReceiptItemId != null)
-                {
-                    BarcodeStatusText.Text = $"⚠️ คูปองนี้ถูกใช้งานแล้ว: {scannedCode}";
-                    BarcodeStatusText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange);
-                    PlayErrorSound();
-                    return;
-                }
-
-                // ตรวจสอบว่าคูปองถูกเลือกไปแล้วในรายการปัจจุบันหรือไม่
-                var alreadySelected = _selectedItems.Any(it =>
-                    it.SelectedGeneratedIds != null &&
-                    it.SelectedGeneratedIds.Contains(generatedCoupon.Id));
-
-                if (alreadySelected)
-                {
-                    BarcodeStatusText.Text = $"⚠️ คูปองนี้ถูกเลือกไว้แล้ว: {scannedCode}";
-                    BarcodeStatusText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange);
-                    return;
-                }
-
-                // ตรวจสอบว่า CouponDefinition ยังใช้งานได้อยู่หรือไม่
-                var definition = generatedCoupon.CouponDefinition;
-                if (definition == null || !definition.IsActive || definition.ValidTo < DateTime.Now)
-                {
-                    BarcodeStatusText.Text = $"❌ คูปองหมดอายุหรือไม่ใช้งาน: {scannedCode}";
-                    BarcodeStatusText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
-                    PlayErrorSound();
-                    return;
-                }
-
-                // ✅ เปิด dialog สำหรับเลือกหมายเลข (แบบเดียวกับปุ่ม "เลือก")
-                // โดย pre-select หมายเลขที่สแกนไว้แล้ว
-                BarcodeStatusText.Text = $"🔍 ค้นพบ: {definition.Name} - กำลังเปิด dialog...";
-                BarcodeStatusText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Blue);
-
-                var result = await ShowPickGeneratedCodesDialogForScannedCodeAsync(
-                    definition,
-                    generatedCoupon.Id,
-                    scannedCode);
-
-                if (result == null)
-                {
-                    BarcodeStatusText.Text = $"⚠️ ยกเลิกการเลือก";
-                    BarcodeStatusText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray);
-                    return;
-                }
-
-                var (normalSelectedIds, comSelectedIds) = result.Value;
-
-                if ((normalSelectedIds == null || !normalSelectedIds.Any()) &&
-                    (comSelectedIds == null || !comSelectedIds.Any()))
-                {
-                    BarcodeStatusText.Text = $"⚠️ ไม่ได้เลือกหมายเลขใดๆ";
-                    BarcodeStatusText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange);
-                    return;
-                }
-
-                // รวม IDs ทั้งหมด
-                var allIdsOrdered = new List<int>();
-                if (normalSelectedIds != null) allIdsOrdered.AddRange(normalSelectedIds);
-                if (comSelectedIds != null) allIdsOrdered.AddRange(comSelectedIds);
-                var distinctIds = allIdsOrdered.Distinct().ToList();
-
-                // Load generated codes for preview
-                var codesMap = await _context.GeneratedCoupons
-                    .Where(g => distinctIds.Contains(g.Id))
-                    .ToDictionaryAsync(g => g.Id, g => g.GeneratedCode);
-
-                var display = GetDisplayByDefinitionId(definition.Id);
-
-                // เพิ่มแต่ละ generated id เป็น ReceiptItem แยก
                 int addedCount = 0;
-                foreach (var gid in distinctIds)
+                int notFoundCount = 0;
+                int alreadyUsedCount = 0;
+                int alreadySelectedCount = 0;
+
+                var alreadySelectedInOtherItems = _selectedItems
+                    .Where(it => it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Any())
+                    .SelectMany(it => it.SelectedGeneratedIds!)
+                    .Distinct()
+                    .ToList();
+
+                foreach (var token in newTokens)
                 {
-                    var alreadyInList = _selectedItems.Any(it =>
-                        it.SelectedGeneratedIds != null &&
-                        it.SelectedGeneratedIds.Contains(gid));
+                    var gc = foundCoupons.FirstOrDefault(x =>
+                        string.Equals(x.GeneratedCode, token, StringComparison.OrdinalIgnoreCase));
 
-                    if (alreadyInList) continue;
+                    if (gc == null)
+                    {
+                        notFoundCount++;
+                        continue;
+                    }
 
-                    var isComForThisId = comSelectedIds != null && comSelectedIds.Contains(gid);
+                    if (gc.IsUsed || gc.ReceiptItemId != null)
+                    {
+                        alreadyUsedCount++;
+                        continue;
+                    }
+
+                    if (alreadySelectedInOtherItems.Contains(gc.Id))
+                    {
+                        alreadySelectedCount++;
+                        continue;
+                    }
+
+                    if (gc.CouponDefinition == null || !gc.CouponDefinition.IsActive || gc.CouponDefinition.ValidTo < DateTime.Now)
+                    {
+                        notFoundCount++;
+                        continue;
+                    }
+
+                    scannedCodesMap[token] = gc.Id;
+
+                    var item = new ScannedCouponItem
+                    {
+                        GeneratedId = gc.Id,
+                        GeneratedCode = gc.GeneratedCode ?? "",
+                        CouponName = gc.CouponDefinition.Name ?? "",
+                        Price = gc.CouponDefinition.Price,
+                        IsCOM = false
+                    };
+
+                    item.PropertyChanged += (s, e) =>
+                    {
+                        if (e.PropertyName == nameof(ScannedCouponItem.IsCOM))
+                        {
+                            if (item.IsCOM)
+                                comCodesSet.Add(item.GeneratedId);
+                            else
+                                comCodesSet.Remove(item.GeneratedId);
+                            UpdateCounter();
+                        }
+                    };
+
+                    resultItems.Add(item);
+                    AddItemToUI(item);
+                    addedCount++;
+                }
+
+                var statusParts = new List<string>();
+                if (addedCount > 0) statusParts.Add($"✅ เพิ่ม {addedCount} รายการ");
+                if (notFoundCount > 0) statusParts.Add($"❌ ไม่พบ {notFoundCount} รายการ");
+                if (alreadyUsedCount > 0) statusParts.Add($"⚠️ ใช้แล้ว {alreadyUsedCount} รายการ");
+                if (alreadySelectedCount > 0) statusParts.Add($"⚠️ เลือกแล้ว {alreadySelectedCount} รายการ");
+
+                statusText.Text = string.Join(" | ", statusParts);
+                statusText.Foreground = addedCount > 0
+                    ? new SolidColorBrush(Microsoft.UI.Colors.Green)
+                    : new SolidColorBrush(Microsoft.UI.Colors.Orange);
+
+                UpdateCounter();
+
+                if (addedCount > 0)
+                {
+                    try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
+                }
+                else if (notFoundCount > 0 || alreadyUsedCount > 0)
+                {
+                    try { System.Media.SystemSounds.Beep.Play(); } catch { }
+                }
+            }
+
+            // Event: TextChanged with debounce
+            System.Threading.Timer? debounceTimer = null;
+            searchBox.TextChanged += (s, e) =>
+            {
+                debounceTimer?.Dispose();
+                debounceTimer = new System.Threading.Timer(_ =>
+                {
+                    DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        var tokens = ParseTokens(searchBox.Text);
+                        await ProcessTokensAsync(tokens);
+                    });
+                }, null, 300, Timeout.Infinite);
+            };
+
+            // ✅ สร้าง Custom Overlay Dialog (แทน ContentDialog)
+            var dialogResult = false;
+
+            var dialogContent = new Grid
+            {
+                RowDefinitions =
+    {
+        new RowDefinition { Height = GridLength.Auto },
+        new RowDefinition { Height = new GridLength(1, GridUnitType.Star) },
+        new RowDefinition { Height = GridLength.Auto }
+    },
+                Width = 1200,
+                MaxHeight = Math.Min(this.XamlRoot.Size.Height * 0.9, 800),
+                // ✅ ใช้ Resources โดยตรง
+                Background = (Brush)Application.Current.Resources["SystemControlBackgroundChromeMediumLowBrush"],
+                CornerRadius = new CornerRadius(8),
+                BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
+                BorderThickness = new Thickness(1),
+                Shadow = new ThemeShadow(),
+                Translation = new System.Numerics.Vector3(0, 0, 32)
+            };
+
+            // Title
+            var titleBar = new Grid
+            {
+                Padding = new Thickness(24, 20, 24, 12),
+            };
+            var titleText = new TextBlock
+            {
+                Text = "📱 สแกนคูปอง (F8)",
+                FontSize = 20,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            };
+            titleBar.Children.Add(titleText);
+            Grid.SetRow(titleBar, 0);
+            dialogContent.Children.Add(titleBar);
+
+            // Content
+            var contentScroll = new ScrollViewer
+            {
+                Content = mainStack,
+                Margin = new Thickness(24, 0, 24, 0),
+                MaxHeight = Math.Min(this.XamlRoot.Size.Height * 0.6, 600)
+            };
+            Grid.SetRow(contentScroll, 1);
+            dialogContent.Children.Add(contentScroll);
+
+            // Buttons
+            var buttonPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Spacing = 8,
+                Margin = new Thickness(24, 12, 24, 20)
+            };
+
+            var cancelButton = new Button
+            {
+                Content = "ยกเลิก",
+                MinWidth = 100
+            };
+
+            var okButton = new Button
+            {
+                Content = "เพิ่มเข้ารายการ",
+                Style = (Style)Application.Current.Resources["AccentButtonStyle"],
+                MinWidth = 120
+            };
+
+            buttonPanel.Children.Add(cancelButton);
+            buttonPanel.Children.Add(okButton);
+            Grid.SetRow(buttonPanel, 2);
+            dialogContent.Children.Add(buttonPanel);
+
+            // Overlay
+            var overlay = new Grid
+            {
+                Background = new SolidColorBrush(Microsoft.UI.Colors.Black) { Opacity = 0.5 },
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+            overlay.Children.Add(dialogContent);
+
+            // Add to RootGrid
+            var rootGrid = RootGrid;
+            rootGrid.Children.Add(overlay);
+
+            // Event handlers
+            void CloseDialog()
+            {
+                rootGrid.Children.Remove(overlay);
+                debounceTimer?.Dispose();
+            }
+
+            cancelButton.Click += (s, e) =>
+            {
+                dialogResult = false;
+                CloseDialog();
+            };
+
+            okButton.Click += (s, e) =>
+            {
+                dialogResult = true;
+                CloseDialog();
+            };
+
+            overlay.Tapped += (s, e) =>
+            {
+                if (e.OriginalSource == overlay)
+                {
+                    dialogResult = false;
+                    CloseDialog();
+                }
+            };
+
+            // Set focus
+            searchBox.Loaded += (s, e) => searchBox.Focus(FocusState.Programmatic);
+
+            // รอให้ปิด dialog (แบบ manual)
+            var completionSource = new TaskCompletionSource<bool>();
+
+            cancelButton.Click += (s, e) => completionSource.TrySetResult(false);
+            okButton.Click += (s, e) => completionSource.TrySetResult(true);
+            overlay.Tapped += (s, e) =>
+            {
+                if (e.OriginalSource == overlay)
+                    completionSource.TrySetResult(false);
+            };
+
+            var result = await completionSource.Task;
+
+            if (result && resultItems.Any())
+            {
+                // เพิ่มเข้ารายการ
+                int totalAdded = 0;
+
+                foreach (var item in resultItems)
+                {
+                    var gc = await _context.GeneratedCoupons
+                        .Include(gc => gc.CouponDefinition)
+                        .FirstOrDefaultAsync(gc => gc.Id == item.GeneratedId);
+
+                    if (gc == null || gc.CouponDefinition == null) continue;
 
                     var receiptItem = new ReceiptItem
                     {
-                        CouponDefinition = definition,
+                        CouponDefinition = gc.CouponDefinition,
                         Quantity = 1,
-                        SelectedGeneratedIds = new List<int> { gid },
-                        SelectedCodesPreview = codesMap.TryGetValue(gid, out var code) ? code ?? string.Empty : string.Empty,
-                        IsCOM = isComForThisId
+                        SelectedGeneratedIds = new List<int> { item.GeneratedId },
+                        SelectedCodesPreview = item.GeneratedCode,
+                        IsCOM = item.IsCOM
                     };
 
                     _selectedItems.Add(receiptItem);
-                    addedCount++;
+                    totalAdded++;
 
+                    var display = GetDisplayByDefinitionId(gc.CouponDefinition.Id);
                     if (display != null)
                     {
                         display.TotalUsed += 1;
@@ -2549,504 +2901,41 @@ namespace BootCoupon
 
                 UpdateTotalPrice();
 
-                // แสดงสถานะสำเร็จ
-                BarcodeStatusText.Text = $"✅ เพิ่มแล้ว {addedCount} รายการจาก {definition.Name}";
-                BarcodeStatusText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green);
-                PlaySuccessSound();
-
-                Debug.WriteLine($"✅ Scanned and added {addedCount} items from: {scannedCode} ({definition.Name})");
-            }
-            catch (Exception ex)
-            {
-                BarcodeStatusText.Text = $"❌ เกิดข้อผิดพลาด: {ex.Message}";
-                BarcodeStatusText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
-                Debug.WriteLine($"Error processing barcode: {ex.Message}");
+                Debug.WriteLine($"✅ เพิ่ม {totalAdded} รายการจากการสแกนเข้าใบเสร็จสำเร็จ");
             }
         }
 
-        private async Task<(List<int>? normalSelectedIds, List<int>? comSelectedIds)?> ShowPickGeneratedCodesDialogForScannedCodeAsync(
-    CouponDefinition selectedDefinition,
-    int scannedGeneratedId,
-    string scannedCode)
+        // Helper class สำหรับ ListView
+        public class ScannedCouponItem : INotifyPropertyChanged
         {
-            await _context.Database.EnsureCreatedAsync();
+            public int GeneratedId { get; set; }
+            public string GeneratedCode { get; set; } = "";
+            public string CouponName { get; set; } = "";
+            public decimal Price { get; set; }
 
-            // IDs already chosen in other receipt items
-            var alreadySelectedInOtherItems = _selectedItems
-                .Where(it => it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Any())
-                .SelectMany(it => it.SelectedGeneratedIds!)
-                .Distinct()
-                .ToList();
-
-            // Load available generated coupons
-            var availableCodes = await _context.GeneratedCoupons
-                .Where(g => g.CouponDefinitionId == selectedDefinition.Id &&
-                           ((g.ReceiptItemId == null && !g.IsUsed) || g.Id == scannedGeneratedId))
-                .ToListAsync();
-
-            // sort by trailing numeric value first, then by full code
-            availableCodes = availableCodes
-                .OrderBy(g => ParseTrailingNumber(g.GeneratedCode))
-                .ThenBy(g => g.GeneratedCode)
-                .ToList();
-
-            // UI containers
-            var stack = new StackPanel { Spacing = 8 };
-            stack.Children.Add(new TextBlock
+            private bool _isCOM;
+            public bool IsCOM
             {
-                Text = $"📱 สแกน: {scannedCode}\nคูปอง: {selectedDefinition.Name}",
-                TextWrapping = TextWrapping.Wrap,
-                FontSize = 16,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-            });
-
-            // Mode toggle
-            var modeToggle = new ToggleSwitch
-            {
-                Header = "โหมด: เลือกเอง (ติ๊กทีละรายการ)",
-                IsOn = true, // ✅ เปิด manual mode ตั้งแต่แรก
-                Margin = new Thickness(0, 6, 0, 0)
-            };
-            stack.Children.Add(modeToggle);
-
-            // Controls: normal/com quantity
-            var normalPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            normalPanel.Children.Add(new TextBlock { Text = "จำนวนที่ต้องการ:", VerticalAlignment = VerticalAlignment.Center });
-            var normalQuantityBox = new NumberBox
-            {
-                Minimum = 0,
-                Maximum = Math.Max(0, availableCodes.Count),
-                Value = 0,
-                Width = 220,
-                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
-                IsEnabled = false // disable เพราะเริ่มใน manual mode
-            };
-            normalPanel.Children.Add(normalQuantityBox);
-            stack.Children.Add(normalPanel);
-
-            var comPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            comPanel.Children.Add(new TextBlock { Text = "จำนวนที่ต้องการ (COM):", VerticalAlignment = VerticalAlignment.Center });
-            var comQuantityBox = new NumberBox
-            {
-                Minimum = 0,
-                Maximum = Math.Max(0, availableCodes.Count),
-                Value = 0,
-                Width = 220,
-                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
-                IsEnabled = false // disable เพราะเริ่มใน manual mode
-            };
-            comPanel.Children.Add(comQuantityBox);
-            stack.Children.Add(comPanel);
-
-            // Search box
-            var searchBox = new TextBox
-            {
-                PlaceholderText = "ค้นหารหัส (พิมพ์แล้วรายการจะกรองอัตโนมัติ)",
-                Margin = new Thickness(0, 8, 0, 0),
-                Text = scannedCode // ✅ ใส่รหัสที่สแกนไว้แล้ว
-            };
-            stack.Children.Add(searchBox);
-
-            // Info text
-            var infoText = new TextBlock
-            {
-                Text = $"หมายเลขที่มีทั้งหมด: {availableCodes.Count}",
-                Margin = new Thickness(0, 6, 0, 0)
-            };
-            stack.Children.Add(infoText);
-
-            // Scroll area for checkboxes
-            var scroll = new ScrollViewer { Height = 320 };
-            var resultsPanel = new StackPanel { Spacing = 2 };
-            scroll.Content = resultsPanel;
-            stack.Children.Add(scroll);
-
-            // Pagination controls
-            const int pageSize = 25;
-            int currentPage = 1;
-            int totalPages = Math.Max(1, (int)Math.Ceiling(availableCodes.Count / (double)pageSize));
-            var pagingPanel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 12,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 8, 0, 0)
-            };
-            var prevBtn = new Button { Content = "‹ ก่อนหน้า", MinWidth = 100 };
-            var pageInfo = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 14 };
-            var nextBtn = new Button { Content = "ถัดไป ›", MinWidth = 100 };
-            pagingPanel.Children.Add(prevBtn);
-            pagingPanel.Children.Add(pageInfo);
-            pagingPanel.Children.Add(nextBtn);
-            stack.Children.Add(pagingPanel);
-
-            // Working sets
-            var normalSelected = new List<int>();
-            var comSelected = new List<int>();
-
-            // Track manual toggles by user across pages
-            var manualChecked = new HashSet<int>();
-            var manualComChecked = new HashSet<int>();
-
-            // ✅ Pre-select scanned code
-            manualChecked.Add(scannedGeneratedId);
-
-            bool suppressCheckboxEvents = false;
-
-            // Allocation algorithm
-            void AllocateByCounts(int normalCount, int comCount, string? filter)
-            {
-                normalSelected.Clear();
-                comSelected.Clear();
-
-                var query = availableCodes.AsEnumerable();
-                if (!string.IsNullOrWhiteSpace(filter))
+                get => _isCOM;
+                set
                 {
-                    query = query.Where(g => g.GeneratedCode?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0);
-                }
-
-                var candidate = query.Where(g => !alreadySelectedInOtherItems.Contains(g.Id)).ToList();
-
-                foreach (var g in candidate)
-                {
-                    if (normalSelected.Count >= normalCount) break;
-                    normalSelected.Add(g.Id);
-                }
-
-                foreach (var g in candidate)
-                {
-                    if (normalSelected.Contains(g.Id)) continue;
-                    if (comSelected.Count >= comCount) break;
-                    comSelected.Add(g.Id);
+                    if (_isCOM != value)
+                    {
+                        _isCOM = value;
+                        OnPropertyChanged();
+                        OnPropertyChanged(nameof(DisplayText));
+                    }
                 }
             }
 
-            // Populate results for current page
-            void PopulatePage(string? filter)
+            public string DisplayText => IsCOM ? $"🎁 {GeneratedCode}" : GeneratedCode;
+            public string DetailText => $"{CouponName} | {Price:N2} บาท";
+
+            public event PropertyChangedEventHandler? PropertyChanged;
+            protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
             {
-                resultsPanel.Children.Clear();
-
-                var query = availableCodes.AsEnumerable();
-                if (!string.IsNullOrWhiteSpace(filter))
-                {
-                    query = query.Where(g => g.GeneratedCode?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0);
-                }
-
-                var filtered = query.ToList();
-                int totalFiltered = filtered.Count;
-                totalPages = Math.Max(1, (int)Math.Ceiling(totalFiltered / (double)pageSize));
-                if (currentPage > totalPages) currentPage = totalPages;
-                int skip = (currentPage - 1) * pageSize;
-                var displayed = filtered.Skip(skip).Take(pageSize).ToList();
-
-                foreach (var g in displayed)
-                {
-                    var isTakenElsewhere = alreadySelectedInOtherItems.Contains(g.Id);
-
-                    var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-
-                    var selCb = new CheckBox
-                    {
-                        Content = g.GeneratedCode,
-                        Tag = g.Id,
-                        Margin = new Thickness(0, 2, 0, 2),
-                        IsEnabled = !isTakenElsewhere,
-                        Width = 420
-                    };
-
-                    var comCb = new CheckBox
-                    {
-                        Content = "COM",
-                        Tag = g.Id,
-                        Margin = new Thickness(0, 2, 0, 2),
-                        IsEnabled = !isTakenElsewhere,
-                        Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange)
-                    };
-
-                    // ✅ Highlight scanned code
-                    if (g.Id == scannedGeneratedId)
-                    {
-                        selCb.FontWeight = Microsoft.UI.Text.FontWeights.Bold;
-                        selCb.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Blue);
-                    }
-
-                    // initial checked state
-                    if (manualComChecked.Contains(g.Id))
-                    {
-                        comCb.IsChecked = true;
-                        selCb.IsChecked = false;
-                    }
-                    else if (manualChecked.Contains(g.Id))
-                    {
-                        selCb.IsChecked = true;
-                        comCb.IsChecked = false;
-                    }
-                    else if (!modeToggle.IsOn) // Auto mode
-                    {
-                        if (comSelected.Contains(g.Id))
-                        {
-                            comCb.IsChecked = true;
-                            selCb.IsChecked = false;
-                        }
-                        else if (normalSelected.Contains(g.Id))
-                        {
-                            selCb.IsChecked = true;
-                            comCb.IsChecked = false;
-                        }
-                        else
-                        {
-                            selCb.IsChecked = false;
-                            comCb.IsChecked = false;
-                        }
-                    }
-                    else
-                    {
-                        selCb.IsChecked = false;
-                        comCb.IsChecked = false;
-                    }
-
-                    if (isTakenElsewhere)
-                    {
-                        selCb.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray);
-                        comCb.IsEnabled = false;
-                    }
-
-                    // mutual-exclusion handlers
-                    selCb.Checked += (s, e) =>
-                    {
-                        if (suppressCheckboxEvents) return;
-                        var id = (int)selCb.Tag!;
-                        if (comCb.IsChecked == true)
-                        {
-                            suppressCheckboxEvents = true;
-                            comCb.IsChecked = false;
-                            suppressCheckboxEvents = false;
-                        }
-                        manualChecked.Add(id);
-                        manualComChecked.Remove(id);
-                    };
-                    selCb.Unchecked += (s, e) =>
-                    {
-                        if (suppressCheckboxEvents) return;
-                        var id = (int)selCb.Tag!;
-                        manualChecked.Remove(id);
-                        manualComChecked.Remove(id);
-                    };
-
-                    comCb.Checked += (s, e) =>
-                    {
-                        if (suppressCheckboxEvents) return;
-                        var id = (int)comCb.Tag!;
-                        if (selCb.IsChecked == true)
-                        {
-                            suppressCheckboxEvents = true;
-                            selCb.IsChecked = false;
-                            suppressCheckboxEvents = false;
-                        }
-                        manualChecked.Add(id);
-                        manualComChecked.Add(id);
-                    };
-                    comCb.Unchecked += (s, e) =>
-                    {
-                        if (suppressCheckboxEvents) return;
-                        var id = (int)comCb.Tag!;
-                        manualComChecked.Remove(id);
-                    };
-
-                    row.Children.Add(selCb);
-                    row.Children.Add(comCb);
-                    resultsPanel.Children.Add(row);
-                }
-
-                pageInfo.Text = $"หน้า {currentPage} / {totalPages} ({totalFiltered} รายการ)";
-                prevBtn.IsEnabled = currentPage > 1;
-                nextBtn.IsEnabled = currentPage < totalPages;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
-
-            // Recompute allocations and refresh
-            void RecomputeAndRefresh()
-            {
-                if (modeToggle.IsOn)
-                {
-                    suppressCheckboxEvents = true;
-                    PopulatePage(searchBox.Text?.Trim());
-                    suppressCheckboxEvents = false;
-                    return;
-                }
-
-                var desiredNormal = (int)Math.Max(0, normalQuantityBox.Value);
-                var desiredCom = (int)Math.Max(0, comQuantityBox.Value);
-
-                var filteredCount = string.IsNullOrWhiteSpace(searchBox.Text)
-                    ? availableCodes.Count
-                    : availableCodes.Count(g => g.GeneratedCode?.IndexOf(searchBox.Text, StringComparison.OrdinalIgnoreCase) >= 0);
-
-                if (desiredNormal + desiredCom > filteredCount)
-                {
-                    var overflow = desiredNormal + desiredCom - filteredCount;
-                    desiredCom = Math.Max(0, desiredCom - overflow);
-                    if (desiredNormal + desiredCom > filteredCount)
-                    {
-                        desiredNormal = Math.Max(0, desiredNormal - (desiredNormal + desiredCom - filteredCount));
-                    }
-                }
-
-                AllocateByCounts(desiredNormal, desiredCom, searchBox.Text?.Trim());
-
-                suppressCheckboxEvents = true;
-                PopulatePage(searchBox.Text?.Trim());
-                suppressCheckboxEvents = false;
-            }
-
-            // Events
-            normalQuantityBox.ValueChanged += (s, e) =>
-            {
-                if (double.IsNaN(normalQuantityBox.Value) || normalQuantityBox.Value < 0) normalQuantityBox.Value = 0;
-                currentPage = 1;
-                RecomputeAndRefresh();
-            };
-            comQuantityBox.ValueChanged += (s, e) =>
-            {
-                if (double.IsNaN(comQuantityBox.Value) || comQuantityBox.Value < 0) comQuantityBox.Value = 0;
-                currentPage = 1;
-                RecomputeAndRefresh();
-            };
-            searchBox.TextChanged += (s, e) =>
-            {
-                currentPage = 1;
-                DispatcherQueue.TryEnqueue(() => RecomputeAndRefresh());
-            };
-
-            modeToggle.Toggled += (s, e) =>
-            {
-                normalQuantityBox.IsEnabled = !modeToggle.IsOn;
-                comQuantityBox.IsEnabled = !modeToggle.IsOn;
-
-                if (!modeToggle.IsOn) // switching to auto mode
-                {
-                    // clear manual selections except the scanned one
-                    var scannedInManual = manualChecked.Contains(scannedGeneratedId);
-                    manualChecked.Clear();
-                    manualComChecked.Clear();
-                    if (scannedInManual)
-                        manualChecked.Add(scannedGeneratedId);
-                }
-
-                suppressCheckboxEvents = true;
-                normalQuantityBox.Value = 0;
-                comQuantityBox.Value = 0;
-                suppressCheckboxEvents = false;
-
-                currentPage = 1;
-                RecomputeAndRefresh();
-            };
-
-            prevBtn.Click += (s, e) =>
-            {
-                if (currentPage > 1) currentPage--;
-                RecomputeAndRefresh();
-                resultsPanel.UpdateLayout();
-                var sv = FindScrollViewer(resultsPanel);
-                sv?.ChangeView(null, 0, null, disableAnimation: true);
-            };
-            nextBtn.Click += (s, e) =>
-            {
-                if (currentPage < totalPages) currentPage++;
-                RecomputeAndRefresh();
-                resultsPanel.UpdateLayout();
-                var sv = FindScrollViewer(resultsPanel);
-                sv?.ChangeView(null, 0, null, disableAnimation: true);
-            };
-
-            // Initialize
-            RecomputeAndRefresh();
-
-            var outerScroll = new ScrollViewer
-            {
-                Content = stack,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                MaxHeight = Math.Min(this.XamlRoot.Size.Height * 0.85, 900)
-            };
-
-            var dialog = new ContentDialog
-            {
-                Title = "📱 เลือกหมายเลขคูปอง (จากการสแกน)",
-                Content = outerScroll,
-                PrimaryButtonText = "ตกลง",
-                CloseButtonText = "ยกเลิก",
-                DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
-            };
-
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
-            {
-                if (modeToggle.IsOn) // Manual mode
-                {
-                    var finalManual = manualChecked.Except(alreadySelectedInOtherItems).ToList();
-                    var finalComManual = manualComChecked.Except(alreadySelectedInOtherItems).ToList();
-                    foreach (var id in finalComManual)
-                    {
-                        if (!finalManual.Contains(id)) finalManual.Add(id);
-                    }
-                    var finalNormalManual = finalManual.Except(finalComManual).ToList();
-                    return (finalNormalManual, finalComManual);
-                }
-
-                // Auto mode
-                var manualCheckedList = manualChecked.ToList();
-                var desiredNormal = (int)Math.Max(0, normalQuantityBox.Value);
-                var desiredCom = (int)Math.Max(0, comQuantityBox.Value);
-
-                var finalNormal = new List<int>(normalSelected);
-                var finalCom = new List<int>(comSelected);
-
-                foreach (var id in manualCheckedList)
-                {
-                    if (alreadySelectedInOtherItems.Contains(id)) continue;
-                    if (finalCom.Contains(id)) continue;
-                    if (!finalNormal.Contains(id) && finalNormal.Count < desiredNormal)
-                        finalNormal.Add(id);
-                }
-
-                var candidates = availableCodes.Select(g => g.Id).Except(alreadySelectedInOtherItems).ToList();
-                foreach (var id in candidates)
-                {
-                    if (finalNormal.Count >= desiredNormal) break;
-                    if (!finalNormal.Contains(id) && !finalCom.Contains(id))
-                        finalNormal.Add(id);
-                }
-
-                foreach (var id in candidates)
-                {
-                    if (finalCom.Count >= desiredCom) break;
-                    if (!finalCom.Contains(id) && !finalNormal.Contains(id))
-                        finalCom.Add(id);
-                }
-
-                return (finalNormal, finalCom);
-            }
-
-            return null;
-        }
-
-        private void PlayErrorSound()
-        {
-            try
-            {
-                System.Media.SystemSounds.Beep.Play();
-            }
-            catch { }
-        }
-
-        private void PlaySuccessSound()
-        {
-            try
-            {
-                System.Media.SystemSounds.Asterisk.Play();
-            }
-            catch { }
         }
     }
 }
