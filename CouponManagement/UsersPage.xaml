@@ -49,6 +49,7 @@
                 <ComboBoxItem Content="จัดการผู้ใช้" Tag="Users" />
                 <ComboBoxItem Content="จัดการสาขา" Tag="Branches" />
                 <ComboBoxItem Content="จัดการชื่องานที่ออกขาย" Tag="Events" />
+                <ComboBoxItem Content="จัดการชื่อเซลล์" Tag="Sales" />
             </ComboBox>
         </StackPanel>
 
@@ -337,6 +338,101 @@
 
                                     <!-- Separator line at bottom of each item -->
                                     <Rectangle Grid.ColumnSpan="4" Height="1" Fill="#2F3436" VerticalAlignment="Bottom" Margin="0,0,0,0" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+
+                <!-- Sales Table -->
+                <Grid x:Name="SalesTableContainer" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Header row for Sales table -->
+                    <Grid Grid.Row="0" Background="#232628" Padding="0" Height="56">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="150" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="รหัส" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <Border Grid.Column="1" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="ชื่อเซลล์" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <Border Grid.Column="2" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="เบอร์โทรศัพท์" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <Border Grid.Column="3" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="สาขา" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                        <Border Grid.Column="4" Padding="18,0" VerticalAlignment="Center">
+                            <TextBlock Text="" FontWeight="SemiBold" Foreground="#E6E6E6" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        </Border>
+                    </Grid>
+
+                    <!-- List of sales persons -->
+                    <ListView x:Name="SalesListView" Grid.Row="1" Margin="0" IsItemClickEnabled="False" Background="Transparent" SelectionMode="None" HorizontalContentAlignment="Stretch">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                                <Setter Property="Background" Value="Transparent" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="0" HorizontalAlignment="Stretch" MinHeight="56">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="150" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding ID}" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="14" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="1" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" Foreground="#FFFFFF" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="2" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Telephone}" Foreground="#FFFFFF" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="3" BorderBrush="#2F3436" BorderThickness="0,0,1,0" Padding="18,8" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Branch}" Foreground="#FFFFFF" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Actions column -->
+                                    <Border Grid.Column="4" Padding="12" Background="Transparent" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                            <Button Content="แก้ไข" Click="EditSalesButton_Click" MinWidth="60" DataContext="{Binding}" />
+                                            <Button Content="ลบ" Click="DeleteSalesButton_Click" MinWidth="60" DataContext="{Binding}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Separator line at bottom of each item -->
+                                    <Rectangle Grid.ColumnSpan="5" Height="1" Fill="#2F3436" VerticalAlignment="Bottom" Margin="0,0,0,0" />
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>
