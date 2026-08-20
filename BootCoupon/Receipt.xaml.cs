@@ -2581,147 +2581,188 @@ namespace BootCoupon
                     .ToList();
             }
 
+            // ⚠️ ป้องกันการเรียกซ้อนกัน (re-entrancy) ของ ProcessTokensAsync
+            // เมื่อสแกน/พิมพ์หลายรายการติดกันเร็ว ๆ อาจมี TextChanged เกิดขึ้นซ้ำ
+            // ก่อนที่การประมวลผลรอบก่อนหน้าจะ await เสร็จ ทำให้ resultItems ถูกแก้ไข
+            // ระหว่างที่กำลัง enumerate อยู่ -> InvalidOperationException
+            bool isProcessingTokens = false;
+            List<string>? pendingTokens = null;
+
             // Helper: ค้นหาและเพิ่มรายการ
             async Task ProcessTokensAsync(List<string> tokens)
             {
-                if (!tokens.Any())
+                // ถ้ากำลังประมวลผลอยู่ ให้เก็บ tokens ล่าสุดไว้ก่อน แล้วรอรอบปัจจุบันทำงานให้เสร็จ
+                if (isProcessingTokens)
                 {
-                    resultItems.Clear();
-                    resultsPanel.Children.Clear();
-                    scannedCodesMap.Clear();
-                    comCodesSet.Clear();
-                    statusText.Text = "";
-                    UpdateCounter();
+                    pendingTokens = tokens;
                     return;
                 }
 
-                var newTokens = tokens.Where(t => !scannedCodesMap.ContainsKey(t)).ToList();
-                var removedTokens = scannedCodesMap.Keys.Except(tokens, StringComparer.OrdinalIgnoreCase).ToList();
-
-                foreach (var removedToken in removedTokens)
+                isProcessingTokens = true;
+                try
                 {
-                    if (scannedCodesMap.TryGetValue(removedToken, out var removedId))
+                    if (!tokens.Any())
                     {
-                        var itemToRemove = resultItems.FirstOrDefault(x => x.GeneratedId == removedId);
-                        if (itemToRemove != null)
+                        resultItems.Clear();
+                        resultsPanel.Children.Clear();
+                        scannedCodesMap.Clear();
+                        comCodesSet.Clear();
+                        statusText.Text = "";
+                        UpdateCounter();
+                        return;
+                    }
+
+                    var newTokens = tokens.Where(t => !scannedCodesMap.ContainsKey(t)).ToList();
+                    var removedTokens = scannedCodesMap.Keys.Except(tokens, StringComparer.OrdinalIgnoreCase).ToList();
+
+                    foreach (var removedToken in removedTokens)
+                    {
+                        if (scannedCodesMap.TryGetValue(removedToken, out var removedId))
                         {
-                            resultItems.Remove(itemToRemove);
-                            var borderToRemove = resultsPanel.Children
-                                .OfType<Border>()
-                                .FirstOrDefault(b => (b.Tag as ScannedCouponItem)?.GeneratedId == removedId);
-                            if (borderToRemove != null)
+                            var itemToRemove = resultItems.FirstOrDefault(x => x.GeneratedId == removedId);
+                            if (itemToRemove != null)
                             {
-                                resultsPanel.Children.Remove(borderToRemove);
+                                resultItems.Remove(itemToRemove);
+                                var borderToRemove = resultsPanel.Children
+                                    .OfType<Border>()
+                                    .FirstOrDefault(b => (b.Tag as ScannedCouponItem)?.GeneratedId == removedId);
+                                if (borderToRemove != null)
+                                {
+                                    resultsPanel.Children.Remove(borderToRemove);
+                                }
                             }
+                            scannedCodesMap.Remove(removedToken);
+                            comCodesSet.Remove(removedId);
                         }
-                        scannedCodesMap.Remove(removedToken);
-                        comCodesSet.Remove(removedId);
-                    }
-                }
-
-                if (!newTokens.Any())
-                {
-                    UpdateCounter();
-                    return;
-                }
-
-                var foundCoupons = await _context.GeneratedCoupons
-                    .Include(gc => gc.CouponDefinition)
-                    .Where(gc => newTokens.Contains(gc.GeneratedCode))
-                    .ToListAsync();
-
-                int addedCount = 0;
-                int notFoundCount = 0;
-                int alreadyUsedCount = 0;
-                int alreadySelectedCount = 0;
-
-                var alreadySelectedInOtherItems = _selectedItems
-                    .Where(it => it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Any())
-                    .SelectMany(it => it.SelectedGeneratedIds!)
-                    .Distinct()
-                    .ToList();
-
-                foreach (var token in newTokens)
-                {
-                    var gc = foundCoupons.FirstOrDefault(x =>
-                        string.Equals(x.GeneratedCode, token, StringComparison.OrdinalIgnoreCase));
-
-                    if (gc == null)
-                    {
-                        notFoundCount++;
-                        continue;
                     }
 
-                    if (gc.IsUsed || gc.ReceiptItemId != null)
+                    if (!newTokens.Any())
                     {
-                        alreadyUsedCount++;
-                        continue;
+                        UpdateCounter();
+                        return;
                     }
 
-                    if (alreadySelectedInOtherItems.Contains(gc.Id))
-                    {
-                        alreadySelectedCount++;
-                        continue;
-                    }
+                    var foundCoupons = await _context.GeneratedCoupons
+                        .Include(gc => gc.CouponDefinition)
+                        .Where(gc => newTokens.Contains(gc.GeneratedCode))
+                        .ToListAsync();
 
-                    if (gc.CouponDefinition == null || !gc.CouponDefinition.IsActive || gc.CouponDefinition.ValidTo < DateTime.Now)
-                    {
-                        notFoundCount++;
-                        continue;
-                    }
+                    int addedCount = 0;
+                    int notFoundCount = 0;
+                    int alreadyUsedCount = 0;
+                    int alreadySelectedCount = 0;
 
-                    scannedCodesMap[token] = gc.Id;
+                    // ⚠️ Snapshot ป้องกัน _selectedItems ถูกแก้ไขระหว่าง enumerate
+                    var alreadySelectedInOtherItems = _selectedItems
+                        .ToList()
+                        .Where(it => it.SelectedGeneratedIds != null && it.SelectedGeneratedIds.Any())
+                        .SelectMany(it => it.SelectedGeneratedIds!)
+                        .Distinct()
+                        .ToList();
 
-                    var item = new ScannedCouponItem
+                    foreach (var token in newTokens)
                     {
-                        GeneratedId = gc.Id,
-                        GeneratedCode = gc.GeneratedCode ?? "",
-                        CouponName = gc.CouponDefinition.Name ?? "",
-                        Price = gc.CouponDefinition.Price,
-                        IsCOM = false
-                    };
+                        var gc = foundCoupons.FirstOrDefault(x =>
+                            string.Equals(x.GeneratedCode, token, StringComparison.OrdinalIgnoreCase));
 
-                    item.PropertyChanged += (s, e) =>
-                    {
-                        if (e.PropertyName == nameof(ScannedCouponItem.IsCOM))
+                        if (gc == null)
                         {
-                            if (item.IsCOM)
-                                comCodesSet.Add(item.GeneratedId);
-                            else
-                                comCodesSet.Remove(item.GeneratedId);
-                            UpdateCounter();
+                            notFoundCount++;
+                            continue;
                         }
-                    };
 
-                    resultItems.Add(item);
-                    AddItemToUI(item);
-                    addedCount++;
+                        if (gc.IsUsed || gc.ReceiptItemId != null)
+                        {
+                            alreadyUsedCount++;
+                            continue;
+                        }
+
+                        if (alreadySelectedInOtherItems.Contains(gc.Id))
+                        {
+                            alreadySelectedCount++;
+                            continue;
+                        }
+
+                        if (gc.CouponDefinition == null || !gc.CouponDefinition.IsActive || gc.CouponDefinition.ValidTo < DateTime.Now)
+                        {
+                            notFoundCount++;
+                            continue;
+                        }
+
+                        // ⚠️ ป้องกันการเพิ่มซ้ำ ถ้ามีการเพิ่มรหัสนี้ไปแล้วระหว่างรอ query
+                        if (scannedCodesMap.ContainsKey(token))
+                        {
+                            continue;
+                        }
+
+                        scannedCodesMap[token] = gc.Id;
+
+                        var item = new ScannedCouponItem
+                        {
+                            GeneratedId = gc.Id,
+                            GeneratedCode = gc.GeneratedCode ?? "",
+                            CouponName = gc.CouponDefinition.Name ?? "",
+                            Price = gc.CouponDefinition.Price,
+                            IsCOM = false
+                        };
+
+                        item.PropertyChanged += (s, e) =>
+                        {
+                            if (e.PropertyName == nameof(ScannedCouponItem.IsCOM))
+                            {
+                                if (item.IsCOM)
+                                    comCodesSet.Add(item.GeneratedId);
+                                else
+                                    comCodesSet.Remove(item.GeneratedId);
+                                UpdateCounter();
+                            }
+                        };
+
+                        resultItems.Add(item);
+                        AddItemToUI(item);
+                        addedCount++;
+                    }
+
+                    var statusParts = new List<string>();
+                    if (addedCount > 0) statusParts.Add($"✅ เพิ่ม {addedCount} รายการ");
+                    if (notFoundCount > 0) statusParts.Add($"❌ ไม่พบ {notFoundCount} รายการ");
+                    if (alreadyUsedCount > 0) statusParts.Add($"⚠️ ใช้แล้ว {alreadyUsedCount} รายการ");
+                    if (alreadySelectedCount > 0) statusParts.Add($"⚠️ เลือกแล้ว {alreadySelectedCount} รายการ");
+
+                    statusText.Text = string.Join(" | ", statusParts);
+                    statusText.Foreground = addedCount > 0
+                        ? new SolidColorBrush(Microsoft.UI.Colors.Green)
+                        : new SolidColorBrush(Microsoft.UI.Colors.Orange);
+
+                    UpdateCounter();
+
+                    if (addedCount > 0)
+                    {
+                        try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
+                    }
+                    else if (notFoundCount > 0 || alreadyUsedCount > 0)
+                    {
+                        try { System.Media.SystemSounds.Beep.Play(); } catch { }
+                    }
                 }
-
-                var statusParts = new List<string>();
-                if (addedCount > 0) statusParts.Add($"✅ เพิ่ม {addedCount} รายการ");
-                if (notFoundCount > 0) statusParts.Add($"❌ ไม่พบ {notFoundCount} รายการ");
-                if (alreadyUsedCount > 0) statusParts.Add($"⚠️ ใช้แล้ว {alreadyUsedCount} รายการ");
-                if (alreadySelectedCount > 0) statusParts.Add($"⚠️ เลือกแล้ว {alreadySelectedCount} รายการ");
-
-                statusText.Text = string.Join(" | ", statusParts);
-                statusText.Foreground = addedCount > 0
-                    ? new SolidColorBrush(Microsoft.UI.Colors.Green)
-                    : new SolidColorBrush(Microsoft.UI.Colors.Orange);
-
-                UpdateCounter();
-
-                if (addedCount > 0)
+                finally
                 {
-                    try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
-                }
-                else if (notFoundCount > 0 || alreadyUsedCount > 0)
-                {
-                    try { System.Media.SystemSounds.Beep.Play(); } catch { }
+                    isProcessingTokens = false;
+
+                    // ถ้ามี tokens ใหม่เข้ามาระหว่างประมวลผล ให้ประมวลผลรอบล่าสุดต่อทันที
+                    if (pendingTokens != null)
+                    {
+                        var next = pendingTokens;
+                        pendingTokens = null;
+                        await ProcessTokensAsync(next);
+                    }
                 }
             }
 
             // Event: TextChanged with debounce
+            // ⚠️ isDialogClosed ป้องกัน callback ของ timer ที่ยิงค้างอยู่ (ก่อน Dispose มีผล)
+            // ไม่ให้ไปแก้ไข resultItems หลังจาก dialog ถูกปิดไปแล้ว
+            bool isDialogClosed = false;
             System.Threading.Timer? debounceTimer = null;
             searchBox.TextChanged += (s, e) =>
             {
@@ -2730,6 +2771,7 @@ namespace BootCoupon
                 {
                     DispatcherQueue.TryEnqueue(async () =>
                     {
+                        if (isDialogClosed) return;
                         var tokens = ParseTokens(searchBox.Text);
                         await ProcessTokensAsync(tokens);
                     });
@@ -2826,6 +2868,7 @@ namespace BootCoupon
             // Event handlers
             void CloseDialog()
             {
+                isDialogClosed = true;
                 rootGrid.Children.Remove(overlay);
                 debounceTimer?.Dispose();
             }
@@ -2950,7 +2993,9 @@ namespace BootCoupon
                 // เพิ่มเข้ารายการ
                 int totalAdded = 0;
 
-                foreach (var item in resultItems)
+                // ⚠️ Snapshot ป้องกัน resultItems ถูกแก้ไขระหว่าง await
+                // (เช่น debounce timer ที่ยิงค้างอยู่ก่อนปิด dialog อาจยังทำงานต่อ)
+                foreach (var item in resultItems.ToList())
                 {
                     var gc = await _context.GeneratedCoupons
                         .Include(gc => gc.CouponDefinition)
