@@ -116,8 +116,7 @@ namespace BootCoupon
             thaiCulture.DateTimeFormat.Calendar = new ThaiBuddhistCalendar();
             ReceiptDateTextBlock!.Text = receipt.ReceiptDate.ToString("dd / MM / yyyy", thaiCulture);
 
-            // แสดงยอดรวมทั้งหมด
-            TotalAmountTextBlock!.Text = receipt.TotalAmount.ToString("N2");
+            // (Displayed total will be computed after loading items to account for COM coupons)
 
             // ดึงข้อมูลรายการสินค้า
             using (var context = new CouponContext())
@@ -203,6 +202,30 @@ namespace BootCoupon
                     });
                 }
             }
+
+            // After building display items, compute COM total and update displayed total
+            // If 'items' is out of scope here, re-query DB to compute COM total
+            decimal comTotal = 0m;
+            try
+            {
+                using (var ctx2 = new CouponContext())
+                {
+                    comTotal = await ctx2.ReceiptItems
+                        .Where(ri => ri.ReceiptId == receiptId && ri.IsCOM)
+                        .Select(ri => ri.UnitPrice * ri.Quantity)
+                        .SumAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to compute COM total: {ex.Message}");
+                comTotal = 0m;
+            }
+            var isLegacyReceipt = !string.IsNullOrEmpty(receipt.ReceiptCode) && receipt.ReceiptCode.StartsWith("INV25", StringComparison.OrdinalIgnoreCase);
+            var displayTotal = isLegacyReceipt
+                ? receipt.TotalAmount
+                : Math.Max(0m, receipt.TotalAmount - receipt.Discount - comTotal);
+            TotalAmountTextBlock!.Text = displayTotal.ToString("N2");
 
             // เพิ่มการโหลดข้อมูล Sales Person
             await LoadSalesPersonAsync();

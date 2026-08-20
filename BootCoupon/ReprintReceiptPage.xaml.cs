@@ -465,12 +465,32 @@ namespace BootCoupon
 
             var contentPanel = new StackPanel { Spacing = 15 };
 
+            // Compute displayed total for confirmation using INV25 rule
+            decimal displayTotalForConfirm = selectedReceipt.TotalAmount;
+            try
+            {
+                using (var context = new CouponContext())
+                {
+                    var dbReceipt = await context.Receipts.FindAsync(selectedReceipt.ReceiptID);
+                    if (dbReceipt != null)
+                    {
+                        var isLegacy = !string.IsNullOrEmpty(dbReceipt.ReceiptCode) && dbReceipt.ReceiptCode.StartsWith("INV25", StringComparison.OrdinalIgnoreCase);
+                        displayTotalForConfirm = isLegacy ? dbReceipt.TotalAmount : Math.Max(0m, dbReceipt.TotalAmount - dbReceipt.Discount);
+                    }
+                }
+            }
+            catch
+            {
+                // fallback to in-memory value if DB read fails
+                displayTotalForConfirm = selectedReceipt.TotalAmount;
+            }
+
             contentPanel.Children.Add(new TextBlock
             {
                 Text = $"คุณแน่ใจหรือไม่ว่าต้องการยกเลิกใบเสร็จ?\n\n" +
                        $"รหัสใบเสร็จ: {selectedReceipt.ReceiptCode}\n" +
                        $"ชื่อลูกค้า: {selectedReceipt.CustomerName}\n" +
-                       $"ยอดเงิน: {selectedReceipt.TotalAmountFormatted} บาท",
+                       $"ยอดเงิน: {displayTotalForConfirm:N2} บาท",
                 FontSize = 14,
                 TextWrapping = TextWrapping.Wrap
             });
@@ -703,7 +723,10 @@ namespace BootCoupon
                     var paymentMethods = await context.PaymentMethods.Where(pm => pm.IsActive).ToListAsync();
 
                     // คำนวณยอดรวมก่อนส่วนลด
-                    decimal totalBeforeDiscount = receipt.TotalAmount + receipt.Discount;
+                    // For legacy receipts (INV25) stored TotalAmount is net (after discount), so show before = Total + Discount
+                    // For non-INV25 receipts, apply new rule: displayed net = TotalAmount - Discount, so treat TotalAmount as the "before" amount
+                    var isLegacyForEdit = !string.IsNullOrEmpty(receipt.ReceiptCode) && receipt.ReceiptCode.StartsWith("INV25", StringComparison.OrdinalIgnoreCase);
+                    decimal totalBeforeDiscount = isLegacyForEdit ? (receipt.TotalAmount + receipt.Discount) : receipt.TotalAmount;
 
                     // สร้าง Dialog สำหรับแก้ไขข้อมูล
                     var editPanel = new StackPanel { Spacing = 10 };
@@ -776,9 +799,10 @@ namespace BootCoupon
                     editPanel.Children.Add(totalBeforeText);
 
                     // แสดงยอดสุทธิที่คำนวณใหม่
+                    var initialNet = isLegacyForEdit ? (totalBeforeDiscount - receipt.Discount) : (receipt.TotalAmount - receipt.Discount);
                     var netTotalText = new TextBlock
                     {
-                        Text = $"ยอดสุทธิ: {(totalBeforeDiscount - receipt.Discount):N2} บาท",
+                        Text = $"ยอดสุทธิ: {initialNet:N2} บาท",
                         FontSize = 14,
                         FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                         Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green),
@@ -790,7 +814,17 @@ namespace BootCoupon
                     discountBox.ValueChanged += (s, args) =>
                     {
                         var discount = double.IsNaN(discountBox.Value) ? 0 : discountBox.Value;
-                        var netTotal = totalBeforeDiscount - (decimal)discount;
+                        decimal netTotal;
+                        if (isLegacyForEdit)
+                        {
+                            // legacy: before = Total + Discount, so net = before - discount -> equals stored Total
+                            netTotal = totalBeforeDiscount - (decimal)discount;
+                        }
+                        else
+                        {
+                            // non-legacy: desired net = stored TotalAmount - discount
+                            netTotal = receipt.TotalAmount - (decimal)discount;
+                        }
                         netTotalText.Text = $"ยอดสุทธิ: {netTotal:N2} บาท";
                     };
 

@@ -1171,9 +1171,9 @@ namespace BootCoupon
 
                         var paidCouponPrice = paidGenAmount + unlimAmount;
                         var freeCouponPrice = freeGenAmount + freeUnlimAmount;
-                        var originalGrandTotal = paidCouponPrice + freeCouponPrice; // keep original grand total (do NOT subtract discount)
+                        var originalGrandTotal = paidCouponPrice + freeCouponPrice; // original grand total
 
-                        // Determine sale-event names associated with this receipt (if any)
+                        // Map receipt -> sale-event ids (receiptEventMap is prepared earlier)
                         receiptEventMap.TryGetValue(r.ReceiptID, out var evIdsForReceipt);
                         evIdsForReceipt ??= new List<int>();
                         var saleEventNamesForReceipt = evIdsForReceipt
@@ -1181,19 +1181,29 @@ namespace BootCoupon
                             .Where(s => !string.IsNullOrEmpty(s))
                             .ToList();
 
-                        // If any sale-event name equals "ไทยเที่ยวไทย76" (case-insensitive), ignore user-entered discount for this receipt
+                        // If any sale-event name equals "ไทยเที่ยวไทย76" -> ignore discount
                         var isThai76 = saleEventNamesForReceipt.Any(n => string.Equals(n, "ไทยเที่ยวไทย76", StringComparison.OrdinalIgnoreCase));
+
+                        // Legacy rule: ReceiptCode starting with INV25 keeps existing behavior
+                        var isLegacyReceipt = !string.IsNullOrEmpty(r.ReceiptCode) && r.ReceiptCode.StartsWith("INV25", StringComparison.OrdinalIgnoreCase);
 
                         // Apply discount only when not Thai76
                         var appliedDiscount = isThai76 ? 0m : r.Discount;
 
-                        // Subtract discount from the paid coupon amount ONLY (never make it negative)
-                        var paidCouponPriceAfterDiscount = Math.Max(0m, paidCouponPrice - appliedDiscount);
+                        // Behavior:
+                        // - Legacy (INV25): discount reduces paid coupon amount; grand total remains original.
+                        // - Non-legacy (INV26/INV27/...): grand total displayed = Total - Discount.
+                        var paidCouponPriceAfterDiscount = isLegacyReceipt ? Math.Max(0m, paidCouponPrice - appliedDiscount) : paidCouponPrice;
 
-                        // Grand total remains unchanged (user requested discount only reduce paid price, not grand total)
-                        var grandTotalUnchanged = originalGrandTotal;
+                        // Subtract COM coupon total for non-legacy receipts
+                        // freeCouponPrice represents amount from IsCOM coupons (both limited and unlimited)
+                        var comTotal = freeCouponPrice;
 
-                        // Tax calculation (use the discounted paid amount for tax if applicable)
+                        var grandTotalAdjusted = isLegacyReceipt
+                            ? originalGrandTotal
+                            : Math.Max(0m, originalGrandTotal - appliedDiscount - comTotal);
+
+                        // Tax calculation uses the amount used for tax (legacy: discounted paid amount; non-legacy: paid amount as-is)
                         decimal preTaxAmount = 0m;
                         decimal taxAmount = 0m;
                         if (ReportMode == ReportModes.ByReceiptWithTax)
@@ -1220,22 +1230,20 @@ namespace BootCoupon
                             FreeCouponCount = freeCouponCount,
                             TotalCouponCount = totalCouponCount,
 
-                            // Paid coupon price reflects the discount; grand total does NOT change
+                            // Paid coupon price reflects the discount for legacy receipts only
                             PaidCouponPrice = paidCouponPriceAfterDiscount,
                             FreeCouponPrice = freeCouponPrice,
-                            GrandTotalPrice = grandTotalUnchanged,
+                            GrandTotalPrice = grandTotalAdjusted,
 
-                            // Tax properties populate from the discounted paid amount
+                            // Tax properties
                             PreTaxAmount = preTaxAmount,
                             TaxAmount = taxAmount,
 
-                            // Store original receipt totals and applied discount
+                            // Store original totals and discount
                             TotalPrice = r.TotalAmount,
                             Discount = appliedDiscount,
 
-                            // expose associated sale-event name(s) for UI and CSV
                             SaleEventName = saleEventNamesForReceipt.Any() ? string.Join(", ", saleEventNamesForReceipt) : string.Empty,
-
                             CancellationReason = r.CancellationReason ?? string.Empty
                         };
                     }).ToList();
