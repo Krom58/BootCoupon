@@ -776,6 +776,7 @@ namespace BootCoupon
         public string TotalRecordsText { get; private set; } = "ไม่มีข้อมูล";
         public string TotalAmountText { get; private set; } = "";
         public string TotalFreeCouponPriceText { get; private set; } = "";
+        public string TotalDiscountText { get; private set; } = "";
         public string TotalPaidCouponPriceText { get; private set; } = "";
         public string TotalGrandPriceText { get; private set; } = "";
 
@@ -1875,10 +1876,9 @@ namespace BootCoupon
 
                     decimal totalDiscount = _allResults.Sum(x => x.Discount);
                     TotalFreeCouponPriceText = $"ราคาคูปองฟรี (รวมทุกรายการ): {totalFree:N2} บาท";
+                    TotalDiscountText = totalDiscount > 0 ? $"ส่วนลดรวม: {totalDiscount:N2} บาท" : "";
                     TotalPaidCouponPriceText = $"ราคาที่จ่าย (รวมทุกรายการ): {totalPaid:N2} บาท";
-                    TotalGrandPriceText = totalDiscount > 0
-                        ? $"มูลค่ารวมสุทธิ (คูปองทั้งหมด): {totalGrand:N2} บาท"
-                        : $"มูลค่ารวมสุทธิ ({totalFree:N2} + {totalPaid:N2}): {totalGrand:N2} บาท";
+                    TotalGrandPriceText = $"มูลค่ารวมสุทธิ (คูปองทั้งหมด): {totalGrand:N2} บาท";
 
                     // ⭐ คำนวณภาษีสำหรับ ByReceiptWithTax
                     if (ReportMode == ReportModes.ByReceiptWithTax)
@@ -1904,6 +1904,7 @@ namespace BootCoupon
                     totalGrand = totalFree + totalPaid;
 
                     TotalFreeCouponPriceText = $"ราคาคูปองฟรี (รวมทุกรายการ): {totalFree:N2} บาท";
+                    TotalDiscountText = "";
                     TotalPaidCouponPriceText = $"ราคาที่จ่าย (รวมทุกรายการ): {totalPaid:N2} บาท";
                     TotalGrandPriceText = $"มูลค่ารวมสุทธิ ({totalFree:N2} + {totalPaid:N2}): {totalGrand:N2} บาท";
                     TotalPreTaxAmountText = "";
@@ -1916,6 +1917,7 @@ namespace BootCoupon
                     totalGrand = totalPaid;
 
                     TotalFreeCouponPriceText = "";
+                    TotalDiscountText = "";
                     TotalPaidCouponPriceText = "";
                     TotalGrandPriceText = "";
                     TotalPreTaxAmountText = "";
@@ -1928,6 +1930,7 @@ namespace BootCoupon
             OnPropertyChanged(nameof(TotalRecordsText));
             OnPropertyChanged(nameof(TotalAmountText));
             OnPropertyChanged(nameof(TotalFreeCouponPriceText));
+            OnPropertyChanged(nameof(TotalDiscountText));
             OnPropertyChanged(nameof(TotalPaidCouponPriceText));
             OnPropertyChanged(nameof(TotalGrandPriceText));
             OnPropertyChanged(nameof(TotalPreTaxAmountText));

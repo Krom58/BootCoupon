@@ -204,6 +204,11 @@
                                    FontWeight="SemiBold" 
                                    Foreground="Orange"/>
                         
+                        <!-- ส่วนลดรวม -->
+                        <TextBlock Text="{x:Bind ViewModel.TotalDiscountText, Mode=OneWay}" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="Crimson"/>
+
                         <!-- ราคาที่จ่าย -->
                         <TextBlock Text="{x:Bind ViewModel.TotalPaidCouponPriceText, Mode=OneWay}" 
                                    FontWeight="SemiBold" 

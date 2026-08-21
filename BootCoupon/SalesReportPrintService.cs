@@ -586,7 +586,7 @@ namespace BootCoupon
                 {
                     // ✅ รายงานที่มีการแยก Free/Paid Coupon
                     var totalFreeCouponPrice = currentViewModel.AllResults.Sum(x => x.FreeCouponPrice);
-                    var totalPaidCouponPrice = currentViewModel.AllResults.Sum(x => x.PaidCouponPriceClamped);
+                    var totalPaidCouponPrice = currentViewModel.AllResults.Sum(x => x.PaidCouponPrice);
                     var totalDiscount = currentViewModel.AllResults.Sum(x => x.Discount);
                     var totalGrandPrice = currentViewModel.AllResults.Sum(x => x.GrandTotalPrice);
 
@@ -627,6 +627,7 @@ namespace BootCoupon
                         {
                             PaymentMethod = g.Key,
                             TotalAmount = g.Sum(x => x.GrandTotalPrice > 0 ? x.GrandTotalPrice : x.TotalPrice),
+                            PaidAmount = g.Sum(x => x.PaidCouponPrice),
                             Count = g.Count()
                         })
                         .OrderByDescending(x => x.TotalAmount)
@@ -638,7 +639,7 @@ namespace BootCoupon
                         {
                             summaryPanel.Children.Add(new TextBlock
                             {
-                                Text = $"  • {pm.PaymentMethod}: {pm.TotalAmount:N2} บาท ({pm.Count:N0} รายการ)",
+                                Text = $"  • {pm.PaymentMethod}: จ่ายจริง {pm.PaidAmount:N2} บาท / รวม {pm.TotalAmount:N2} บาท ({pm.Count:N0} รายการ)",
                                 FontSize = 10,
                                 FontWeight = Microsoft.UI.Text.FontWeights.Normal,
                                 Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 70, 70, 70)),
@@ -1168,7 +1169,7 @@ namespace BootCoupon
                     item.TotalCouponCount.ToString(),
                     item.FreeCouponPrice.ToString("N2"),
                     item.Discount.ToString("N2"),
-                    item.PaidCouponPriceClamped.ToString("N2"),
+                    item.PaidCouponPrice.ToString("N2"),
                     item.GrandTotalPrice.ToString("N2")
                 };
 
@@ -1607,7 +1608,7 @@ namespace BootCoupon
                     item.FreeCouponCount.ToString(),
                     item.FreeCouponPrice.ToString("N2"),
                     item.Discount.ToString("N2"),
-                    item.PaidCouponPriceClamped.ToString("N2"),
+                    item.PaidCouponPrice.ToString("N2"),
                     item.GrandTotalPrice.ToString("N2"),
                     item.CancellationReason ?? ""
                 };
