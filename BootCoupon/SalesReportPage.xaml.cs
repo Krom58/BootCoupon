@@ -1191,15 +1191,21 @@ namespace BootCoupon
                         var appliedDiscount = isThai76 ? 0m : r.Discount;
 
                         // Behavior:
-                        // - Legacy (INV25): discount reduces paid coupon amount; grand total remains original.
-                        // - Non-legacy (INV26/INV27/...): grand total displayed = Total - Discount.
-                        var paidCouponPriceAfterDiscount = isLegacyReceipt ? Math.Max(0m, paidCouponPrice - appliedDiscount) : paidCouponPrice;
+                        // - Legacy (INV25): discount reduces paid coupon amount; grand total remains net.
+                        // - Non-legacy (INV26/INV27/...): GrandTotalPrice = all items gross total, PaidCouponPrice = GrandTotalPrice - FreeCouponPrice - Discount
+                        decimal grandTotalAdjusted;
+                        decimal paidCouponPriceAfterDiscount;
 
-                        // Subtract COM coupon total for non-legacy receipts
-                        // freeCouponPrice represents amount from IsCOM coupons (both limited and unlimited)
-                        var comTotal = freeCouponPrice;
-
-                        var grandTotalAdjusted = freeCouponPrice + paidCouponPriceAfterDiscount;
+                        if (isLegacyReceipt)
+                        {
+                            paidCouponPriceAfterDiscount = Math.Max(0m, paidCouponPrice - appliedDiscount);
+                            grandTotalAdjusted = freeCouponPrice + paidCouponPriceAfterDiscount;
+                        }
+                        else
+                        {
+                            grandTotalAdjusted = originalGrandTotal; // gross sum of all items in receipt
+                            paidCouponPriceAfterDiscount = Math.Max(0m, grandTotalAdjusted - freeCouponPrice - appliedDiscount);
+                        }
 
                         // Tax calculation uses the amount used for tax (legacy: discounted paid amount; non-legacy: paid amount as-is)
                         decimal preTaxAmount = 0m;
@@ -1867,9 +1873,12 @@ namespace BootCoupon
                     totalPaid = _allResults.Sum(x => x.PaidCouponPrice);
                     totalGrand = _allResults.Sum(x => x.GrandTotalPrice);
 
+                    decimal totalDiscount = _allResults.Sum(x => x.Discount);
                     TotalFreeCouponPriceText = $"ราคาคูปองฟรี (รวมทุกรายการ): {totalFree:N2} บาท";
                     TotalPaidCouponPriceText = $"ราคาที่จ่าย (รวมทุกรายการ): {totalPaid:N2} บาท";
-                    TotalGrandPriceText = $"มูลค่ารวมสุทธิ ({totalFree:N2} + {totalPaid:N2}): {totalGrand:N2} บาท";
+                    TotalGrandPriceText = totalDiscount > 0
+                        ? $"มูลค่ารวมสุทธิ (คูปองทั้งหมด): {totalGrand:N2} บาท"
+                        : $"มูลค่ารวมสุทธิ ({totalFree:N2} + {totalPaid:N2}): {totalGrand:N2} บาท";
 
                     // ⭐ คำนวณภาษีสำหรับ ByReceiptWithTax
                     if (ReportMode == ReportModes.ByReceiptWithTax)
@@ -2048,6 +2057,11 @@ namespace BootCoupon
                                       ReportMode == ReportModes.SummaryByCoupon)
                             ? g.Sum(x => x.GrandTotalPrice)
                             : g.Sum(x => x.TotalPrice),
+                        PaidAmount = (ReportMode == ReportModes.ByReceipt ||
+                                     ReportMode == ReportModes.CancelledReceipts ||
+                                     ReportMode == ReportModes.SummaryByCoupon)
+                            ? g.Sum(x => x.PaidCouponPrice)
+                            : g.Where(x => !x.IsComplimentary).Sum(x => x.TotalPrice),
                         Count = g.Count(),
                         // ⭐ เพิ่มจำนวนคูปองฟรีและที่จ่าย
                         FreeCount = (ReportMode == ReportModes.ByReceipt ||
@@ -2065,20 +2079,21 @@ namespace BootCoupon
                 if (paymentSummary.Any())
                 {
                     // Header สำหรับตารางสรุปการชำระเงิน
-                    csvContent.AppendLine("\"ประเภทการชำระเงิน\",\"จำนวนรายการ\",\"คูปองที่จ่าย\",\"คูปองฟรี\",\"ยอดรวม (บาท)\"");
+                    csvContent.AppendLine("\"ประเภทการชำระเงิน\",\"จำนวนรายการ\",\"คูปองที่จ่าย\",\"คูปองฟรี\",\"ราคาที่จ่าย (บาท)\",\"ยอดรวม (บาท)\"");
 
                     foreach (var pm in paymentSummary)
                     {
-                        csvContent.AppendLine($"\"{pm.PaymentMethod}\",\"{pm.Count:N0}\",\"{pm.PaidCount:N0}\",\"{pm.FreeCount:N0}\",\"{pm.TotalAmount:N2}\"");
+                        csvContent.AppendLine($"\"{pm.PaymentMethod}\",\"{pm.Count:N0}\",\"{pm.PaidCount:N0}\",\"{pm.FreeCount:N0}\",\"{pm.PaidAmount:N2}\",\"{pm.TotalAmount:N2}\"");
                     }
 
                     // แถวรวมท้ายตาราง
                     var totalCount = paymentSummary.Sum(x => x.Count);
                     var totalPaidCountSum = paymentSummary.Sum(x => x.PaidCount);
                     var totalFreeCountSum = paymentSummary.Sum(x => x.FreeCount);
+                    var totalPaidAmountSum = paymentSummary.Sum(x => x.PaidAmount);
                     var totalAmountSum = paymentSummary.Sum(x => x.TotalAmount);
 
-                    csvContent.AppendLine($"\"รวมทั้งหมด\",\"{totalCount:N0}\",\"{totalPaidCountSum:N0}\",\"{totalFreeCountSum:N0}\",\"{totalAmountSum:N2}\"");
+                    csvContent.AppendLine($"\"รวมทั้งหมด\",\"{totalCount:N0}\",\"{totalPaidCountSum:N0}\",\"{totalFreeCountSum:N0}\",\"{totalPaidAmountSum:N2}\",\"{totalAmountSum:N2}\"");
                 }
                 else
                 {

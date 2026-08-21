@@ -796,22 +796,23 @@ namespace BootCoupon
                     editPanel.Children.Add(paymentMethodComboBox);
 
                     // ส่วนลด
+                    decimal paidBeforeDiscount = Math.Max(0m, totalBeforeDiscount - comTotalAmount);
                     editPanel.Children.Add(new TextBlock { Text = "ส่วนลด (บาท):", FontWeight = Microsoft.UI.Text.FontWeights.Medium, Margin = new Thickness(0, 10, 0, 0) });
                     var discountBox = new NumberBox
                     {
                         Value = (double)receipt.Discount,
                         Minimum = 0,
-                        Maximum = (double)totalBeforeDiscount,
+                        Maximum = (double)paidBeforeDiscount,
                         SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
                         PlaceholderText = "ระบุส่วนลด",
                         HorizontalAlignment = HorizontalAlignment.Stretch
                     };
                     editPanel.Children.Add(discountBox);
 
-                    // แสดงยอดรวมก่อนส่วนลด/COM
+                    // แสดงยอดรวมคูปองทั้งหมด
                     var totalBeforeText = new TextBlock
                     {
-                        Text = $"ยอดรวมก่อนหัก: {totalBeforeDiscount:N2} บาท",
+                        Text = $"ยอดรวมคูปองทั้งหมด: {totalBeforeDiscount:N2} บาท",
                         FontSize = 12,
                         Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
                         Margin = new Thickness(0, 5, 0, 0)
@@ -821,21 +822,31 @@ namespace BootCoupon
                     // แสดงมูลค่าคูปองฟรี (COM)
                     var comText = new TextBlock
                     {
-                        Text = $"มูลค่าคูปองฟรี (COM): {comTotalAmount:N2} บาท",
+                        Text = $"หัก คูปองฟรี (COM): -{comTotalAmount:N2} บาท",
                         FontSize = 12,
                         Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 255, 140, 0)), // Orange
                         Margin = new Thickness(0, 2, 0, 0)
                     };
                     editPanel.Children.Add(comText);
 
-                    // แสดงยอดสุทธิที่คำนวณใหม่ (หักส่วนลด และ COM)
-                    decimal initialDiscount = receipt.Discount;
-                    decimal initialBase = isLegacyForEdit ? totalBeforeDiscount : receipt.TotalAmount;
-                    decimal initialNet = Math.Max(0m, initialBase - initialDiscount - comTotalAmount);
+                    // แสดงราคาคูปองที่ต้องชำระ (ก่อนส่วนลด)
+                    var paidBeforeDiscountText = new TextBlock
+                    {
+                        Text = $"ราคาคูปองที่ต้องชำระ (ก่อนส่วนลด): {paidBeforeDiscount:N2} บาท",
+                        FontSize = 12,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 0, 102, 204)), // Blue
+                        Margin = new Thickness(0, 2, 0, 0)
+                    };
+                    editPanel.Children.Add(paidBeforeDiscountText);
+
+                    // แสดงราคาที่จ่ายจริง (หลังหักส่วนลด)
+                    decimal initialDiscount = (decimal)(double.IsNaN(discountBox.Value) ? 0 : discountBox.Value);
+                    decimal initialPaidAfterDiscount = Math.Max(0m, paidBeforeDiscount - initialDiscount);
 
                     var netTotalText = new TextBlock
                     {
-                        Text = $"ยอดสุทธิที่ต้องชำระ (หักส่วนลดและ COM): {initialNet:N2} บาท",
+                        Text = $"ราคาที่จ่ายจริง (หลังหักส่วนลด {initialDiscount:N2} บาท): {initialPaidAfterDiscount:N2} บาท",
                         FontSize = 14,
                         FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                         Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green),
@@ -843,13 +854,12 @@ namespace BootCoupon
                     };
                     editPanel.Children.Add(netTotalText);
 
-                    // อัปเดตยอดสุทธิเมื่อส่วนลดเปลี่ยน
+                    // อัปเดตราคาที่จ่ายจริงเมื่อส่วนลดเปลี่ยน
                     discountBox.ValueChanged += (s, args) =>
                     {
-                        var discount = double.IsNaN(discountBox.Value) ? 0 : (decimal)discountBox.Value;
-                        decimal baseAmount = isLegacyForEdit ? totalBeforeDiscount : receipt.TotalAmount;
-                        decimal netTotal = Math.Max(0m, baseAmount - discount - comTotalAmount);
-                        netTotalText.Text = $"ยอดสุทธิที่ต้องชำระ (หักส่วนลดและ COM): {netTotal:N2} บาท";
+                        var discount = (decimal)(double.IsNaN(discountBox.Value) ? 0 : discountBox.Value);
+                        decimal paidAfterDiscount = Math.Max(0m, paidBeforeDiscount - discount);
+                        netTotalText.Text = $"ราคาที่จ่ายจริง (หลังหักส่วนลด {discount:N2} บาท): {paidAfterDiscount:N2} บาท";
                     };
 
                     var editDialog = new ContentDialog
@@ -888,10 +898,10 @@ namespace BootCoupon
                         }
 
                         // ตรวจสอบส่วนลด
-                        var newDiscount = double.IsNaN(discountBox.Value) ? 0 : discountBox.Value;
-                        if (newDiscount < 0 || newDiscount > (double)totalBeforeDiscount)
+                        var newDiscount = (decimal)(double.IsNaN(discountBox.Value) ? 0 : discountBox.Value);
+                        if (newDiscount < 0 || newDiscount > paidBeforeDiscount)
                         {
-                            await ShowErrorDialog($"ส่วนลดต้องอยู่ระหว่าง 0 ถึง {totalBeforeDiscount:N2} บาท");
+                            await ShowErrorDialog($"ส่วนลดต้องอยู่ระหว่าง 0 ถึง {paidBeforeDiscount:N2} บาท");
                             return;
                         }
 
@@ -900,8 +910,15 @@ namespace BootCoupon
                         receipt.CustomerPhoneNumber = newPhoneNumber;
                         receipt.SalesPersonId = (int)salesPersonComboBox.SelectedValue;
                         receipt.PaymentMethodId = (int)paymentMethodComboBox.SelectedValue;
-                        receipt.Discount = (decimal)newDiscount;
-                        receipt.TotalAmount = totalBeforeDiscount - (decimal)newDiscount;
+                        receipt.Discount = newDiscount;
+                        if (isLegacyForEdit)
+                        {
+                            receipt.TotalAmount = totalBeforeDiscount - newDiscount;
+                        }
+                        else
+                        {
+                            receipt.TotalAmount = totalBeforeDiscount;
+                        }
 
                         await context.SaveChangesAsync();
 
