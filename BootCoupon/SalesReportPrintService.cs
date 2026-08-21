@@ -1,4 +1,4 @@
-﻿using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Printing;
@@ -586,8 +586,9 @@ namespace BootCoupon
                 {
                     // ✅ รายงานที่มีการแยก Free/Paid Coupon
                     var totalFreeCouponPrice = currentViewModel.AllResults.Sum(x => x.FreeCouponPrice);
-                    var totalPaidCouponPrice = currentViewModel.AllResults.Sum(x => x.PaidCouponPrice);
-                    var totalGrandPrice = totalFreeCouponPrice + totalPaidCouponPrice;
+                    var totalPaidCouponPrice = currentViewModel.AllResults.Sum(x => x.PaidCouponPriceClamped);
+                    var totalDiscount = currentViewModel.AllResults.Sum(x => x.Discount);
+                    var totalGrandPrice = currentViewModel.AllResults.Sum(x => x.GrandTotalPrice);
 
                     summaryPanel.Children.Add(new TextBlock
                     {
@@ -688,6 +689,18 @@ namespace BootCoupon
                         Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 255, 140, 0)), // Orange
                         Margin = new Thickness(10, 0, 0, 3)
                     });
+
+                    if (totalDiscount > 0)
+                    {
+                        summaryPanel.Children.Add(new TextBlock
+                        {
+                            Text = $"ส่วนลด (Discount): {totalDiscount:N2} บาท",
+                            FontSize = 10,
+                            FontWeight = Microsoft.UI.Text.FontWeights.Normal,
+                            Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 180, 50, 50)),
+                            Margin = new Thickness(10, 0, 0, 3)
+                        });
+                    }
 
                     // ยอดก่อนรวมภาษี
                     summaryPanel.Children.Add(new TextBlock
@@ -1090,17 +1103,17 @@ namespace BootCoupon
                 Width = double.NaN
             };
 
-            // ✅ 12 columns ตรงตาม XAML
+            // ✅ 13 columns ตรงตาม XAML
             // Date, ReceiptCode, Customer, Phone, SalesPerson, PaymentMethod,
-            // PaidCount, FreeCount, TotalCount, FreeCouponPrice, PaidCouponPrice, GrandTotal
-            var columnWidths = new[] { 1.0, 1.2, 2.0, 1.2, 1.2, 1.2, 0.9, 0.9, 0.9, 1.0, 1.0, 1.2 };
+            // PaidCount, FreeCount, TotalCount, FreeCouponPrice, Discount, PaidCouponPrice, GrandTotal
+            var columnWidths = new[] { 1.0, 1.2, 1.8, 1.1, 1.1, 1.1, 0.8, 0.8, 0.8, 0.9, 0.9, 0.9, 1.1 };
             foreach (var w in columnWidths)
                 table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w, GridUnitType.Star) });
 
             var headers = new[]
             {
                 "วันที่", "เลขที่ใบเสร็จ", "ลูกค้า", "เบอร์โทร", "เซล", "การชำระเงิน",
-                "จำนวนคูปองที่จ่าย", "จำนวนคูปองฟรี", "จำนวนทั้งหมด", "ราคาคูปองฟรี", "ราคาที่จ่าย", "มูลค่ารวม"
+                "จำนวนคูปองที่จ่าย", "จำนวนคูปองฟรี", "จำนวนทั้งหมด", "ราคาคูปองฟรี", "ส่วนลด", "ราคาที่จ่าย", "มูลค่ารวม"
             };
             table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
@@ -1154,7 +1167,8 @@ namespace BootCoupon
                     item.FreeCouponCount.ToString(),
                     item.TotalCouponCount.ToString(),
                     item.FreeCouponPrice.ToString("N2"),
-                    item.PaidCouponPrice.ToString("N2"),
+                    item.Discount.ToString("N2"),
+                    item.PaidCouponPriceClamped.ToString("N2"),
                     item.GrandTotalPrice.ToString("N2")
                 };
 
@@ -1164,7 +1178,7 @@ namespace BootCoupon
                     var foregroundColor = Microsoft.UI.Colors.Black;
                     if (j == 6) foregroundColor = Microsoft.UI.ColorHelper.FromArgb(255, 0, 128, 0); // PaidCount - Green
                     else if (j == 7) foregroundColor = Microsoft.UI.ColorHelper.FromArgb(255, 255, 140, 0); // FreeCount - Orange
-                    else if (j == 11) foregroundColor = Microsoft.UI.ColorHelper.FromArgb(255, 0, 120, 215); // GrandTotal - Blue
+                    else if (j == 12) foregroundColor = Microsoft.UI.ColorHelper.FromArgb(255, 0, 120, 215); // GrandTotal - Blue
 
                     var cell = new Border
                     {
@@ -1178,7 +1192,7 @@ namespace BootCoupon
                             Margin = new Thickness(3, 1, 3, 1),
                             TextAlignment = (j >= 6) ? TextAlignment.Right : (j <= 1 ? TextAlignment.Center : TextAlignment.Left),
                             Foreground = new SolidColorBrush(foregroundColor),
-                            FontWeight = (j == 8 || j == 11) ? Microsoft.UI.Text.FontWeights.Bold : Microsoft.UI.Text.FontWeights.Normal,
+                            FontWeight = (j == 8 || j == 12) ? Microsoft.UI.Text.FontWeights.Bold : Microsoft.UI.Text.FontWeights.Normal,
                             VerticalAlignment = VerticalAlignment.Center,
                             TextWrapping = TextWrapping.NoWrap,
                             TextTrimming = TextTrimming.CharacterEllipsis
@@ -1537,15 +1551,15 @@ namespace BootCoupon
 
             var table = new Grid { HorizontalAlignment = HorizontalAlignment.Stretch, Width = double.NaN };
 
-            // Use 12 columns to match ByReceipt/CancelledReceipts XAML
-            var columnWidths = new[] { 1.0, 1.2, 1.0, 2.0, 1.2, 1.2, 1.2, 0.9, 0.9, 1.0, 1.0, 1.2 };
+            // Use 14 columns to match ByReceipt/CancelledReceipts XAML
+            var columnWidths = new[] { 0.9, 1.1, 0.8, 1.6, 1.0, 1.0, 1.0, 0.8, 0.8, 0.9, 0.9, 0.9, 1.0, 1.4 };
             foreach (var w in columnWidths)
                 table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w, GridUnitType.Star) });
 
             var headers = new[]
             {
                 "วันที่", "เลขที่ใบเสร็จ", "สถานะ", "ลูกค้า", "เบอร์โทร", "เซล",
-                "การชำระเงิน", "จำนวนคูปองที่จ่าย", "จำนวนคูปองฟรี", "ราคาคูปองฟรี", "ราคาที่จ่าย", "มูลค่ารวม"
+                "การชำระเงิน", "จำนวนคูปองที่จ่าย", "จำนวนคูปองฟรี", "ราคาคูปองฟรี", "ส่วนลด", "ราคาที่จ่าย", "มูลค่ารวม", "เหตุผลยกเลิก"
             };
             table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
@@ -1560,7 +1574,7 @@ namespace BootCoupon
                     {
                         Text = headers[i],
                         FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                        FontSize = 9,
+                        FontSize = 8,
                         Margin = new Thickness(2),
                         TextAlignment = TextAlignment.Center,
                         TextWrapping = TextWrapping.Wrap,
@@ -1592,13 +1606,15 @@ namespace BootCoupon
                     item.PaidCouponCount.ToString(),
                     item.FreeCouponCount.ToString(),
                     item.FreeCouponPrice.ToString("N2"),
-                    item.PaidCouponPrice.ToString("N2"),
-                    item.GrandTotalPrice.ToString("N2")
+                    item.Discount.ToString("N2"),
+                    item.PaidCouponPriceClamped.ToString("N2"),
+                    item.GrandTotalPrice.ToString("N2"),
+                    item.CancellationReason ?? ""
                 };
 
                 for (int j = 0; j < rowData.Length; j++)
                 {
-                    var foregroundColor = (j == 2) ? (item.ReceiptStatus == "Cancelled" ? Microsoft.UI.Colors.Red : Microsoft.UI.Colors.Green) : Microsoft.UI.Colors.Black;
+                    var foregroundColor = (j == 2) ? (item.ReceiptStatus == "Cancelled" ? Microsoft.UI.Colors.Red : Microsoft.UI.Colors.Green) : (j == 13 ? Microsoft.UI.Colors.Red : Microsoft.UI.Colors.Black);
                     var cell = new Border
                     {
                         BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Black),
@@ -1607,9 +1623,9 @@ namespace BootCoupon
                         Child = new TextBlock
                         {
                             Text = rowData[j],
-                            FontSize = 8,
-                            Margin = new Thickness(4, 2, 4, 2),
-                            TextAlignment = (j >= 7) ? TextAlignment.Right : TextAlignment.Left,
+                            FontSize = 7,
+                            Margin = new Thickness(3, 1, 3, 1),
+                            TextAlignment = (j >= 7 && j <= 12) ? TextAlignment.Right : TextAlignment.Left,
                             Foreground = new SolidColorBrush(foregroundColor),
                             VerticalAlignment = VerticalAlignment.Center,
                             TextWrapping = TextWrapping.Wrap

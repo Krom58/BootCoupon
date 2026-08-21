@@ -302,8 +302,9 @@
                                         <ColumnDefinition Width="0.9*" MinWidth="85"/>  <!-- 8. จำนวนคูปองฟรี -->
                                         <ColumnDefinition Width="0.9*" MinWidth="85"/>  <!-- 9. จำนวนทั้งหมด -->
                                         <ColumnDefinition Width="1*" MinWidth="90"/>    <!-- 10. ราคาคูปองฟรี -->
-                                        <ColumnDefinition Width="1*" MinWidth="90"/>    <!-- 11. ราคาที่จ่าย -->
-                                        <ColumnDefinition Width="1.2*" MinWidth="100"/> <!-- 12. มูลค่ารวม -->
+                                        <ColumnDefinition Width="1*" MinWidth="90"/>    <!-- 11. ส่วนลด -->
+                                        <ColumnDefinition Width="1*" MinWidth="90"/>    <!-- 12. ราคาที่จ่าย (คลิปให้ไม่เกินมูลค่ารวม) -->
+                                        <ColumnDefinition Width="1.2*" MinWidth="100"/> <!-- 13. มูลค่ารวม -->
                                     </Grid.ColumnDefinitions>
                                     
                                     <TextBlock Grid.Column="0" Text="วันที่" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
@@ -316,8 +317,9 @@
                                     <TextBlock Grid.Column="7" Text="จำนวนคูปองฟรี" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" Foreground="Orange"/>
                                     <TextBlock Grid.Column="8" Text="จำนวนทั้งหมด" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                     <TextBlock Grid.Column="9" Text="ราคาคูปองฟรี" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                    <TextBlock Grid.Column="10" Text="ราคาที่จ่าย" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                    <TextBlock Grid.Column="11" Text="มูลค่ารวม" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                    <TextBlock Grid.Column="10" Text="ส่วนลด" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                    <TextBlock Grid.Column="11" Text="ราคาที่จ่าย" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                    <TextBlock Grid.Column="12" Text="มูลค่ารวม" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
 
                                     <!-- vertical separators -->
                                     <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
@@ -327,10 +329,13 @@
                                     <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                     <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                     <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
-                                    <Rectangle Grid.Column="7" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
-                                    <Rectangle Grid.Column="8" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="7" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="8" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="9" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="10" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                     <Rectangle Grid.Column="9" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                     <Rectangle Grid.Column="10" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                    <Rectangle Grid.Column="11" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                 </Grid>
                             </Grid>
                         </Border>
@@ -354,6 +359,7 @@
                                                 <ColumnDefinition Width="0.9*" MinWidth="85"/>
                                                 <ColumnDefinition Width="1*" MinWidth="90"/>
                                                 <ColumnDefinition Width="1*" MinWidth="90"/>
+                                                <ColumnDefinition Width="1*" MinWidth="90"/>
                                                 <ColumnDefinition Width="1.2*" MinWidth="100"/>
                                             </Grid.ColumnDefinitions>
                                             
@@ -367,8 +373,9 @@
                                             <TextBlock Grid.Column="7" Text="{x:Bind FreeCouponCount}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" Foreground="Orange" FontWeight="SemiBold"/>
                                             <TextBlock Grid.Column="8" Text="{x:Bind TotalCouponCount}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" FontWeight="SemiBold"/>
                                             <TextBlock Grid.Column="9" Text="{x:Bind FreeCouponPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right"/>
-                                            <TextBlock Grid.Column="10" Text="{x:Bind PaidCouponPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
-                                            <TextBlock Grid.Column="11" Text="{x:Bind GrandTotalPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" FontWeight="Bold" Foreground="{ThemeResource SystemAccentColor}"/>
+                                            <TextBlock Grid.Column="10" Text="{x:Bind DiscountDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right"/>
+                                            <TextBlock Grid.Column="11" Text="{x:Bind PaidCouponPriceClampedDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="12" Text="{x:Bind GrandTotalPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" FontWeight="Bold" Foreground="{ThemeResource SystemAccentColor}"/>
 
                                             <!-- vertical separators -->
                                             <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
@@ -456,7 +463,7 @@
                                             <TextBlock Grid.Column="5" Text="{x:Bind PaymentMethodName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             <TextBlock Grid.Column="6" Text="{x:Bind PreTaxAmountDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold" Foreground="LightBlue"/>
                                             <TextBlock Grid.Column="7" Text="{x:Bind TaxAmountDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" Foreground="Orange"/>
-                                            <TextBlock Grid.Column="8" Text="{x:Bind PaidCouponPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" FontWeight="Bold" Foreground="LightGreen"/>
+                                            <TextBlock Grid.Column="8" Text="{x:Bind PaidCouponPriceClampedDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" FontWeight="Bold" Foreground="LightGreen"/>
 
                                             <!-- vertical separators -->
                                             <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch"/>
@@ -650,8 +657,9 @@
                                     <ColumnDefinition Width="*" MinWidth="110"/>     <!-- จำนวนคูปองที่ขาย -->
                                     <ColumnDefinition Width="*" MinWidth="110"/>     <!-- จำนวนคูปองที่ฟรี -->
                                     <ColumnDefinition Width="*" MinWidth="120"/>     <!-- จำนวนทั้งหมด -->
-                                    <ColumnDefinition Width="1.2*" MinWidth="120"/>  <!-- ราคาที่ขายได้ -->
-                                    <ColumnDefinition Width="1.2*" MinWidth="120"/>  <!-- ราคาของคูปองฟรี -->
+                                    <ColumnDefinition Width="1.2*" MinWidth="120"/>  <!-- ราคาคูปองฟรี -->
+                                    <ColumnDefinition Width="1*" MinWidth="90"/>     <!-- ส่วนลด -->
+                                    <ColumnDefinition Width="1.2*" MinWidth="120"/>  <!-- ราคาที่จ่าย (clamped) -->
                                     <ColumnDefinition Width="1.5*" MinWidth="140"/>  <!-- มูลค่ารวม -->
                                 </Grid.ColumnDefinitions>
 
@@ -662,9 +670,10 @@
                                 <TextBlock Grid.Column="4" Text="จำนวนคูปองที่ขาย" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                 <TextBlock Grid.Column="5" Text="จำนวนคูปองที่ฟรี" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                 <TextBlock Grid.Column="6" Text="จำนวนคูปองทั้งหมด" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="7" Text="ราคาที่ขายได้" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="8" Text="ราคาของคูปองฟรี" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="9" Text="มูลค่ารวม" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="7" Text="ราคาคูปองฟรี" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="8" Text="ส่วนลด" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="9" Text="ราคาที่จ่าย" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="10" Text="มูลค่ารวม" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
 
                                 <!-- vertical separators -->
                                 <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
@@ -692,9 +701,10 @@
                                                 <ColumnDefinition Width="*" MinWidth="110"/>
                                                 <ColumnDefinition Width="*" MinWidth="110"/>
                                                 <ColumnDefinition Width="*" MinWidth="120"/>
-                                                <ColumnDefinition Width="1.2*" MinWidth="120"/>
-                                                <ColumnDefinition Width="1.2*" MinWidth="120"/>
-                                                <ColumnDefinition Width="1.5*" MinWidth="140"/>
+                                                <ColumnDefinition Width="1.2*" MinWidth="120"/> <!-- Free coupon price -->
+                                                <ColumnDefinition Width="1*" MinWidth="90"/>   <!-- Discount -->
+                                                <ColumnDefinition Width="1.2*" MinWidth="120"/> <!-- Paid (clamped) -->
+                                                <ColumnDefinition Width="1.5*" MinWidth="140"/> <!-- Grand -->
                                             </Grid.ColumnDefinitions>
 
                                             <TextBlock Grid.Column="0" Text="{x:Bind CouponName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
@@ -704,9 +714,10 @@
                                             <TextBlock Grid.Column="4" Text="{x:Bind Quantity}" VerticalAlignment="Center" TextAlignment="Center" Padding="5"/>
                                             <TextBlock Grid.Column="5" Text="{x:Bind FreeCouponCount}" VerticalAlignment="Center" TextAlignment="Center" Padding="5"/>
                                             <TextBlock Grid.Column="6" Text="{x:Bind TotalCouponCount}" VerticalAlignment="Center" TextAlignment="Center" Padding="5" FontWeight="SemiBold"/>
-                                            <TextBlock Grid.Column="7" Text="{x:Bind PaidCouponPriceDisplay}" VerticalAlignment="Center" TextAlignment="Center" Padding="5"/>
-                                            <TextBlock Grid.Column="8" Text="{x:Bind FreeCouponPriceDisplay}" VerticalAlignment="Center" TextAlignment="Center" Padding="5"/>
-                                            <TextBlock Grid.Column="9" Text="{x:Bind GrandTotalPriceDisplay}" VerticalAlignment="Center" TextAlignment="Center" Padding="5" FontWeight="Bold" Foreground="{ThemeResource SystemAccentColor}"/>
+                                            <TextBlock Grid.Column="7" Text="{x:Bind FreeCouponPriceDisplay}" VerticalAlignment="Center" TextAlignment="Center" Padding="5"/>
+                                            <TextBlock Grid.Column="8" Text="{x:Bind DiscountDisplay}" VerticalAlignment="Center" TextAlignment="Center" Padding="5"/>
+                                            <TextBlock Grid.Column="9" Text="{x:Bind PaidCouponPriceClampedDisplay}" VerticalAlignment="Center" TextAlignment="Center" Padding="5"/>
+                                            <TextBlock Grid.Column="10" Text="{x:Bind GrandTotalPriceDisplay}" VerticalAlignment="Center" TextAlignment="Center" Padding="5" FontWeight="Bold" Foreground="{ThemeResource SystemAccentColor}"/>
 
                                             <!-- vertical separators -->
                                             <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
@@ -801,7 +812,7 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" MinWidth="1900">
-            <Grid.ColumnDefinitions>
+                <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1*" MinWidth="90"/>    <!-- 1. วันที่ -->
                 <ColumnDefinition Width="1.2*" MinWidth="100"/> <!-- 2. เลขที่ใบเสร็จ -->
                 <ColumnDefinition Width="2*" MinWidth="150"/>   <!-- 3. ลูกค้า -->
@@ -812,9 +823,10 @@
                 <ColumnDefinition Width="0.9*" MinWidth="85"/>  <!-- 8. คูปองฟรี (COM) -->
                 <ColumnDefinition Width="0.9*" MinWidth="85"/>  <!-- 9. รวมทั้งหมด -->
                 <ColumnDefinition Width="1*" MinWidth="90"/>    <!-- 10. ราคาคูปองฟรี -->
-                <ColumnDefinition Width="1*" MinWidth="90"/>    <!-- 11. ราคาที่จ่าย -->
-                <ColumnDefinition Width="1.2*" MinWidth="100"/> <!-- 12. มูลค่ารวม -->
-                <ColumnDefinition Width="2.5*" MinWidth="200"/> <!-- 13. เหตุผลยกเลิก -->
+                <ColumnDefinition Width="1*" MinWidth="90"/>    <!-- 11. ส่วนลด -->
+                <ColumnDefinition Width="1*" MinWidth="90"/>    <!-- 12. ราคาที่จ่าย -->
+                <ColumnDefinition Width="1.2*" MinWidth="100"/> <!-- 13. มูลค่ารวม -->
+                <ColumnDefinition Width="2.5*" MinWidth="200"/> <!-- 14. เหตุผลยกเลิก -->
             </Grid.ColumnDefinitions>
             
             <TextBlock Grid.Column="0" Text="วันที่" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
@@ -827,9 +839,10 @@
             <TextBlock Grid.Column="7" Text="จำนวนคูปองฟรี" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" Foreground="Orange"/>
             <TextBlock Grid.Column="8" Text="จำนวนทั้งหมด" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
             <TextBlock Grid.Column="9" Text="ราคาคูปองฟรี" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-            <TextBlock Grid.Column="10" Text="ราคาที่จ่าย" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-            <TextBlock Grid.Column="11" Text="มูลค่ารวม" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-            <TextBlock Grid.Column="12" Text="เหตุผลยกเลิก" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" Foreground="Red"/>
+            <TextBlock Grid.Column="10" Text="ส่วนลด" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+            <TextBlock Grid.Column="11" Text="ราคาที่จ่าย" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+            <TextBlock Grid.Column="12" Text="มูลค่ารวม" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+            <TextBlock Grid.Column="13" Text="เหตุผลยกเลิก" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" Foreground="Red"/>
 
             <!-- vertical separators -->
             <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
@@ -839,6 +852,11 @@
             <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
             <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
             <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+            <Rectangle Grid.Column="7" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+            <Rectangle Grid.Column="8" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+            <Rectangle Grid.Column="9" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+            <Rectangle Grid.Column="10" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+            <Rectangle Grid.Column="11" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
             <Rectangle Grid.Column="7" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
             <Rectangle Grid.Column="8" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
             <Rectangle Grid.Column="9" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
@@ -867,10 +885,11 @@
                                                 <ColumnDefinition Width="0.9*" MinWidth="85"/>
                                                 <ColumnDefinition Width="1*" MinWidth="90"/>
                                                 <ColumnDefinition Width="1*" MinWidth="90"/>
+                                                <ColumnDefinition Width="1*" MinWidth="90"/>
                                                 <ColumnDefinition Width="1.2*" MinWidth="100"/>
                                                 <ColumnDefinition Width="2.5*" MinWidth="200"/>
                                             </Grid.ColumnDefinitions>
-                                            
+
                                             <TextBlock Grid.Column="0" Text="{x:Bind ReceiptDateDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             <TextBlock Grid.Column="1" Text="{x:Bind ReceiptCode}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             <TextBlock Grid.Column="2" Text="{x:Bind CustomerName}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" TextTrimming="CharacterEllipsis" MaxLines="2" HorizontalAlignment="Center" TextAlignment="Left"/>
@@ -881,12 +900,12 @@
                                             <TextBlock Grid.Column="7" Text="{x:Bind FreeCouponCount}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" Foreground="Orange" FontWeight="SemiBold"/>
                                             <TextBlock Grid.Column="8" Text="{x:Bind TotalCouponCount}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" FontWeight="SemiBold"/>
                                             <TextBlock Grid.Column="9" Text="{x:Bind FreeCouponPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right"/>
-                                            <TextBlock Grid.Column="10" Text="{x:Bind PaidCouponPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
-                                            <TextBlock Grid.Column="11" Text="{x:Bind GrandTotalPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" FontWeight="Bold" Foreground="{ThemeResource SystemAccentColor}"/>
-                                            
+                                            <TextBlock Grid.Column="10" Text="{x:Bind DiscountDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right"/>
+                                            <TextBlock Grid.Column="11" Text="{x:Bind PaidCouponPriceClampedDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="12" Text="{x:Bind GrandTotalPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right" FontWeight="Bold" Foreground="{ThemeResource SystemAccentColor}"/>
 
                                             <!-- เหตุผลยกเลิก -->
-                                            <TextBlock Grid.Column="12" Text="{x:Bind CancellationReason}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" HorizontalAlignment="Left" TextAlignment="Left" TextTrimming="CharacterEllipsis" MaxLines="3" Foreground="Red"/>
+                                            <TextBlock Grid.Column="13" Text="{x:Bind CancellationReason}" VerticalAlignment="Center" TextWrapping="Wrap" Padding="5" HorizontalAlignment="Left" TextAlignment="Left" TextTrimming="CharacterEllipsis" MaxLines="3" Foreground="Red"/>
 
                                             <!-- vertical separators -->
                                             <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />

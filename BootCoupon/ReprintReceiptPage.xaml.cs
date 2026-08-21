@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
@@ -728,6 +728,26 @@ namespace BootCoupon
                     var isLegacyForEdit = !string.IsNullOrEmpty(receipt.ReceiptCode) && receipt.ReceiptCode.StartsWith("INV25", StringComparison.OrdinalIgnoreCase);
                     decimal totalBeforeDiscount = isLegacyForEdit ? (receipt.TotalAmount + receipt.Discount) : receipt.TotalAmount;
 
+                    // ⭐ คำนวณมูลค่าคูปองฟรี (COM) ของใบเสร็จนี้
+                    var receiptItemsForCom = await (
+                        from ri in context.ReceiptItems
+                        where ri.ReceiptId == receipt.ReceiptID
+                        join cd in context.CouponDefinitions on ri.CouponId equals cd.Id into cdj
+                        from cd in cdj.DefaultIfEmpty()
+                        select new
+                        {
+                            ri.IsCOM,
+                            UnitPrice = ri.UnitPrice,
+                            Quantity = ri.Quantity,
+                            TotalPrice = ri.TotalPrice,
+                            IsLimited = cd != null && cd.IsLimited
+                        }
+                    ).ToListAsync();
+
+                    decimal comTotalAmount = receiptItemsForCom
+                        .Where(x => x.IsCOM)
+                        .Sum(x => x.IsLimited ? x.UnitPrice : (x.TotalPrice > 0 ? x.TotalPrice : x.UnitPrice * x.Quantity));
+
                     // สร้าง Dialog สำหรับแก้ไขข้อมูล
                     var editPanel = new StackPanel { Spacing = 10 };
 
@@ -788,21 +808,34 @@ namespace BootCoupon
                     };
                     editPanel.Children.Add(discountBox);
 
-                    // แสดงยอดรวมก่อนส่วนลด
+                    // แสดงยอดรวมก่อนส่วนลด/COM
                     var totalBeforeText = new TextBlock
                     {
-                        Text = $"ยอดรวมก่อนส่วนลด: {totalBeforeDiscount:N2} บาท",
+                        Text = $"ยอดรวมก่อนหัก: {totalBeforeDiscount:N2} บาท",
                         FontSize = 12,
                         Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
                         Margin = new Thickness(0, 5, 0, 0)
                     };
                     editPanel.Children.Add(totalBeforeText);
 
-                    // แสดงยอดสุทธิที่คำนวณใหม่
-                    var initialNet = isLegacyForEdit ? (totalBeforeDiscount - receipt.Discount) : (receipt.TotalAmount - receipt.Discount);
+                    // แสดงมูลค่าคูปองฟรี (COM)
+                    var comText = new TextBlock
+                    {
+                        Text = $"มูลค่าคูปองฟรี (COM): {comTotalAmount:N2} บาท",
+                        FontSize = 12,
+                        Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 255, 140, 0)), // Orange
+                        Margin = new Thickness(0, 2, 0, 0)
+                    };
+                    editPanel.Children.Add(comText);
+
+                    // แสดงยอดสุทธิที่คำนวณใหม่ (หักส่วนลด และ COM)
+                    decimal initialDiscount = receipt.Discount;
+                    decimal initialBase = isLegacyForEdit ? totalBeforeDiscount : receipt.TotalAmount;
+                    decimal initialNet = Math.Max(0m, initialBase - initialDiscount - comTotalAmount);
+
                     var netTotalText = new TextBlock
                     {
-                        Text = $"ยอดสุทธิ: {initialNet:N2} บาท",
+                        Text = $"ยอดสุทธิที่ต้องชำระ (หักส่วนลดและ COM): {initialNet:N2} บาท",
                         FontSize = 14,
                         FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                         Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green),
@@ -813,19 +846,10 @@ namespace BootCoupon
                     // อัปเดตยอดสุทธิเมื่อส่วนลดเปลี่ยน
                     discountBox.ValueChanged += (s, args) =>
                     {
-                        var discount = double.IsNaN(discountBox.Value) ? 0 : discountBox.Value;
-                        decimal netTotal;
-                        if (isLegacyForEdit)
-                        {
-                            // legacy: before = Total + Discount, so net = before - discount -> equals stored Total
-                            netTotal = totalBeforeDiscount - (decimal)discount;
-                        }
-                        else
-                        {
-                            // non-legacy: desired net = stored TotalAmount - discount
-                            netTotal = receipt.TotalAmount - (decimal)discount;
-                        }
-                        netTotalText.Text = $"ยอดสุทธิ: {netTotal:N2} บาท";
+                        var discount = double.IsNaN(discountBox.Value) ? 0 : (decimal)discountBox.Value;
+                        decimal baseAmount = isLegacyForEdit ? totalBeforeDiscount : receipt.TotalAmount;
+                        decimal netTotal = Math.Max(0m, baseAmount - discount - comTotalAmount);
+                        netTotalText.Text = $"ยอดสุทธิที่ต้องชำระ (หักส่วนลดและ COM): {netTotal:N2} บาท";
                     };
 
                     var editDialog = new ContentDialog

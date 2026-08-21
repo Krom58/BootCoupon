@@ -1,4 +1,4 @@
-﻿using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
@@ -1199,9 +1199,7 @@ namespace BootCoupon
                         // freeCouponPrice represents amount from IsCOM coupons (both limited and unlimited)
                         var comTotal = freeCouponPrice;
 
-                        var grandTotalAdjusted = isLegacyReceipt
-                            ? originalGrandTotal
-                            : Math.Max(0m, originalGrandTotal - appliedDiscount - comTotal);
+                        var grandTotalAdjusted = freeCouponPrice + paidCouponPriceAfterDiscount;
 
                         // Tax calculation uses the amount used for tax (legacy: discounted paid amount; non-legacy: paid amount as-is)
                         decimal preTaxAmount = 0m;
@@ -1979,6 +1977,7 @@ namespace BootCoupon
             // ✅ คำนวณยอดรวมตามประเภทรายงาน
             decimal totalFree = 0m;
             decimal totalPaid = 0m;
+            decimal totalDiscount = 0m;
             decimal totalGrand = 0m;
 
             if (ReportMode == ReportModes.ByReceipt ||
@@ -1986,7 +1985,8 @@ namespace BootCoupon
                 ReportMode == ReportModes.ByReceiptWithTax) // ⭐ เพิ่ม ByReceiptWithTax
             {
                 totalFree = AllResults.Sum(x => x.FreeCouponPrice);
-                totalPaid = AllResults.Sum(x => x.PaidCouponPrice);
+                totalDiscount = AllResults.Sum(x => x.Discount);
+                totalPaid = AllResults.Sum(x => x.PaidCouponPriceClamped);
                 totalGrand = AllResults.Sum(x => x.GrandTotalPrice);
             }
             else if (ReportMode == ReportModes.LimitedCoupons ||
@@ -2008,6 +2008,10 @@ namespace BootCoupon
             csvContent.AppendLine($"\"=== สรุปยอดรวมสำหรับรายงาน {ReportMode} ===\"");
             csvContent.AppendLine($"\"จำนวนรายการทั้งหมด: {TotalItems:N0} รายการ\"");
             csvContent.AppendLine($"\"ราคาคูปองฟรี (รวมทุกรายการ): {totalFree:N2} บาท\"");
+            if (totalDiscount > 0)
+            {
+                csvContent.AppendLine($"\"ส่วนลด (รวมทุกรายการ): {totalDiscount:N2} บาท\"");
+            }
             csvContent.AppendLine($"\"ราคาที่จ่าย (รวมภาษี): {totalPaid:N2} บาท\"");
 
             // ⭐ เพิ่มการคำนวณภาษี (ยกเว้น RemainingCoupons)
@@ -2091,29 +2095,30 @@ namespace BootCoupon
             {
                 var headers = new[]
                 {
-            "วันที่", "เลขที่ใบเสร็จ", "ลูกค้า", "เบอร์โทร", "เซล", "การชำระเงิน",
-            "จำนวนคูปองที่จ่าย", "จำนวนคูปองฟรี", "จำนวนทั้งหมด",
-            "ราคาคูปองฟรี", "ราคาที่จ่าย", "มูลค่ารวม"
-        };
+                    "วันที่", "เลขที่ใบเสร็จ", "ลูกค้า", "เบอร์โทร", "เซล", "การชำระเงิน",
+                    "จำนวนคูปองที่จ่าย", "จำนวนคูปองฟรี", "จำนวนทั้งหมด",
+                    "ราคาคูปองฟรี", "ส่วนลด", "ราคาที่จ่าย", "มูลค่ารวม"
+                };
                 csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
 
                 foreach (var item in AllResults)
                 {
                     var row = new[]
                     {
-                item.ReceiptDateDisplay,
-                item.ReceiptCode,
-                item.CustomerName,
-                item.CustomerPhone,
-                item.SalesPersonName,
-                item.PaymentMethodName,
-                item.PaidCouponCount.ToString(),
-                item.FreeCouponCount.ToString(),
-                item.TotalCouponCount.ToString(),
-                item.FreeCouponPrice.ToString("F2"),
-                item.PaidCouponPrice.ToString("F2"),
-                item.GrandTotalPrice.ToString("F2")
-            };
+                        item.ReceiptDateDisplay,
+                        item.ReceiptCode,
+                        item.CustomerName,
+                        item.CustomerPhone,
+                        item.SalesPersonName,
+                        item.PaymentMethodName,
+                        item.PaidCouponCount.ToString(),
+                        item.FreeCouponCount.ToString(),
+                        item.TotalCouponCount.ToString(),
+                        item.FreeCouponPrice.ToString("F2"),
+                        item.Discount.ToString("F2"),
+                        item.PaidCouponPriceClamped.ToString("F2"),
+                        item.GrandTotalPrice.ToString("F2")
+                    };
                     csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
                 }
 
@@ -2123,7 +2128,8 @@ namespace BootCoupon
                     $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
                     $"\"{AllResults.Sum(x => x.TotalCouponCount)}\"," +
                     $"\"{AllResults.Sum(x => x.FreeCouponPrice):F2}\"," +
-                    $"\"{AllResults.Sum(x => x.PaidCouponPrice):F2}\"," +
+                    $"\"{AllResults.Sum(x => x.Discount):F2}\"," +
+                    $"\"{AllResults.Sum(x => x.PaidCouponPriceClamped):F2}\"," +
                     $"\"{AllResults.Sum(x => x.GrandTotalPrice):F2}\"");
             }
             // แทรกหลังบรรทัด 2069 (หลัง ByReceipt block) และก่อน CancelledReceipts
@@ -2175,30 +2181,31 @@ namespace BootCoupon
             {
                 var headers = new[]
                 {
-            "วันที่", "เลขที่ใบเสร็จ", "ลูกค้า", "เบอร์โทร", "เซล", "การชำระเงิน",
-            "จำนวนคูปองที่จ่าย", "จำนวนคูปองฟรี", "จำนวนทั้งหมด",
-            "ราคาคูปองฟรี", "ราคาที่จ่าย", "มูลค่ารวม", "เหตุผลยกเลิก"
-        };
+                    "วันที่", "เลขที่ใบเสร็จ", "ลูกค้า", "เบอร์โทร", "เซล", "การชำระเงิน",
+                    "จำนวนคูปองที่จ่าย", "จำนวนคูปองฟรี", "จำนวนทั้งหมด",
+                    "ราคาคูปองฟรี", "ส่วนลด", "ราคาที่จ่าย", "มูลค่ารวม", "เหตุผลยกเลิก"
+                };
                 csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
 
                 foreach (var item in AllResults)
                 {
                     var row = new[]
                     {
-                item.ReceiptDateDisplay,
-                item.ReceiptCode,
-                item.CustomerName,
-                item.CustomerPhone,
-                item.SalesPersonName,
-                item.PaymentMethodName,
-                item.PaidCouponCount.ToString(),
-                item.FreeCouponCount.ToString(),
-                item.TotalCouponCount.ToString(),
-                item.FreeCouponPrice.ToString("F2"),
-                item.PaidCouponPrice.ToString("F2"),
-                item.GrandTotalPrice.ToString("F2"),
-                item.CancellationReason
-            };
+                        item.ReceiptDateDisplay,
+                        item.ReceiptCode,
+                        item.CustomerName,
+                        item.CustomerPhone,
+                        item.SalesPersonName,
+                        item.PaymentMethodName,
+                        item.PaidCouponCount.ToString(),
+                        item.FreeCouponCount.ToString(),
+                        item.TotalCouponCount.ToString(),
+                        item.FreeCouponPrice.ToString("F2"),
+                        item.Discount.ToString("F2"),
+                        item.PaidCouponPriceClamped.ToString("F2"),
+                        item.GrandTotalPrice.ToString("F2"),
+                        item.CancellationReason
+                    };
                     csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
                 }
 
@@ -2208,7 +2215,8 @@ namespace BootCoupon
                     $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
                     $"\"{AllResults.Sum(x => x.TotalCouponCount)}\"," +
                     $"\"{AllResults.Sum(x => x.FreeCouponPrice):F2}\"," +
-                    $"\"{AllResults.Sum(x => x.PaidCouponPrice):F2}\"," +
+                    $"\"{AllResults.Sum(x => x.Discount):F2}\"," +
+                    $"\"{AllResults.Sum(x => x.PaidCouponPriceClamped):F2}\"," +
                     $"\"{AllResults.Sum(x => x.GrandTotalPrice):F2}\"," +
                     $"\"\"");
             }
@@ -2476,6 +2484,10 @@ namespace BootCoupon
         public string FreeCouponPriceDisplay => FreeCouponPrice.ToString("N2");
         public string PaidCouponPriceDisplay => PaidCouponPrice.ToString("N2");
         public string GrandTotalPriceDisplay => GrandTotalPrice.ToString("N2");
+
+        // Ensure displayed paid price is never greater than the grand total (clamped)
+        public decimal PaidCouponPriceClamped => Math.Min(PaidCouponPrice, GrandTotalPrice);
+        public string PaidCouponPriceClampedDisplay => PaidCouponPriceClamped.ToString("N2");
 
         public bool IsComplimentary { get; set; } = false;
 
