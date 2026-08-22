@@ -742,10 +742,11 @@
 
                         <!-- RemainingCoupons table -->
                         <Border Grid.Row="0" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,8" Visibility="{Binding Path=ViewModel.ReportMode, ElementName=RootPage, Converter={StaticResource ReportModeToVisibility}, ConverterParameter=RemainingCoupons}">
-                            <Grid MinWidth="1000">
+                            <Grid MinWidth="1100">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" MinWidth="80"/>
                                     <ColumnDefinition Width="2*" MinWidth="200"/>
+                                    <ColumnDefinition Width="*" MinWidth="120"/>
                                     <ColumnDefinition Width="*" MinWidth="120"/>
                                     <ColumnDefinition Width="*" MinWidth="120"/>
                                     <ColumnDefinition Width="*" MinWidth="120"/>
@@ -757,8 +758,9 @@
                                 <TextBlock Grid.Column="2" Text="สาขา" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                 <TextBlock Grid.Column="3" Text="จำนวนรวม" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                 <TextBlock Grid.Column="4" Text="ขายแล้ว" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="5" Text="คงเหลือ" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="6" Text="ราคา/ใบ" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="5" Text="คูปองฟรี" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" Foreground="Orange"/>
+                                <TextBlock Grid.Column="6" Text="คงเหลือ" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="7" Text="ราคา/ใบ" FontWeight="SemiBold" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
 
                                 <!-- vertical separators -->
                                 <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
@@ -767,6 +769,7 @@
                                 <Rectangle Grid.Column="3" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                 <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                                 <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
+                                <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch" />
                             </Grid>
                         </Border>
 
@@ -777,10 +780,11 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="local:SalesReportItem">
                                     <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,8">
-                                        <Grid MinWidth="1000">
+                                        <Grid MinWidth="1100">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" MinWidth="80"/>
                                                 <ColumnDefinition Width="2*" MinWidth="200"/>
+                                                <ColumnDefinition Width="*" MinWidth="120"/>
                                                 <ColumnDefinition Width="*" MinWidth="120"/>
                                                 <ColumnDefinition Width="*" MinWidth="120"/>
                                                 <ColumnDefinition Width="*" MinWidth="120"/>
@@ -793,8 +797,9 @@
                                             <TextBlock Grid.Column="2" Text="{x:Bind BranchTypeName}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             <TextBlock Grid.Column="3" Text="{x:Bind TotalQuantity}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             <TextBlock Grid.Column="4" Text="{x:Bind SoldQuantity}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                            <TextBlock Grid.Column="5" Text="{x:Bind RemainingQuantity}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                            <TextBlock Grid.Column="6" Text="{x:Bind UnitPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right"/>
+                                            <TextBlock Grid.Column="5" Text="{x:Bind FreeCouponCount}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center" Foreground="Orange" FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="6" Text="{x:Bind RemainingQuantity}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            <TextBlock Grid.Column="7" Text="{x:Bind UnitPriceDisplay}" VerticalAlignment="Center" Padding="5" HorizontalAlignment="Center" TextAlignment="Right"/>
 
                                             <!-- vertical separators -->
                                             <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch"/>
@@ -803,6 +808,7 @@
                                             <Rectangle Grid.Column="3" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch"/>
                                             <Rectangle Grid.Column="4" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch"/>
                                             <Rectangle Grid.Column="5" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch"/>
+                                            <Rectangle Grid.Column="6" HorizontalAlignment="Right" Width="1" Fill="#444" VerticalAlignment="Stretch"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

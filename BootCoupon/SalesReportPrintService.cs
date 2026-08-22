@@ -682,9 +682,10 @@ namespace BootCoupon
                     var taxAmount = CalculateTax(totalPaidCouponPrice, preTaxAmount);
 
                     // ราคาคูปองฟรี (แสดงในส่วนภาษี)
+                    var freeCouponCountSum = currentViewModel.AllResults.Sum(x => x.FreeCouponCount);
                     summaryPanel.Children.Add(new TextBlock
                     {
-                        Text = $"ราคาคูปองฟรี (COM): {totalFreeCouponPrice:N2} บาท",
+                        Text = $"ราคาคูปองฟรี (COM): {totalFreeCouponPrice:N2} บาท (รวม {freeCouponCountSum:N0} ใบ)",
                         FontSize = 10,
                         FontWeight = Microsoft.UI.Text.FontWeights.Normal,
                         Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 255, 140, 0)), // Orange
@@ -767,7 +768,10 @@ namespace BootCoupon
 
                     var totalCoupons = currentViewModel.AllResults.Sum(x => x.TotalQuantity);
                     var soldCoupons = currentViewModel.AllResults.Sum(x => x.SoldQuantity);
+                    var freeCoupons = currentViewModel.AllResults.Sum(x => x.FreeCouponCount);
                     var remainingCoupons = currentViewModel.AllResults.Sum(x => x.RemainingQuantity);
+                    var freeValue = currentViewModel.AllResults.Sum(x => x.FreeCouponCount * x.UnitPrice);
+                    var soldValue = currentViewModel.AllResults.Sum(x => x.SoldQuantity * x.UnitPrice);
                     var totalValue = currentViewModel.AllResults.Sum(x => x.TotalQuantity * x.UnitPrice);
 
                     summaryPanel.Children.Add(new TextBlock
@@ -790,10 +794,19 @@ namespace BootCoupon
 
                     summaryPanel.Children.Add(new TextBlock
                     {
-                        Text = $"ขายแล้ว (ในช่วงที่เลือก): {soldCoupons:N0} ใบ",
+                        Text = $"ขายแล้ว (ในช่วงที่เลือก): {soldCoupons:N0} ใบ (มูลค่า: {soldValue:N2} บาท)",
                         FontSize = 11,
                         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                         Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 0, 128, 0)), // Green
+                        Margin = new Thickness(0, 0, 0, 4)
+                    });
+
+                    summaryPanel.Children.Add(new TextBlock
+                    {
+                        Text = $"คูปองฟรี (COM, ในช่วงที่เลือก): {freeCoupons:N0} ใบ (มูลค่า: {freeValue:N2} บาท)",
+                        FontSize = 11,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 255, 140, 0)), // Orange
                         Margin = new Thickness(0, 0, 0, 4)
                     });
 
@@ -815,7 +828,7 @@ namespace BootCoupon
                         Margin = new Thickness(0, 4, 0, 0)
                     });
 
-                    Debug.WriteLine($"✅ สรุปยอดรวมหน้า {pageNumber} (RemainingCoupons): Total={totalCoupons}, Sold={soldCoupons}, Remaining={remainingCoupons}");
+                    Debug.WriteLine($"✅ สรุปยอดรวมหน้า {pageNumber} (RemainingCoupons): Total={totalCoupons}, Sold={soldCoupons}, Free={freeCoupons}, Remaining={remainingCoupons}");
                 }
                 else if (currentViewModel.ReportMode == SalesReportViewModel.ReportModes.LimitedCoupons ||
                          currentViewModel.ReportMode == SalesReportViewModel.ReportModes.UnlimitedGrouped)
@@ -1437,11 +1450,11 @@ namespace BootCoupon
             Debug.WriteLine($"CreateRemainingCouponsTable page {pageNumber}");
 
             var table = new Grid { HorizontalAlignment = HorizontalAlignment.Stretch, Width = double.NaN };
-            var columnWidths = new[] { 1.0, 2.5, 1.5, 1.0, 1.0, 1.0, 1.0 };
+            var columnWidths = new[] { 1.0, 2.5, 1.5, 1.0, 1.0, 1.0, 1.0, 1.0 };
             foreach (var width in columnWidths)
                 table.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width, GridUnitType.Star) });
 
-            var headers = new[] { "รหัส", "ชื่อคูปอง", "สาขา", "จำนวนรวม", "ขายแล้ว", "คงเหลือ", "ราคา/ใบ" };
+            var headers = new[] { "รหัส", "ชื่อคูปอง", "สาขา", "จำนวนรวม", "ขายแล้ว", "คูปองฟรี", "คงเหลือ", "ราคา/ใบ" };
             table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             for (int i = 0; i < headers.Length; i++)
@@ -1482,6 +1495,7 @@ namespace BootCoupon
                     item.BranchTypeName ?? "",
                     item.TotalQuantity.ToString(),
                     item.SoldQuantity.ToString(),
+                    item.FreeCouponCount.ToString(),
                     item.RemainingQuantity.ToString(),
                     item.UnitPrice.ToString("N2")
                 };
@@ -1489,7 +1503,7 @@ namespace BootCoupon
                 for (int j = 0; j < rowData.Length; j++)
                 {
                     var foregroundColor = Microsoft.UI.Colors.Black;
-                    if (j == 5 && item.TotalQuantity > 0)
+                    if (j == 6 && item.TotalQuantity > 0)
                     {
                         var percentage = (double)item.RemainingQuantity / item.TotalQuantity * 100;
                         foregroundColor = percentage <= 10 ? Microsoft.UI.Colors.Red : percentage <= 30 ? Microsoft.UI.Colors.Orange : Microsoft.UI.Colors.Green;
@@ -1527,7 +1541,7 @@ namespace BootCoupon
                     BorderThickness = new Thickness(0),
                     Child = new TextBlock
                     {
-                        Text = $"* ขายแล้ว = จำนวนที่ขายในช่วงวันที่ {currentViewModel?.StartDate?.ToString("dd/MM/yyyy")} - {currentViewModel?.EndDate?.ToString("dd/MM/yyyy")}",
+                        Text = $"* ขายแล้ว/คูปองฟรี = จำนวนในช่วงวันที่ {currentViewModel?.StartDate?.ToString("dd/MM/yyyy")} - {currentViewModel?.EndDate?.ToString("dd/MM/yyyy")}",
                         FontSize = 7,
                         FontStyle = Windows.UI.Text.FontStyle.Italic,
                         Margin = new Thickness(4, 4, 4, 2),
@@ -1536,7 +1550,7 @@ namespace BootCoupon
                     }
                 };
                 Grid.SetColumn(footerCell, 0);
-                Grid.SetColumnSpan(footerCell, 7);
+                Grid.SetColumnSpan(footerCell, 8);
                 Grid.SetRow(footerCell, footerRowIndex);
                 table.Children.Add(footerCell);
             }

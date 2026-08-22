@@ -1778,19 +1778,33 @@ namespace BootCoupon
                                                      .Where(gc => gc.CouponDefinitionId == coupon.CouponId)
                                                      .CountAsync();
 
-                        // ✅ จำนวนคูปองที่ขายในช่วงวันที่ที่เลือก (กรองด้วย ReceiptDate)
+                        // ✅ จำนวนคูปองที่ขายปกติ (ไม่เป็น COM) ในช่วงวันที่ที่เลือก (กรองด้วย ReceiptDate)
                         var soldCount = await (from gc in context.GeneratedCoupons
                                                where gc.CouponDefinitionId == coupon.CouponId
                                                     && gc.ReceiptItemId != null
                                                join ri in context.ReceiptItems on gc.ReceiptItemId equals ri.ReceiptItemId
                                                join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
                                                where r.ReceiptDate >= startDateTime
-                                                    && r.ReceiptDate < endDateTime                                                    && r.Status == "Active"  // นับเฉพาะใบเสร็จที่ยังไม่ยกเลิก
+                                                    && r.ReceiptDate < endDateTime
+                                                    && r.Status == "Active"
+                                                    && !ri.IsCOM
                                                select gc).CountAsync();
 
-                        var remaining = totalCount - soldCount;
+                        // ✅ จำนวนคูปองฟรี (COM) ในช่วงวันที่ที่เลือก
+                        var freeCount = await (from gc in context.GeneratedCoupons
+                                               where gc.CouponDefinitionId == coupon.CouponId
+                                                    && gc.ReceiptItemId != null
+                                               join ri in context.ReceiptItems on gc.ReceiptItemId equals ri.ReceiptItemId
+                                               join r in context.Receipts on ri.ReceiptId equals r.ReceiptID
+                                               where r.ReceiptDate >= startDateTime
+                                                    && r.ReceiptDate < endDateTime
+                                                    && r.Status == "Active"
+                                                    && ri.IsCOM
+                                               select gc).CountAsync();
 
-                        System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] CouponId={coupon.CouponId} Total={totalCount} Sold={soldCount} (in date range) Remaining={remaining}");
+                        var remaining = totalCount - (soldCount + freeCount);
+
+                        System.Diagnostics.Debug.WriteLine($"[RemainingCoupons] CouponId={coupon.CouponId} Total={totalCount} Sold={soldCount} Free={freeCount} (in date range) Remaining={remaining}");
 
                         results.Add(new SalesReportItem
                         {
@@ -1800,6 +1814,7 @@ namespace BootCoupon
                             UnitPrice = coupon.UnitPrice,
                             TotalQuantity = totalCount,
                             SoldQuantity = soldCount,
+                            FreeCouponCount = freeCount,
                             RemainingQuantity = remaining,
                             SaleEventName = (coupon.SaleEventId.HasValue && coupon.SaleEventId.Value != 0 && saleEventDict.TryGetValue(coupon.SaleEventId.Value, out var rn)) ? rn : string.Empty
                         });
@@ -2011,15 +2026,19 @@ namespace BootCoupon
             }
             else if (ReportMode == ReportModes.RemainingCoupons)
             {
-                totalFree = 0m;
+                totalFree = AllResults.Sum(x => x.UnitPrice * x.FreeCouponCount);
                 totalPaid = AllResults.Sum(x => x.UnitPrice * x.SoldQuantity);
-                totalGrand = totalPaid;
+                totalGrand = totalPaid + totalFree;
             }
+
+            var overallFreeCountSum = (ReportMode == ReportModes.ByReceipt || ReportMode == ReportModes.CancelledReceipts || ReportMode == ReportModes.ByReceiptWithTax || ReportMode == ReportModes.SummaryByCoupon || ReportMode == ReportModes.RemainingCoupons)
+                ? AllResults.Sum(x => x.FreeCouponCount)
+                : (ReportMode == ReportModes.UnlimitedGrouped ? AllResults.Where(x => x.IsComplimentary).Sum(x => x.Quantity) : AllResults.Count(x => x.IsComplimentary));
 
             // ✅ แสดงยอดรวมแบบละเอียดสำหรับรายงานที่เลือก
             csvContent.AppendLine($"\"=== สรุปยอดรวมสำหรับรายงาน {ReportMode} ===\"");
             csvContent.AppendLine($"\"จำนวนรายการทั้งหมด: {TotalItems:N0} รายการ\"");
-            csvContent.AppendLine($"\"ราคาคูปองฟรี (รวมทุกรายการ): {totalFree:N2} บาท\"");
+            csvContent.AppendLine($"\"จำนวนคูปองฟรี (COM): {overallFreeCountSum:N0} ใบ (ราคา/มูลค่ารวม: {totalFree:N2} บาท)\"");
             if (totalDiscount > 0)
             {
                 csvContent.AppendLine($"\"ส่วนลด (รวมทุกรายการ): {totalDiscount:N2} บาท\"");
@@ -2384,7 +2403,7 @@ namespace BootCoupon
                 var headers = new[]
                 {
             "รหัสคูปอง", "ชื่อคูปอง", "สาขา", "ราคา",
-            "จำนวนทั้งหมด", "จำนวนที่ขายแล้ว", "จำนวนคงเหลือ",
+            "จำนวนทั้งหมด", "จำนวนที่ขายแล้ว", "คูปองฟรี (COM)", "จำนวนคงเหลือ",
             "งานที่ออกขาย"
         };
                 csvContent.AppendLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
@@ -2399,23 +2418,25 @@ namespace BootCoupon
                 item.UnitPrice.ToString("F2"),
                 item.TotalQuantity.ToString(),
                 item.SoldQuantity.ToString(),
+                item.FreeCouponCount.ToString(),
                 item.RemainingQuantity.ToString(),
                 item.SaleEventName
             };
                     csvContent.AppendLine(string.Join(",", row.Select(field => $"\"{(field ?? "").Replace("\"", "\"\"")}\"")));
                 }
 
-                // เพิ่มแ_row สรุปท้ายตาราง
+                // เพิ่มแถวสรุปท้ายตาราง
                 csvContent.AppendLine(); // Empty line before summary
                 csvContent.AppendLine($"\"รวม\",\"\",\"\"," +
                     $"\"{AllResults.Sum(x => x.UnitPrice * x.TotalQuantity):F2}\"," +
                     $"\"{AllResults.Sum(x => x.TotalQuantity)}\"," +
                     $"\"{AllResults.Sum(x => x.SoldQuantity)}\"," +
+                    $"\"{AllResults.Sum(x => x.FreeCouponCount)}\"," +
                     $"\"{AllResults.Sum(x => x.RemainingQuantity)}\"," +
                     $"\"\"");
 
                 csvContent.AppendLine();
-                csvContent.AppendLine($"\"หมายเหตุ: 'จำนวนที่ขายแล้ว' คือจำนวนที่ขายในช่วงวันที่ {StartDate?.ToString("dd/MM/yyyy")} - {EndDate?.ToString("dd/MM/yyyy")}\"");
+                csvContent.AppendLine($"\"หมายเหตุ: 'จำนวนที่ขายแล้ว' และ 'คูปองฟรี (COM)' คือจำนวนในช่วงวันที่ {StartDate?.ToString("dd/MM/yyyy")} - {EndDate?.ToString("dd/MM/yyyy")}\"");
             }
 
             await FileIO.WriteTextAsync(file, csvContent.ToString(), Windows.Storage.Streams.UnicodeEncoding.Utf8);
