@@ -576,11 +576,15 @@ namespace BootCoupon
                 {
                     ReceiptId = g.Key,
 
-                    // ⭐ คูปองจำกัดที่ขาย (จ่ายเงิน)
-                    PaidGeneratedCount = g.Count(x => x.IsLimited && !x.IsCOM),
+                    // ⭐ คูปองจำกัดที่ขาย (จ่ายเงิน) - ใช้ Sum Quantity
+                    PaidGeneratedCount = g
+                        .Where(x => x.IsLimited && !x.IsCOM)
+                        .Sum(x => x.Quantity),
 
-                    // ⭐ คูปองจำกัดที่ฟรี (COM)
-                    FreeGeneratedCount = g.Count(x => x.IsLimited && x.IsCOM),
+                    // ⭐ คูปองจำกัดที่ฟรี (COM) - ใช้ Sum Quantity
+                    FreeGeneratedCount = g
+                        .Where(x => x.IsLimited && x.IsCOM)
+                        .Sum(x => x.Quantity),
 
                     // ⭐ คูปองไม่จำกัดที่ขาย (จ่ายเงิน)
                     UnlimitedCount = g
@@ -595,12 +599,12 @@ namespace BootCoupon
                     // ⭐ ราคาคูปองจำกัดที่ขาย
                     PaidGeneratedAmount = g
                         .Where(x => x.IsLimited && !x.IsCOM)
-                        .Sum(x => x.UnitPrice),
+                        .Sum(x => x.TotalPrice),
 
                     // ⭐ ราคาคูปองจำกัดที่ฟรี
                     FreeGeneratedAmount = g
                         .Where(x => x.IsLimited && x.IsCOM)
-                        .Sum(x => x.UnitPrice),
+                        .Sum(x => x.TotalPrice),
 
                     // ⭐ ราคาคูปองไม่จำกัดที่ขาย
                     UnlimitedAmount = g
@@ -610,7 +614,7 @@ namespace BootCoupon
                     // ⭐ ราคาคูปองไม่จำกัดที่ฟรี
                     FreeUnlimitedAmount = g
                         .Where(x => !x.IsLimited && x.IsCOM)
-                        .Sum(x => x.UnitPrice * x.Quantity)
+                        .Sum(x => x.TotalPrice)
                 })
                 .ToList();
 
@@ -654,8 +658,12 @@ namespace BootCoupon
                 .Select(g => new ReceiptAggregateData
                 {
                     ReceiptId = g.Key,
-                    PaidGeneratedCount = g.Count(x => x.IsLimited && !x.IsCOM),
-                    FreeGeneratedCount = g.Count(x => x.IsLimited && x.IsCOM),
+                    PaidGeneratedCount = g
+                        .Where(x => x.IsLimited && !x.IsCOM)
+                        .Sum(x => x.Quantity),
+                    FreeGeneratedCount = g
+                        .Where(x => x.IsLimited && x.IsCOM)
+                        .Sum(x => x.Quantity),
                     UnlimitedCount = g
                         .Where(x => !x.IsLimited && !x.IsCOM)
                         .Sum(x => x.Quantity),
@@ -664,16 +672,16 @@ namespace BootCoupon
                         .Sum(x => x.Quantity),
                     PaidGeneratedAmount = g
                         .Where(x => x.IsLimited && !x.IsCOM)
-                        .Sum(x => x.UnitPrice),
+                        .Sum(x => x.TotalPrice),
                     FreeGeneratedAmount = g
                         .Where(x => x.IsLimited && x.IsCOM)
-                        .Sum(x => x.UnitPrice),
+                        .Sum(x => x.TotalPrice),
                     UnlimitedAmount = g
                         .Where(x => !x.IsLimited && !x.IsCOM)
                         .Sum(x => x.TotalPrice),
                     FreeUnlimitedAmount = g
                         .Where(x => !x.IsLimited && x.IsCOM)
-                        .Sum(x => x.UnitPrice * x.Quantity)
+                        .Sum(x => x.TotalPrice)
                 })
                 .ToList();
 
@@ -1590,10 +1598,10 @@ namespace BootCoupon
                             CouponName = g.Key.CouponName,
                             BranchName = g.Key.BranchName,
                             SaleEventId = g.Key.SaleEventId,
-                            SoldCount = g.Count(x => !x.IsCOM),      // ⭐ นับเฉพาะที่ไม่ COM
-                            FreeCount = g.Count(x => x.IsCOM),       // ⭐ นับเฉพาะที่ COM
+                            SoldCount = g.Where(x => !x.IsCOM).Sum(x => x.Quantity),      // ⭐ ใช้ Sum Quantity แทน Count
+                            FreeCount = g.Where(x => x.IsCOM).Sum(x => x.Quantity),       // ⭐ ใช้ Sum Quantity แทน Count
                             PaidAmount = g.Where(x => !x.IsCOM).Sum(x => x.TotalPrice),   // ⭐ ราคาที่ขาย
-                            FreeAmount = g.Where(x => x.IsCOM).Sum(x => x.UnitPrice * x.Quantity), // ⭐ มูลค่า COM
+                            FreeAmount = g.Where(x => x.IsCOM).Sum(x => x.TotalPrice),    // ⭐ มูลค่า COM
                             IsLimited = false
                         }).ToList();
 
