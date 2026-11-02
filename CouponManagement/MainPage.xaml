@@ -65,6 +65,11 @@
                     Content="จัดการผู้ใช้/สาขา/งานที่ขาย/เซลล์"
                     Click="ManageUsersButton_Click"
                     Style="{StaticResource MenuButtonStyle}"/>
+            <!-- ปุ่มใหม่: ลบคำนิยามคูปองที่หมดอายุ/ไม่ได้ใช้งาน -->
+            <Button x:Name="UnusedCouponDefinitionsButton"
+                    Content="ลบคำนิยามคูปองที่หมดอายุ/ไม่ได้ใช้งาน"
+                    Click="UnusedCouponDefinitionsButton_Click"
+                    Style="{StaticResource MenuButtonStyle}"/>
         </StackPanel>
     </Grid>
 </Page>

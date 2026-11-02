@@ -52,5 +52,11 @@ namespace CouponManagement
  // Navigate to UsersPage
  Frame.Navigate(typeof(UsersPage));
  }
+
+ private void UnusedCouponDefinitionsButton_Click(object sender, RoutedEventArgs e)
+ {
+ // Navigate to UnusedCouponDefinitionsPage
+ Frame.Navigate(typeof(UnusedCouponDefinitionsPage));
+ }
  }
 }

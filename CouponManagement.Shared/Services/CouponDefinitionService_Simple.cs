@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using CouponManagement.Shared.Models;
 using System;
@@ -735,6 +735,321 @@ namespace CouponManagement.Shared.Services
                 TotalUsed = totalUsed
             };
         }
+
+        #region Cleanup Unused / Expired Coupon Definitions
+
+        /// <summary>
+        /// ดึงรายการคำนิยามคูปองที่หมดอายุ / งานจบแล้ว และไม่เคยผูกกับใบเสร็จ (ทั้งที่ยังไม่สร้าง หรือสร้างแล้วแต่ไม่เคยใช้)
+        /// </summary>
+        public async Task<List<CleanupCouponDefinitionItem>> GetCleanupEligibleDefinitionsAsync(string? searchText = null, int? branchId = null)
+        {
+            using var context = new CouponContext();
+            await context.EnsureDeletionHistoryTableCreatedAsync();
+
+            var today = DateTime.Today;
+
+            // ค้นหา CouponDefinitions พร้อม Branch, SaleEvent, GeneratedCoupons
+            var query = context.CouponDefinitions
+                .Include(cd => cd.Branch)
+                .Include(cd => cd.SaleEvent)
+                .Include(cd => cd.GeneratedCoupons)
+                .AsNoTracking()
+                .AsQueryable();
+
+            // 1) วันหมดอายุของคูปองต้องหมดแล้ว (ValidTo.Date < today)
+            query = query.Where(cd => cd.ValidTo.Date < today);
+
+            // 2) ถ้ามีงานขาย งานขายนั้นต้องจบไปแล้วด้วย (SaleEvent.EndDate.Date < today)
+            query = query.Where(cd => cd.SaleEventId == null || (cd.SaleEvent != null && cd.SaleEvent.EndDate.Date < today));
+
+            // 3) ถ้ามีการสร้างคูปองแล้ว ต้องไม่มีใบใดผูกกับใบเสร็จ (ReceiptItemId != null) หรือถูกใช้งาน (IsUsed == true)
+            query = query.Where(cd => !cd.GeneratedCoupons.Any(gc => gc.ReceiptItemId != null || gc.IsUsed));
+
+            // 4) ตรวจสอบความปลอดภัยสูงสุด: ต้องไม่มีรายการใบเสร็จใดๆ ที่อ้างอิงถึง CouponDefinitionId นี้
+            var soldCouponDefIds = await context.ReceiptItems
+                .Select(ri => ri.CouponId)
+                .Distinct()
+                .ToListAsync();
+
+            if (soldCouponDefIds.Count > 0)
+            {
+                query = query.Where(cd => !soldCouponDefIds.Contains(cd.Id));
+            }
+
+            // กรองสาขา
+            if (branchId.HasValue && branchId.Value > 0)
+            {
+                query = query.Where(cd => cd.BranchId == branchId.Value);
+            }
+
+            // กรองคำค้นหา
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                var term = searchText.Trim().ToLower();
+                query = query.Where(cd => cd.Code.ToLower().Contains(term) || cd.Name.ToLower().Contains(term));
+            }
+
+            var list = await query.OrderByDescending(cd => cd.ValidTo).ToListAsync();
+
+            return list.Select(cd => new CleanupCouponDefinitionItem
+            {
+                Id = cd.Id,
+                Code = cd.Code,
+                Name = cd.Name,
+                BranchId = cd.BranchId,
+                BranchName = cd.Branch?.Name ?? $"สาขา {cd.BranchId}",
+                SaleEventId = cd.SaleEventId,
+                SaleEventName = cd.SaleEvent?.Name ?? "ไม่มีงานขาย",
+                SaleEventEndDate = cd.SaleEvent?.EndDate,
+                Price = cd.Price,
+                ValidFrom = cd.ValidFrom,
+                ValidTo = cd.ValidTo,
+                TotalGeneratedCount = cd.GeneratedCoupons.Count,
+                CreatedBy = cd.CreatedBy,
+                CreatedAt = cd.CreatedAt
+            }).ToList();
+        }
+
+        /// <summary>
+        /// ลบคำนิยามคูปอง และคูปองที่สร้างไว้แต่ไม่เคยใช้ พร้อมบันทึกประวัติ
+        /// </summary>
+        public async Task<(bool Success, string Message)> DeleteCleanupDefinitionAsync(int couponDefinitionId, string deletedBy, string? reason = null)
+        {
+            using var context = new CouponContext();
+            await context.EnsureDeletionHistoryTableCreatedAsync();
+
+            using var transaction = await context.Database.BeginTransactionAsync();
+            try
+            {
+                var def = await context.CouponDefinitions
+                    .Include(d => d.Branch)
+                    .Include(d => d.SaleEvent)
+                    .Include(d => d.CodeGenerator)
+                    .Include(d => d.GeneratedCoupons)
+                    .FirstOrDefaultAsync(d => d.Id == couponDefinitionId);
+
+                if (def == null)
+                {
+                    return (false, "ไม่พบข้อมูลคำนิยามคูปองในระบบ (อาจถูกลบไปแล้ว)");
+                }
+
+                var today = DateTime.Today;
+
+                // ตรวจสอบวันหมดอายุซ้ำ
+                if (def.ValidTo.Date >= today)
+                {
+                    return (false, $"คูปองนี้ยังไม่หมดอายุ (วันหมดอายุ: {def.ValidTo:dd/MM/yyyy}) ไม่อนุญาตให้ลบ");
+                }
+
+                // ตรวจสอบงานขายซ้ำ
+                if (def.SaleEvent != null && def.SaleEvent.EndDate.Date >= today)
+                {
+                    return (false, $"งานขาย '{def.SaleEvent.Name}' ยังไม่สิ้นสุด (สิ้นสุดวันที่: {def.SaleEvent.EndDate:dd/MM/yyyy}) ไม่อนุญาตให้ลบ");
+                }
+
+                // ตรวจสอบความปลอดภัยกับใบเสร็จ
+                var hasReceiptItems = await context.ReceiptItems.AnyAsync(ri => ri.CouponId == def.Id);
+                if (hasReceiptItems)
+                {
+                    return (false, "คำนิยามคูปองนี้เคยถูกออกใบเสร็จขายแล้ว ไม่อนุญาตให้ลบเด็ดขาด");
+                }
+
+                // ตรวจสอบคูปองที่สร้าง
+                var hasUsedOrSoldGeneratedCoupons = def.GeneratedCoupons.Any(gc => gc.ReceiptItemId != null || gc.IsUsed);
+                if (hasUsedOrSoldGeneratedCoupons)
+                {
+                    return (false, "พบว่ามีคูปองที่สร้างถูกผูกกับใบเสร็จหรือถูกใช้งานไปแล้ว ไม่อนุญาตให้ลบ");
+                }
+
+                int totalCouponsCreated = def.GeneratedCoupons.Count;
+
+                // บันทึกประวัติการลบ (Audit History)
+                var history = new CouponDefinitionDeletionHistory
+                {
+                    CouponDefinitionId = def.Id,
+                    CouponCode = def.Code,
+                    CouponName = def.Name,
+                    BranchId = def.BranchId,
+                    BranchName = def.Branch?.Name ?? $"สาขา {def.BranchId}",
+                    SaleEventId = def.SaleEventId,
+                    SaleEventName = def.SaleEvent?.Name,
+                    Price = def.Price,
+                    ValidFrom = def.ValidFrom,
+                    ValidTo = def.ValidTo,
+                    TotalCouponsCreated = totalCouponsCreated,
+                    DeletedBy = string.IsNullOrWhiteSpace(deletedBy) ? Environment.UserName : deletedBy,
+                    DeletedAt = DateTime.Now,
+                    DeletionReason = reason ?? (totalCouponsCreated > 0
+                        ? $"ลบคำนิยามคูปองและคูปองที่สร้างไว้ {totalCouponsCreated} ใบ (ไม่เคยผูกใบเสร็จ)"
+                        : "ลบคำนิยามคูปองที่หมดอายุ (ยังไม่เคยสร้างคูปอง)")
+                };
+
+                context.CouponDefinitionDeletionHistories.Add(history);
+                await context.SaveChangesAsync();
+
+                // ลบคูปองที่สร้างไว้ (ถ้ามี)
+                if (def.GeneratedCoupons.Count > 0)
+                {
+                    context.GeneratedCoupons.RemoveRange(def.GeneratedCoupons);
+                }
+
+                // ลบตัวสร้างรหัสคูปอง (ถ้ามี)
+                if (def.CodeGenerator != null)
+                {
+                    context.CouponCodeGenerators.Remove(def.CodeGenerator);
+                }
+
+                // ลบตัวคำนิยามคูปอง
+                context.CouponDefinitions.Remove(def);
+
+                await context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return (true, totalCouponsCreated > 0
+                    ? $"ลบคำนิยาม '{def.Code}' และคูปองทั้งหมด {totalCouponsCreated:N0} ใบเรียบร้อยแล้ว"
+                    : $"ลบคำนิยาม '{def.Code}' เรียบร้อยแล้ว");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return (false, $"เกิดข้อผิดพลาดในการลบ: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ดึงรายการประวัติการลบคำนิยามคูปอง
+        /// </summary>
+        public async Task<List<CouponDefinitionDeletionHistory>> GetDeletionHistoriesAsync(int page = 1, int pageSize = 100)
+        {
+            using var context = new CouponContext();
+            await context.EnsureDeletionHistoryTableCreatedAsync();
+
+            return await context.CouponDefinitionDeletionHistories
+                .AsNoTracking()
+                .OrderByDescending(h => h.DeletedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// ลบคำนิยามคูปองแบบหลายรายการพร้อมกัน (Batch Deletion)
+        /// </summary>
+        public async Task<(int SuccessCount, int FailCount, int TotalCouponsDeleted, List<string> ErrorMessages)> DeleteCleanupDefinitionsBatchAsync(
+            IEnumerable<int> couponDefinitionIds,
+            string deletedBy,
+            string? reason = null)
+        {
+            var idList = couponDefinitionIds.Distinct().ToList();
+            if (idList.Count == 0)
+            {
+                return (0, 0, 0, new List<string>());
+            }
+
+            using var context = new CouponContext();
+            await context.EnsureDeletionHistoryTableCreatedAsync();
+
+            int successCount = 0;
+            int totalCouponsDeleted = 0;
+            var errorMessages = new List<string>();
+
+            using var transaction = await context.Database.BeginTransactionAsync();
+            try
+            {
+                var today = DateTime.Today;
+
+                var definitions = await context.CouponDefinitions
+                    .Include(d => d.Branch)
+                    .Include(d => d.SaleEvent)
+                    .Include(d => d.CodeGenerator)
+                    .Include(d => d.GeneratedCoupons)
+                    .Where(d => idList.Contains(d.Id))
+                    .ToListAsync();
+
+                // ป้องกันคำนิยามที่เคยออกใบเสร็จ
+                var soldCouponDefIds = await context.ReceiptItems
+                    .Select(ri => ri.CouponId)
+                    .Distinct()
+                    .ToListAsync();
+
+                foreach (var def in definitions)
+                {
+                    if (def.ValidTo.Date >= today)
+                    {
+                        errorMessages.Add($"คำนิยาม '{def.Code}' ยังไม่หมดอายุ");
+                        continue;
+                    }
+
+                    if (def.SaleEvent != null && def.SaleEvent.EndDate.Date >= today)
+                    {
+                        errorMessages.Add($"คำนิยาม '{def.Code}' งานขายยังไม่สิ้นสุด");
+                        continue;
+                    }
+
+                    if (soldCouponDefIds.Contains(def.Id))
+                    {
+                        errorMessages.Add($"คำนิยาม '{def.Code}' เคยออกใบเสร็จขายแล้ว");
+                        continue;
+                    }
+
+                    if (def.GeneratedCoupons.Any(gc => gc.ReceiptItemId != null || gc.IsUsed))
+                    {
+                        errorMessages.Add($"คำนิยาม '{def.Code}' มีคูปองที่ผูกใบเสร็จหรือใช้งานแล้ว");
+                        continue;
+                    }
+
+                    int totalCreated = def.GeneratedCoupons.Count;
+
+                    var history = new CouponDefinitionDeletionHistory
+                    {
+                        CouponDefinitionId = def.Id,
+                        CouponCode = def.Code,
+                        CouponName = def.Name,
+                        BranchId = def.BranchId,
+                        BranchName = def.Branch?.Name ?? $"สาขา {def.BranchId}",
+                        SaleEventId = def.SaleEventId,
+                        SaleEventName = def.SaleEvent?.Name,
+                        Price = def.Price,
+                        ValidFrom = def.ValidFrom,
+                        ValidTo = def.ValidTo,
+                        TotalCouponsCreated = totalCreated,
+                        DeletedBy = string.IsNullOrWhiteSpace(deletedBy) ? Environment.UserName : deletedBy,
+                        DeletedAt = DateTime.Now,
+                        DeletionReason = reason ?? (totalCreated > 0
+                            ? $"ลบคำนิยามคูปองและคูปองที่สร้างไว้ {totalCreated} ใบ (ลบแบบเลือกหลายรายการ)"
+                            : "ลบคำนิยามคูปองที่หมดอายุ (ลบแบบเลือกหลายรายการ)")
+                    };
+                    context.CouponDefinitionDeletionHistories.Add(history);
+
+                    if (def.GeneratedCoupons.Count > 0)
+                    {
+                        context.GeneratedCoupons.RemoveRange(def.GeneratedCoupons);
+                        totalCouponsDeleted += totalCreated;
+                    }
+
+                    if (def.CodeGenerator != null)
+                    {
+                        context.CouponCodeGenerators.Remove(def.CodeGenerator);
+                    }
+
+                    context.CouponDefinitions.Remove(def);
+                    successCount++;
+                }
+
+                await context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return (successCount, idList.Count - successCount, totalCouponsDeleted, errorMessages);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                errorMessages.Add($"เกิดข้อผิดพลาดในการลบกลุ่ม: {ex.Message}");
+                return (0, idList.Count, 0, errorMessages);
+            }
+        }
+
+        #endregion
     } // End of CouponDefinitionService class
 
     // Statistics model
@@ -744,5 +1059,52 @@ namespace CouponManagement.Shared.Services
         public int TotalRemaining { get; set; }
         public int TotalSold { get; set; }
         public int TotalUsed { get; set; }
+    }
+
+    // Model สำหรับแสดงรายการคำนิยามที่พร้อมลบ
+    public class CleanupCouponDefinitionItem : System.ComponentModel.INotifyPropertyChanged
+    {
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected != value)
+                {
+                    _isSelected = value;
+                    PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsSelected)));
+                }
+            }
+        }
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        public int Id { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int BranchId { get; set; }
+        public string BranchName { get; set; } = string.Empty;
+        public int? SaleEventId { get; set; }
+        public string SaleEventName { get; set; } = string.Empty;
+        public DateTime? SaleEventEndDate { get; set; }
+        public decimal Price { get; set; }
+        public DateTime ValidFrom { get; set; }
+        public DateTime ValidTo { get; set; }
+        public int TotalGeneratedCount { get; set; }
+        public bool HasGeneratedCoupons => TotalGeneratedCount > 0;
+        public string StatusBadgeText => HasGeneratedCoupons
+            ? $"สร้างแล้ว {TotalGeneratedCount:N0} ใบ (ไม่เคยผูกใบเสร็จ)"
+            : "ยังไม่เคยสร้างคูปอง (0 ใบ)";
+        public string StatusBadgeBackground => HasGeneratedCoupons ? "#FFF7ED" : "#F3F4F6";
+        public string StatusBadgeBorder => HasGeneratedCoupons ? "#FDBA74" : "#D1D5DB";
+        public string StatusBadgeForeground => HasGeneratedCoupons ? "#C2410C" : "#4B5563";
+        public string CreatedBy { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+
+        public string PriceDisplay => $"{Price:N2}";
+        public string ValidFromDisplay => ValidFrom.ToString("dd/MM/yyyy");
+        public string ValidToDisplay => ValidTo.ToString("dd/MM/yyyy");
+        public string CreatedAtDisplay => CreatedAt.ToString("dd/MM/yyyy HH:mm");
     }
 }

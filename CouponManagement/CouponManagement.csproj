@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
  <PropertyGroup>
  <OutputType>WinExe</OutputType>
  <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
@@ -99,6 +99,9 @@
  <Generator>MSBuild:Compile</Generator>
  </Page>
  <Page Update="ReceiptsPage.xaml">
+ <Generator>MSBuild:Compile</Generator>
+ </Page>
+ <Page Update="UnusedCouponDefinitionsPage.xaml">
  <Generator>MSBuild:Compile</Generator>
  </Page>
  </ItemGroup>
