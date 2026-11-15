@@ -23,6 +23,7 @@ namespace CouponManagement
 
         private string? _currentSearchText;
         private int? _selectedBranchId;
+        private string? _selectedStatusFilter = "ALL";
         private bool _isHistoryTabSelected = false;
         private bool _isInitialized = false;
         private bool _suppressBranchFilterChanged = false;
@@ -169,6 +170,17 @@ namespace CouponManagement
             }
         }
 
+        private async void StatusFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_isInitialized) return;
+
+            if (StatusFilterComboBox?.SelectedItem is ComboBoxItem item && item.Tag != null)
+            {
+                _selectedStatusFilter = item.Tag.ToString();
+                await LoadEligibleDefinitionsAsync();
+            }
+        }
+
         private async void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (!_isInitialized) return;
@@ -186,6 +198,9 @@ namespace CouponManagement
             if (BranchFilterComboBox != null) BranchFilterComboBox.SelectedIndex = 0;
             _selectedBranchId = null;
             _suppressBranchFilterChanged = false;
+
+            if (StatusFilterComboBox != null) StatusFilterComboBox.SelectedIndex = 0;
+            _selectedStatusFilter = "ALL";
 
             await LoadEligibleDefinitionsAsync();
         }
@@ -292,7 +307,7 @@ namespace CouponManagement
                 if (LoadingRing != null) LoadingRing.IsActive = true;
                 if (EmptyStatePanel != null) EmptyStatePanel.Visibility = Visibility.Collapsed;
 
-                var list = await _definitionService.GetCleanupEligibleDefinitionsAsync(_currentSearchText, _selectedBranchId);
+                var list = await _definitionService.GetCleanupEligibleDefinitionsAsync(_currentSearchText, _selectedBranchId, _selectedStatusFilter);
 
                 _eligibleItems.Clear();
                 foreach (var item in list)
@@ -301,12 +316,13 @@ namespace CouponManagement
                 }
 
                 int totalCount = list.Count;
-                int notCreatedCount = list.Count(i => !i.HasGeneratedCoupons);
-                int createdCount = list.Count(i => i.HasGeneratedCoupons);
+                int notCreatedActiveCount = list.Count(i => !i.HasGeneratedCoupons && !i.IsExpired);
+                int notCreatedExpiredCount = list.Count(i => !i.HasGeneratedCoupons && i.IsExpired);
+                int createdUnusedCount = list.Count(i => i.HasGeneratedCoupons);
 
                 if (SummaryCountTextBlock != null)
                 {
-                    SummaryCountTextBlock.Text = $"พบทั้งหมด {totalCount:N0} รายการ (ยังไม่เคยสร้างคูปอง: {notCreatedCount:N0} รายการ, สร้างแล้วแต่ไม่เคยใช้: {createdCount:N0} รายการ)";
+                    SummaryCountTextBlock.Text = $"พบทั้งหมด {totalCount:N0} รายการ (ยังไม่สร้าง/ยังไม่หมดอายุ: {notCreatedActiveCount:N0}, ยังไม่สร้าง/หมดอายุ: {notCreatedExpiredCount:N0}, สร้างแล้วแต่ไม่เคยใช้: {createdUnusedCount:N0})";
                 }
 
                 if (EmptyStatePanel != null)
@@ -394,8 +410,8 @@ namespace CouponManagement
             {
                 Text = $"• ชื่อคำนิยาม: {item.Name}\n" +
                        $"• สาขา: {item.BranchName}\n" +
-                       $"• งานขาย: {item.SaleEventName} (งานสิ้นสุดแล้ว)\n" +
-                       $"• วันหมดอายุ: {item.ValidTo:dd/MM/yyyy} (หมดอายุแล้ว)\n" +
+                       $"• งานขาย: {item.SaleEventName} {item.SaleEventStatusText}\n" +
+                       $"• วันหมดอายุ: {item.ValidTo:dd/MM/yyyy} {item.ExpirationStatusText}\n" +
                        $"• ราคา: {item.Price:N2} บาท",
                 FontSize = 13,
                 Foreground = new SolidColorBrush(Colors.SlateGray)

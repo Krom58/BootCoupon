@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using CouponManagement.Shared.Models;
 using System;
@@ -744,9 +744,14 @@ namespace CouponManagement.Shared.Services
         #region Cleanup Unused / Expired Coupon Definitions
 
         /// <summary>
-        /// ดึงรายการคำนิยามคูปองที่หมดอายุ / งานจบแล้ว และไม่เคยผูกกับใบเสร็จ (ทั้งที่ยังไม่สร้าง หรือสร้างแล้วแต่ไม่เคยใช้)
+        /// ดึงรายการคำนิยามคูปองที่เข้าเกณฑ์การลบ:
+        /// 1. กรณีสร้างคูปองแล้ว: ต้องหมดอายุ, งานจบแล้ว, และไม่เคยผูกกับใบเสร็จ/ใช้งาน
+        /// 2. กรณีที่ยังไม่เคยสร้างคูปอง: สามารถดึงมาได้ทั้งที่หมดอายุแล้ว หรือยังไม่หมดอายุ
         /// </summary>
-        public async Task<List<CleanupCouponDefinitionItem>> GetCleanupEligibleDefinitionsAsync(string? searchText = null, int? branchId = null)
+        public async Task<List<CleanupCouponDefinitionItem>> GetCleanupEligibleDefinitionsAsync(
+            string? searchText = null, 
+            int? branchId = null, 
+            string? statusFilter = null)
         {
             using var context = new CouponContext();
             await context.EnsureDeletionHistoryTableCreatedAsync();
@@ -761,16 +766,20 @@ namespace CouponManagement.Shared.Services
                 .AsNoTracking()
                 .AsQueryable();
 
-            // 1) วันหมดอายุของคูปองต้องหมดแล้ว (ValidTo.Date < today)
-            query = query.Where(cd => cd.ValidTo.Date < today);
+            // 1) กรองตามเงื่อนไข:
+            // กรณี A: ยังไม่เคยสร้างคูปองเลย (!cd.GeneratedCoupons.Any()) -> ได้ทั้งที่หมดอายุแล้ว และยังไม่หมดอายุ
+            // กรณี B: มีการสร้างคูปองแล้ว -> ต้องหมดอายุแล้ว, งานขายต้องจบแล้ว, และไม่มีคูปองใดผูกกับใบเสร็จหรือใช้งาน
+            query = query.Where(cd =>
+                !cd.GeneratedCoupons.Any()
+                ||
+                (
+                    cd.ValidTo.Date < today
+                    && (cd.SaleEventId == null || (cd.SaleEvent != null && cd.SaleEvent.EndDate.Date < today))
+                    && !cd.GeneratedCoupons.Any(gc => gc.ReceiptItemId != null || gc.IsUsed)
+                )
+            );
 
-            // 2) ถ้ามีงานขาย งานขายนั้นต้องจบไปแล้วด้วย (SaleEvent.EndDate.Date < today)
-            query = query.Where(cd => cd.SaleEventId == null || (cd.SaleEvent != null && cd.SaleEvent.EndDate.Date < today));
-
-            // 3) ถ้ามีการสร้างคูปองแล้ว ต้องไม่มีใบใดผูกกับใบเสร็จ (ReceiptItemId != null) หรือถูกใช้งาน (IsUsed == true)
-            query = query.Where(cd => !cd.GeneratedCoupons.Any(gc => gc.ReceiptItemId != null || gc.IsUsed));
-
-            // 4) ตรวจสอบความปลอดภัยสูงสุด: ต้องไม่มีรายการใบเสร็จใดๆ ที่อ้างอิงถึง CouponDefinitionId นี้
+            // 2) ตรวจสอบความปลอดภัยสูงสุด: ต้องไม่มีรายการใบเสร็จใดๆ ที่อ้างอิงถึง CouponDefinitionId นี้
             var soldCouponDefIds = await context.ReceiptItems
                 .Select(ri => ri.CouponId)
                 .Distinct()
@@ -779,6 +788,17 @@ namespace CouponManagement.Shared.Services
             if (soldCouponDefIds.Count > 0)
             {
                 query = query.Where(cd => !soldCouponDefIds.Contains(cd.Id));
+            }
+
+            // กรองตามประเภท/สถานะ
+            if (!string.IsNullOrWhiteSpace(statusFilter) && statusFilter != "ALL")
+            {
+                if (statusFilter == "NOT_CREATED_ACTIVE")
+                    query = query.Where(cd => !cd.GeneratedCoupons.Any() && cd.ValidTo.Date >= today);
+                else if (statusFilter == "NOT_CREATED_EXPIRED")
+                    query = query.Where(cd => !cd.GeneratedCoupons.Any() && cd.ValidTo.Date < today);
+                else if (statusFilter == "CREATED_UNUSED")
+                    query = query.Where(cd => cd.GeneratedCoupons.Any());
             }
 
             // กรองสาขา
@@ -839,18 +859,7 @@ namespace CouponManagement.Shared.Services
                 }
 
                 var today = DateTime.Today;
-
-                // ตรวจสอบวันหมดอายุซ้ำ
-                if (def.ValidTo.Date >= today)
-                {
-                    return (false, $"คูปองนี้ยังไม่หมดอายุ (วันหมดอายุ: {def.ValidTo:dd/MM/yyyy}) ไม่อนุญาตให้ลบ");
-                }
-
-                // ตรวจสอบงานขายซ้ำ
-                if (def.SaleEvent != null && def.SaleEvent.EndDate.Date >= today)
-                {
-                    return (false, $"งานขาย '{def.SaleEvent.Name}' ยังไม่สิ้นสุด (สิ้นสุดวันที่: {def.SaleEvent.EndDate:dd/MM/yyyy}) ไม่อนุญาตให้ลบ");
-                }
+                int totalCouponsCreated = def.GeneratedCoupons.Count;
 
                 // ตรวจสอบความปลอดภัยกับใบเสร็จ
                 var hasReceiptItems = await context.ReceiptItems.AnyAsync(ri => ri.CouponId == def.Id);
@@ -859,14 +868,24 @@ namespace CouponManagement.Shared.Services
                     return (false, "คำนิยามคูปองนี้เคยถูกออกใบเสร็จขายแล้ว ไม่อนุญาตให้ลบเด็ดขาด");
                 }
 
-                // ตรวจสอบคูปองที่สร้าง
-                var hasUsedOrSoldGeneratedCoupons = def.GeneratedCoupons.Any(gc => gc.ReceiptItemId != null || gc.IsUsed);
-                if (hasUsedOrSoldGeneratedCoupons)
+                // ถ้ามีการสร้างคูปองแล้ว ต้องตรวจสอบว่าหมดอายุและงานขายจบแล้ว
+                if (totalCouponsCreated > 0)
                 {
-                    return (false, "พบว่ามีคูปองที่สร้างถูกผูกกับใบเสร็จหรือถูกใช้งานไปแล้ว ไม่อนุญาตให้ลบ");
-                }
+                    if (def.ValidTo.Date >= today)
+                    {
+                        return (false, $"คูปองนี้มีการสร้างคูปองแล้วและยังไม่หมดอายุ (วันหมดอายุ: {def.ValidTo:dd/MM/yyyy}) ไม่อนุญาตให้ลบ");
+                    }
 
-                int totalCouponsCreated = def.GeneratedCoupons.Count;
+                    if (def.SaleEvent != null && def.SaleEvent.EndDate.Date >= today)
+                    {
+                        return (false, $"งานขาย '{def.SaleEvent.Name}' ยังไม่สิ้นสุด (สิ้นสุดวันที่: {def.SaleEvent.EndDate:dd/MM/yyyy}) ไม่อนุญาตให้ลบ");
+                    }
+
+                    if (def.GeneratedCoupons.Any(gc => gc.ReceiptItemId != null || gc.IsUsed))
+                    {
+                        return (false, "พบว่ามีคูปองที่สร้างถูกผูกกับใบเสร็จหรือถูกใช้งานไปแล้ว ไม่อนุญาตให้ลบ");
+                    }
+                }
 
                 // บันทึกประวัติการลบ (Audit History)
                 var history = new CouponDefinitionDeletionHistory
@@ -886,7 +905,9 @@ namespace CouponManagement.Shared.Services
                     DeletedAt = DateTime.Now,
                     DeletionReason = reason ?? (totalCouponsCreated > 0
                         ? $"ลบคำนิยามคูปองและคูปองที่สร้างไว้ {totalCouponsCreated} ใบ (ไม่เคยผูกใบเสร็จ)"
-                        : "ลบคำนิยามคูปองที่หมดอายุ (ยังไม่เคยสร้างคูปอง)")
+                        : (def.ValidTo.Date >= today
+                            ? "ลบคำนิยามคูปองที่ยังไม่เคยสร้างคูปอง (ยังไม่หมดอายุ)"
+                            : "ลบคำนิยามคูปองที่ยังไม่เคยสร้างคูปอง (หมดอายุแล้ว)"))
                 };
 
                 context.CouponDefinitionDeletionHistories.Add(history);
@@ -979,17 +1000,7 @@ namespace CouponManagement.Shared.Services
 
                 foreach (var def in definitions)
                 {
-                    if (def.ValidTo.Date >= today)
-                    {
-                        errorMessages.Add($"คำนิยาม '{def.Code}' ยังไม่หมดอายุ");
-                        continue;
-                    }
-
-                    if (def.SaleEvent != null && def.SaleEvent.EndDate.Date >= today)
-                    {
-                        errorMessages.Add($"คำนิยาม '{def.Code}' งานขายยังไม่สิ้นสุด");
-                        continue;
-                    }
+                    int totalCreated = def.GeneratedCoupons.Count;
 
                     if (soldCouponDefIds.Contains(def.Id))
                     {
@@ -997,13 +1008,26 @@ namespace CouponManagement.Shared.Services
                         continue;
                     }
 
-                    if (def.GeneratedCoupons.Any(gc => gc.ReceiptItemId != null || gc.IsUsed))
+                    if (totalCreated > 0)
                     {
-                        errorMessages.Add($"คำนิยาม '{def.Code}' มีคูปองที่ผูกใบเสร็จหรือใช้งานแล้ว");
-                        continue;
-                    }
+                        if (def.ValidTo.Date >= today)
+                        {
+                            errorMessages.Add($"คำนิยาม '{def.Code}' มีการสร้างคูปองและยังไม่หมดอายุ");
+                            continue;
+                        }
 
-                    int totalCreated = def.GeneratedCoupons.Count;
+                        if (def.SaleEvent != null && def.SaleEvent.EndDate.Date >= today)
+                        {
+                            errorMessages.Add($"คำนิยาม '{def.Code}' งานขายยังไม่สิ้นสุด");
+                            continue;
+                        }
+
+                        if (def.GeneratedCoupons.Any(gc => gc.ReceiptItemId != null || gc.IsUsed))
+                        {
+                            errorMessages.Add($"คำนิยาม '{def.Code}' มีคูปองที่ผูกใบเสร็จหรือใช้งานแล้ว");
+                            continue;
+                        }
+                    }
 
                     var history = new CouponDefinitionDeletionHistory
                     {
@@ -1022,7 +1046,9 @@ namespace CouponManagement.Shared.Services
                         DeletedAt = DateTime.Now,
                         DeletionReason = reason ?? (totalCreated > 0
                             ? $"ลบคำนิยามคูปองและคูปองที่สร้างไว้ {totalCreated} ใบ (ลบแบบเลือกหลายรายการ)"
-                            : "ลบคำนิยามคูปองที่หมดอายุ (ลบแบบเลือกหลายรายการ)")
+                            : (def.ValidTo.Date >= today
+                                ? "ลบคำนิยามคูปองที่ยังไม่เคยสร้างคูปอง (ยังไม่หมดอายุ - ลบแบบเลือกหลายรายการ)"
+                                : "ลบคำนิยามคูปองที่ยังไม่เคยสร้างคูปอง (หมดอายุแล้ว - ลบแบบเลือกหลายรายการ)"))
                     };
                     context.CouponDefinitionDeletionHistories.Add(history);
 
@@ -1098,12 +1124,30 @@ namespace CouponManagement.Shared.Services
         public DateTime ValidTo { get; set; }
         public int TotalGeneratedCount { get; set; }
         public bool HasGeneratedCoupons => TotalGeneratedCount > 0;
+        public bool IsExpired => ValidTo.Date < DateTime.Today;
+
         public string StatusBadgeText => HasGeneratedCoupons
             ? $"สร้างแล้ว {TotalGeneratedCount:N0} ใบ (ไม่เคยผูกใบเสร็จ)"
-            : "ยังไม่เคยสร้างคูปอง (0 ใบ)";
-        public string StatusBadgeBackground => HasGeneratedCoupons ? "#FFF7ED" : "#F3F4F6";
-        public string StatusBadgeBorder => HasGeneratedCoupons ? "#FDBA74" : "#D1D5DB";
-        public string StatusBadgeForeground => HasGeneratedCoupons ? "#C2410C" : "#4B5563";
+            : (IsExpired ? "ยังไม่เคยสร้าง (หมดอายุแล้ว)" : "ยังไม่เคยสร้าง (ยังไม่หมดอายุ)");
+
+        public string StatusBadgeBackground => HasGeneratedCoupons
+            ? "#FFF7ED"
+            : (IsExpired ? "#F3F4F6" : "#ECFDF5");
+
+        public string StatusBadgeBorder => HasGeneratedCoupons
+            ? "#FDBA74"
+            : (IsExpired ? "#D1D5DB" : "#A7F3D0");
+
+        public string StatusBadgeForeground => HasGeneratedCoupons
+            ? "#C2410C"
+            : (IsExpired ? "#4B5563" : "#047857");
+
+        public string ExpirationStatusText => IsExpired ? "(หมดอายุแล้ว)" : "(ยังไม่หมดอายุ)";
+        public string ExpirationColorHex => IsExpired ? "#DC2626" : "#059669";
+        public string SaleEventStatusText => SaleEventId.HasValue
+            ? (SaleEventEndDate.HasValue && SaleEventEndDate.Value.Date < DateTime.Today ? "(งานจบแล้ว)" : "(งานยังไม่จบ)")
+            : "";
+
         public string CreatedBy { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
 
