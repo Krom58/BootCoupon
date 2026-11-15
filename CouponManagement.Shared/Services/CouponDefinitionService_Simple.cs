@@ -468,9 +468,14 @@ namespace CouponManagement.Shared.Services
                     throw new InvalidOperationException("ไม่พบข้อมูล Code Generator สำหรับคูปองนี้");
                 }
 
-                if (!definition.IsCurrentlyValid)
+                if (!definition.IsActive)
                 {
-                    throw new InvalidOperationException("คำนิยามคูปองไม่ได้อยู่ในสถานะใช้งานได้");
+                    throw new InvalidOperationException("คำนิยามคูปองไม่ได้เปิดใช้งาน");
+                }
+
+                if (definition.IsExpired)
+                {
+                    throw new InvalidOperationException("คำนิยามคูปองหมดอายุแล้ว");
                 }
 
                 var generatedCodes = new List<string>();
